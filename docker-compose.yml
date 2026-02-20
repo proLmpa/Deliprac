@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: food_postgres
+    environment:
+      POSTGRES_DB: food
+      POSTGRES_USER: food
+      POSTGRES_PASSWORD: foodpass
+    ports:
+      - "5433:5432"
+    volumes:
+      - food_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  food_postgres_data:
