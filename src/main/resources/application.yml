@@ -15,6 +15,10 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+jwt:
+  secret: "baemin-jwt-secret-key-must-be-at-least-32-characters-long"
+  expiration-ms: 86400000  # 24 hours
+
 logging:
   level:
     org.hibernate.SQL: debug
