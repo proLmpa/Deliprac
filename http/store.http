@@ -1,0 +1,67 @@
+### Variables - replace with real values after sign-in
+@baseUrl = http://localhost:8080
+@ownerToken = Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiIyZTc3YjBkMS00NTg5LTQ4MTAtYWYxYy0yNjFlZmE2YWI0YmEiLCJlbWFpbCI6Im93bmVyQGV4YW1wbGUuY29tIiwicm9sZSI6Ik9XTkVSIiwiaWF0IjoxNzcxNzcyNjAwLCJleHAiOjE3NzE4NTkwMDB9.NgTMVzB0Tzv90gZrR_YWrQKRkDxDX0E1QcaqzNKy07FbnhfZ1uj6rGSlrsed9qQL
+@customerToken = Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiIwYWU0ZjRiOS1hYmNkLTQ1ZTgtOWE3OS1iMzVlNzY1NmRlZmIiLCJlbWFpbCI6ImN1c3RvbWVyQGV4YW1wbGUuY29tIiwicm9sZSI6IkNVU1RPTUVSIiwiaWF0IjoxNzcxNzcyNjgzLCJleHAiOjE3NzE4NTkwODN9.8n0lDPzyJYrob7-jvgBfoAsLsKfPDI7YrMF0POJCGwGZqVZxxzSQTv2y1PseF6oW
+@storeId = e54a18b2-6ffa-41c1-bdfd-372d28173c29
+
+### --- PUBLIC (any authenticated user) ---
+
+### List all stores
+GET {{baseUrl}}/api/stores
+Authorization: {{customerToken}}
+
+###
+
+### Get store by ID
+GET {{baseUrl}}/api/stores/{{storeId}}
+Authorization: {{customerToken}}
+
+### --- OWNER ---
+
+### Create store
+POST {{baseUrl}}/api/stores
+Authorization: {{ownerToken}}
+Content-Type: application/json
+
+{
+  "name": "맛있는 치킨집",
+  "address": "서울특별시 강남구 테헤란로 123",
+  "phone": "02-1234-5678",
+  "content": "바삭한 치킨 전문점입니다.",
+  "storePictureUrl": null,
+  "productCreatedTime": "09:00:00",
+  "openedTime": "10:00:00",
+  "closedTime": "22:00:00",
+  "closedDays": "MONDAY"
+}
+
+###
+
+### Get my store
+GET {{baseUrl}}/api/stores/mine
+Authorization: {{ownerToken}}
+
+###
+
+### Update store
+PUT {{baseUrl}}/api/stores/{{storeId}}
+Authorization: {{ownerToken}}
+Content-Type: application/json
+
+{
+  "name": "맛있는 치킨집 (리뉴얼)",
+  "address": "서울특별시 강남구 테헤란로 123",
+  "phone": "02-1234-5678",
+  "content": "더욱 바삭해진 치킨 전문점입니다.",
+  "storePictureUrl": "https://example.com/store.jpg",
+  "productCreatedTime": "08:00:00",
+  "openedTime": "10:00:00",
+  "closedTime": "23:00:00",
+  "closedDays": "TUESDAY"
+}
+
+###
+
+### Delete store
+DELETE {{baseUrl}}/api/stores/{{storeId}}
+Authorization: {{ownerToken}}
