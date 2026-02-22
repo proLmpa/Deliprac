@@ -26,11 +26,14 @@ class UserService(
             throw IllegalStateException("Email already exists")
         }
 
+        val role = runCatching { UserRole.valueOf(request.role) }
+            .getOrElse { throw IllegalArgumentException("Invalid role: ${request.role}") }
+
         val user = User(
             email = request.email,
             passwordHash = passwordEncoder.encode(request.password),
             phone = request.phone,
-            role = UserRole.CUSTOMER
+            role = role
         )
 
         return userRepository.save(user).id!!
