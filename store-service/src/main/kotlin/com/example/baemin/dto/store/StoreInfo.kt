@@ -1,6 +1,6 @@
-package com.example.baemin.store.dto
+package com.example.baemin.dto.store
 
-import com.example.baemin.store.entity.Store
+import com.example.baemin.entity.store.Store
 
 data class StoreInfo(
     val id: Long,

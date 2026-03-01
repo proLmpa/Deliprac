@@ -1,4 +1,4 @@
-package com.example.baemin.store.entity
+package com.example.baemin.entity.store
 
 enum class StoreStatus {
     ACTIVE,

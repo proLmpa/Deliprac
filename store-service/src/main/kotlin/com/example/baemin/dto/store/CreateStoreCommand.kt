@@ -1,6 +1,6 @@
-package com.example.baemin.store.dto
+package com.example.baemin.dto.store
 
-data class UpdateStoreRequest(
+data class CreateStoreCommand(
     val name: String,
     val address: String,
     val phone: String,

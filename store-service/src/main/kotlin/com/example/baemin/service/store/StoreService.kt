@@ -1,14 +1,14 @@
-package com.example.baemin.store.service
+package com.example.baemin.service.store
 
 import com.example.baemin.common.orThrow
 import com.example.baemin.common.security.UserPrincipal
 import com.example.baemin.common.security.UserRole
-import com.example.baemin.store.dto.CreateStoreCommand
-import com.example.baemin.store.dto.StoreInfo
-import com.example.baemin.store.dto.UpdateStoreCommand
-import com.example.baemin.store.entity.Store
-import com.example.baemin.store.entity.StoreStatus
-import com.example.baemin.store.repository.StoreRepository
+import com.example.baemin.dto.store.CreateStoreCommand
+import com.example.baemin.dto.store.StoreInfo
+import com.example.baemin.dto.store.UpdateStoreCommand
+import com.example.baemin.entity.store.Store
+import com.example.baemin.entity.store.StoreStatus
+import com.example.baemin.repository.store.StoreRepository
 import jakarta.transaction.Transactional
 import org.springframework.stereotype.Service
 

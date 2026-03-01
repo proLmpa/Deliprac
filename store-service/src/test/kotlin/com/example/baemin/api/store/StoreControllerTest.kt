@@ -1,14 +1,14 @@
-package com.example.baemin.store.api
+package com.example.baemin.api.store
 
 import com.example.baemin.common.security.UserPrincipal
 import com.example.baemin.common.security.UserRole
 import com.example.baemin.config.SecurityConfig
-import com.example.baemin.store.dto.CreateStoreCommand
-import com.example.baemin.store.dto.CreateStoreRequest
-import com.example.baemin.store.dto.StoreInfo
-import com.example.baemin.store.dto.UpdateStoreCommand
-import com.example.baemin.store.dto.UpdateStoreRequest
-import com.example.baemin.store.service.StoreService
+import com.example.baemin.dto.store.CreateStoreCommand
+import com.example.baemin.dto.store.CreateStoreRequest
+import com.example.baemin.dto.store.StoreInfo
+import com.example.baemin.dto.store.UpdateStoreCommand
+import com.example.baemin.dto.store.UpdateStoreRequest
+import com.example.baemin.service.store.StoreService
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
 import org.junit.jupiter.api.Test

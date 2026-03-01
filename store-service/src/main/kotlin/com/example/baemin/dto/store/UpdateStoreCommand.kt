@@ -1,4 +1,4 @@
-package com.example.baemin.store.dto
+package com.example.baemin.dto.store
 
 data class UpdateStoreCommand(
     val name: String,

@@ -1,4 +1,4 @@
-package com.example.baemin.store.entity
+package com.example.baemin.entity.store
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
