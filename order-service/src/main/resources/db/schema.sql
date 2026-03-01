@@ -1,0 +1,2 @@
+-- order-service schema placeholder
+-- Add DDL for orders, carts, etc. here
