@@ -1,0 +1,19 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: store-service
+  datasource:
+    url: jdbc:postgresql://localhost:5434/storedb
+    username: store_svc
+    password: storepass
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+jwt:
+  secret: "baemin-jwt-secret-key-must-be-at-least-32-characters-long"

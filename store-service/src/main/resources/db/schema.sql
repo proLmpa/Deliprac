@@ -1,0 +1,21 @@
+CREATE SEQUENCE IF NOT EXISTS stores_seq START WITH 1 INCREMENT BY 50;
+
+CREATE TABLE IF NOT EXISTS stores
+(
+    id                   BIGINT       PRIMARY KEY,
+    user_id              BIGINT       NOT NULL UNIQUE,
+    name                 VARCHAR(100) NOT NULL,
+    address              VARCHAR(255) NOT NULL,
+    phone                VARCHAR(20)  NOT NULL,
+    content              TEXT         NOT NULL,
+    status               VARCHAR(50)  NOT NULL,
+    store_picture_url    VARCHAR(500),
+    product_created_time BIGINT       NOT NULL,
+    opened_time          BIGINT       NOT NULL,
+    closed_time          BIGINT       NOT NULL,
+    closed_days          VARCHAR(50)  NOT NULL,
+    created_at           BIGINT       NOT NULL,
+    updated_at           BIGINT       NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_stores_user_id ON stores (user_id);
