@@ -22,9 +22,6 @@ class StoreService(
         if (principal.role != UserRole.OWNER) {
             throw IllegalStateException("Only OWNER can create a store")
         }
-        if (storeRepository.existsByUserId(principal.id)) {
-            throw IllegalStateException("Store already exists for this owner")
-        }
         val now = System.currentTimeMillis()
         val store = Store(
             id                 = 0L,
@@ -56,13 +53,11 @@ class StoreService(
     }
 
     @Transactional
-    fun findMine(principal: UserPrincipal): StoreInfo {
+    fun findMine(principal: UserPrincipal): List<StoreInfo> {
         if (principal.role != UserRole.OWNER) {
             throw IllegalStateException("Only OWNER can access this")
         }
-        val store = storeRepository.findByUserId(principal.id)
-            ?: throw IllegalArgumentException("Store not found")
-        return StoreInfo.of(store)
+        return storeRepository.findByUserId(principal.id).map { StoreInfo.of(it) }
     }
 
     @Transactional

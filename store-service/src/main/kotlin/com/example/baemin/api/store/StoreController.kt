@@ -32,8 +32,8 @@ class StoreController(private val storeService: StoreService) {
     }
 
     @GetMapping("/api/stores/mine")
-    fun mine(): StoreResponse {
-        return StoreResponse.of(storeService.findMine(currentUser()))
+    fun mine(): List<StoreResponse> {
+        return storeService.findMine(currentUser()).map { StoreResponse.of(it) }
     }
     @GetMapping("/api/stores/{id}")
     fun findById(@PathVariable id: Long): StoreResponse {

@@ -74,7 +74,6 @@ class StoreServiceTest {
     @Test
     fun `create - happy path returns StoreInfo`() {
         val saved = makeStore()
-        given(storeRepository.existsByUserId(ownerId)).willReturn(false)
         given(storeRepository.save(any(Store::class.java))).willReturn(saved)
 
         val result = storeService.create(makeCreateCommand(), ownerPrincipal)
@@ -89,15 +88,6 @@ class StoreServiceTest {
         assertThatThrownBy { storeService.create(makeCreateCommand(), customerPrincipal) }
             .isInstanceOf(IllegalStateException::class.java)
             .hasMessage("Only OWNER can create a store")
-    }
-
-    @Test
-    fun `create - store already exists throws IllegalStateException`() {
-        given(storeRepository.existsByUserId(ownerId)).willReturn(true)
-
-        assertThatThrownBy { storeService.create(makeCreateCommand(), ownerPrincipal) }
-            .isInstanceOf(IllegalStateException::class.java)
-            .hasMessage("Store already exists for this owner")
     }
 
     // --- findById ---
@@ -125,13 +115,23 @@ class StoreServiceTest {
     // --- findMine ---
 
     @Test
-    fun `findMine - owner has store returns StoreInfo`() {
-        val store = makeStore()
-        given(storeRepository.findByUserId(ownerId)).willReturn(store)
+    fun `findMine - returns all stores for owner`() {
+        val stores = listOf(makeStore(id = 10L), makeStore(id = 11L))
+        given(storeRepository.findByUserId(ownerId)).willReturn(stores)
 
         val result = storeService.findMine(ownerPrincipal)
 
-        assertThat(result.id).isEqualTo(store.id)
+        assertThat(result).hasSize(2)
+        assertThat(result.map { it.id }).containsExactly(10L, 11L)
+    }
+
+    @Test
+    fun `findMine - returns empty list when owner has no stores`() {
+        given(storeRepository.findByUserId(ownerId)).willReturn(emptyList())
+
+        val result = storeService.findMine(ownerPrincipal)
+
+        assertThat(result).isEmpty()
     }
 
     @Test
@@ -139,15 +139,6 @@ class StoreServiceTest {
         assertThatThrownBy { storeService.findMine(customerPrincipal) }
             .isInstanceOf(IllegalStateException::class.java)
             .hasMessage("Only OWNER can access this")
-    }
-
-    @Test
-    fun `findMine - store not found throws IllegalArgumentException`() {
-        given(storeRepository.findByUserId(ownerId)).willReturn(null)
-
-        assertThatThrownBy { storeService.findMine(ownerPrincipal) }
-            .isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessage("Store not found")
     }
 
     // --- update ---

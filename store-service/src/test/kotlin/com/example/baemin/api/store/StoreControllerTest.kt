@@ -135,21 +135,6 @@ class StoreControllerTest {
     }
 
     @Test
-    fun `POST stores - 409 when service throws IllegalStateException`() {
-        given(storeService.create(createCommand, ownerPrincipal))
-            .willThrow(IllegalStateException("Store already exists for this owner"))
-
-        mockMvc.perform(
-            post("/api/stores")
-                .header("Authorization", bearerToken())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(createRequest))
-        )
-            .andExpect(status().isConflict)
-            .andExpect(jsonPath("$.error").value("Store already exists for this owner"))
-    }
-
-    @Test
     fun `GET stores - 200 with list`() {
         given(storeService.listAll()).willReturn(listOf(sampleInfo))
 
@@ -188,15 +173,15 @@ class StoreControllerTest {
     }
 
     @Test
-    fun `GET stores mine - 200 with owner store`() {
-        given(storeService.findMine(ownerPrincipal)).willReturn(sampleInfo)
+    fun `GET stores mine - 200 with owner stores`() {
+        given(storeService.findMine(ownerPrincipal)).willReturn(listOf(sampleInfo))
 
         mockMvc.perform(
             get("/api/stores/mine")
                 .header("Authorization", bearerToken())
         )
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.id").value(storeId))
+            .andExpect(jsonPath("$[0].id").value(storeId))
     }
 
     @Test
