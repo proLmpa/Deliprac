@@ -1,5 +1,5 @@
 ### Sign up - CUSTOMER
-POST http://localhost:8080/api/users/signup
+POST http://localhost:8081/api/users/signup
 Content-Type: application/json
 
 {
@@ -9,7 +9,7 @@ Content-Type: application/json
 }
 
 ### Sign up - OWNER (for Store domain)
-POST http://localhost:8080/api/users/signup
+POST http://localhost:8081/api/users/signup
 Content-Type: application/json
 
 {
@@ -19,19 +19,8 @@ Content-Type: application/json
   "role": "OWNER"
 }
 
-### Sign up - DELIVERER
-POST http://localhost:8080/api/users/signup
-Content-Type: application/json
-
-{
-  "email": "deliverer@example.com",
-  "password": "password123",
-  "phone": "010-5555-6666",
-  "role": "DELIVERER"
-}
-
 ### Sign in - OWNER
-POST http://localhost:8080/api/users/signin
+POST http://localhost:8081/api/users/signin
 Content-Type: application/json
 
 {
@@ -40,7 +29,7 @@ Content-Type: application/json
 }
 
 ### Sign in - CUSTOMER
-POST http://localhost:8080/api/users/signin
+POST http://localhost:8081/api/users/signin
 Content-Type: application/json
 
 {
