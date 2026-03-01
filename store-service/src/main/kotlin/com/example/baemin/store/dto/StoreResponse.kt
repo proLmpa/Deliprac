@@ -2,7 +2,6 @@ package com.example.baemin.store.dto
 
 data class StoreResponse(
     val id: Long,
-    val ownerId: Long,
     val name: String,
     val address: String,
     val phone: String,
@@ -19,7 +18,6 @@ data class StoreResponse(
     companion object {
         fun of(info: StoreInfo) = StoreResponse(
             id                 = info.id,
-            ownerId            = info.ownerId,
             name               = info.name,
             address            = info.address,
             phone              = info.phone,

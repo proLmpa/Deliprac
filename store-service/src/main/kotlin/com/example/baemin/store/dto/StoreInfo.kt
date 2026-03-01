@@ -4,7 +4,6 @@ import com.example.baemin.store.entity.Store
 
 data class StoreInfo(
     val id: Long,
-    val ownerId: Long,
     val name: String,
     val address: String,
     val phone: String,
@@ -21,7 +20,6 @@ data class StoreInfo(
     companion object {
         fun of(store: Store) = StoreInfo(
             id                 = store.id,
-            ownerId            = store.userId,
             name               = store.name,
             address            = store.address,
             phone              = store.phone,

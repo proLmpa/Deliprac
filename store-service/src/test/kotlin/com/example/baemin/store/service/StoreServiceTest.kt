@@ -81,7 +81,6 @@ class StoreServiceTest {
 
         assertThat(result.id).isEqualTo(saved.id)
         assertThat(result.name).isEqualTo("Test Store")
-        assertThat(result.ownerId).isEqualTo(ownerId)
         assertThat(result.status).isEqualTo("ACTIVE")
     }
 
@@ -132,7 +131,7 @@ class StoreServiceTest {
 
         val result = storeService.findMine(ownerPrincipal)
 
-        assertThat(result.ownerId).isEqualTo(ownerId)
+        assertThat(result.id).isEqualTo(store.id)
     }
 
     @Test

@@ -57,7 +57,6 @@ class StoreControllerTest {
 
     private val sampleInfo = StoreInfo(
         id                 = storeId,
-        ownerId            = ownerId,
         name               = "Test Store",
         address            = "Seoul Gangnam-gu",
         phone              = "02-1234-5678",
@@ -197,7 +196,7 @@ class StoreControllerTest {
                 .header("Authorization", bearerToken())
         )
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.ownerId").value(ownerId))
+            .andExpect(jsonPath("$.id").value(storeId))
     }
 
     @Test
