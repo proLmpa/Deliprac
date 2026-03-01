@@ -18,7 +18,7 @@ Authorization: {{customerToken}}
 
 ### --- OWNER ---
 
-### Create store
+### Create store - 치킨집
 POST {{baseUrl}}/api/stores
 Authorization: {{ownerToken}}
 Content-Type: application/json
@@ -37,7 +37,45 @@ Content-Type: application/json
 
 ###
 
-### Get my store
+### Create store - 피자집
+POST {{baseUrl}}/api/stores
+Authorization: {{ownerToken}}
+Content-Type: application/json
+
+{
+  "name": "화덕 피자집",
+  "address": "서울특별시 마포구 홍익로 45",
+  "phone": "02-9876-5432",
+  "content": "이탈리아 정통 화덕 피자 전문점입니다.",
+  "storePictureUrl": null,
+  "productCreatedTime": 28800000,
+  "openedTime": 39600000,
+  "closedTime": 82800000,
+  "closedDays": "TUESDAY"
+}
+
+###
+
+### Create store - 분식집
+POST {{baseUrl}}/api/stores
+Authorization: {{ownerToken}}
+Content-Type: application/json
+
+{
+  "name": "엄마손 분식",
+  "address": "서울특별시 송파구 올림픽로 200",
+  "phone": "02-1111-2222",
+  "content": "떡볶이, 순대, 튀김 전문 분식집입니다.",
+  "storePictureUrl": null,
+  "productCreatedTime": 25200000,
+  "openedTime": 36000000,
+  "closedTime": 75600000,
+  "closedDays": "SUNDAY"
+}
+
+###
+
+### Get my stores
 GET {{baseUrl}}/api/stores/mine
 Authorization: {{ownerToken}}
 
