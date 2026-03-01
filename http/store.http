@@ -1,8 +1,8 @@
-### Variables - replace with real values after sign-in
-@baseUrl = http://localhost:8080
-@ownerToken = Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiIyZTc3YjBkMS00NTg5LTQ4MTAtYWYxYy0yNjFlZmE2YWI0YmEiLCJlbWFpbCI6Im93bmVyQGV4YW1wbGUuY29tIiwicm9sZSI6Ik9XTkVSIiwiaWF0IjoxNzcxNzcyNjAwLCJleHAiOjE3NzE4NTkwMDB9.NgTMVzB0Tzv90gZrR_YWrQKRkDxDX0E1QcaqzNKy07FbnhfZ1uj6rGSlrsed9qQL
-@customerToken = Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiIwYWU0ZjRiOS1hYmNkLTQ1ZTgtOWE3OS1iMzVlNzY1NmRlZmIiLCJlbWFpbCI6ImN1c3RvbWVyQGV4YW1wbGUuY29tIiwicm9sZSI6IkNVU1RPTUVSIiwiaWF0IjoxNzcxNzcyNjgzLCJleHAiOjE3NzE4NTkwODN9.8n0lDPzyJYrob7-jvgBfoAsLsKfPDI7YrMF0POJCGwGZqVZxxzSQTv2y1PseF6oW
-@storeId = e54a18b2-6ffa-41c1-bdfd-372d28173c29
+### Variables - replace tokens with real values after sign-in
+@baseUrl = http://localhost:8082
+@ownerToken = Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiIyIiwiZW1haWwiOiJvd25lckBleGFtcGxlLmNvbSIsInJvbGUiOiJPV05FUiIsImlhdCI6MTc3MjM2NzM3NCwiZXhwIjoxNzcyNDUzNzc0fQ.KU6Yw7ENO3J_DIvpMJfpE4mPdFaa0QD-LB9n9reXe0wkdt8kJGQhWTLAKpTU9IND
+@customerToken = Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiIxIiwiZW1haWwiOiJjdXN0b21lckBleGFtcGxlLmNvbSIsInJvbGUiOiJDVVNUT01FUiIsImlhdCI6MTc3MjM2NzYxNywiZXhwIjoxNzcyNDU0MDE3fQ.U_6Zb4Zft71d67QG5kKuTp7-Pd2WY-4AMeK2DhNEnJiOt32QfPOkZA9AxqlAK6qQ
+@storeId = 1
 
 ### --- PUBLIC (any authenticated user) ---
 
@@ -29,9 +29,9 @@ Content-Type: application/json
   "phone": "02-1234-5678",
   "content": "바삭한 치킨 전문점입니다.",
   "storePictureUrl": null,
-  "productCreatedTime": "09:00:00",
-  "openedTime": "10:00:00",
-  "closedTime": "22:00:00",
+  "productCreatedTime": 32400000,
+  "openedTime": 36000000,
+  "closedTime": 79200000,
   "closedDays": "MONDAY"
 }
 
@@ -54,14 +54,14 @@ Content-Type: application/json
   "phone": "02-1234-5678",
   "content": "더욱 바삭해진 치킨 전문점입니다.",
   "storePictureUrl": "https://example.com/store.jpg",
-  "productCreatedTime": "08:00:00",
-  "openedTime": "10:00:00",
-  "closedTime": "23:00:00",
+  "productCreatedTime": 28800000,
+  "openedTime": 36000000,
+  "closedTime": 82800000,
   "closedDays": "TUESDAY"
 }
 
 ###
 
-### Delete store
-DELETE {{baseUrl}}/api/stores/{{storeId}}
+### Deactivate store
+PUT {{baseUrl}}/api/stores/{{storeId}}/deactivate
 Authorization: {{ownerToken}}
