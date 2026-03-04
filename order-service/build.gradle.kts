@@ -22,6 +22,7 @@ dependencies {
     kapt("jakarta.persistence:jakarta.persistence-api")
     kapt("jakarta.annotation:jakarta.annotation-api")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 }
 
 kotlin {
