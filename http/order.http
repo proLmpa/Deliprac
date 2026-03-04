@@ -1,0 +1,106 @@
+### Variables - replace tokens with real values after sign-in
+@baseUrl = http://localhost:8083
+@ownerToken = Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiIyIiwiZW1haWwiOiJvd25lckBleGFtcGxlLmNvbSIsInJvbGUiOiJPV05FUiIsImlhdCI6MTc3MjM2NzM3NCwiZXhwIjoxNzcyNDUzNzc0fQ.KU6Yw7ENO3J_DIvpMJfpE4mPdFaa0QD-LB9n9reXe0wkdt8kJGQhWTLAKpTU9IND
+@customerToken = Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiIxIiwiZW1haWwiOiJjdXN0b21lckBleGFtcGxlLmNvbSIsInJvbGUiOiJDVVNUT01FUiIsImlhdCI6MTc3MjM2NzYxNywiZXhwIjoxNzcyNDU0MDE3fQ.U_6Zb4Zft71d67QG5kKuTp7-Pd2WY-4AMeK2DhNEnJiOt32QfPOkZA9AxqlAK6qQ
+@storeId = 1
+@cartId = 1
+@orderId = 1
+
+# =============================================================================
+# CART (CUSTOMER)
+# =============================================================================
+
+### Add item to cart (creates cart if none exists, or adds to existing)
+POST {{baseUrl}}/api/carts
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "productId": 1,
+  "quantity": 2
+}
+
+###
+
+### Add another item to cart
+POST {{baseUrl}}/api/carts
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "productId": 2,
+  "quantity": 1
+}
+
+###
+
+### Get my cart
+GET {{baseUrl}}/api/carts
+Authorization: {{customerToken}}
+
+###
+
+### Remove single item from cart
+DELETE {{baseUrl}}/api/carts/{{cartId}}/products/1
+Authorization: {{customerToken}}
+
+###
+
+### Clear cart (remove all items)
+DELETE {{baseUrl}}/api/carts/{{cartId}}
+Authorization: {{customerToken}}
+
+###
+
+### Checkout — converts cart to order
+PUT {{baseUrl}}/api/carts/{{cartId}}/checkout
+Authorization: {{customerToken}}
+
+# =============================================================================
+# ORDER — customer view
+# =============================================================================
+
+### List my orders
+GET {{baseUrl}}/api/users/me/orders
+Authorization: {{customerToken}}
+
+# =============================================================================
+# ORDER — owner view
+# =============================================================================
+
+### List orders for store
+GET {{baseUrl}}/api/stores/{{storeId}}/orders
+Authorization: {{ownerToken}}
+
+###
+
+### Mark order as sold (OWNER)
+PUT {{baseUrl}}/api/stores/{{storeId}}/orders/{{orderId}}/sold
+Authorization: {{ownerToken}}
+
+###
+
+### Cancel order (OWNER)
+PUT {{baseUrl}}/api/stores/{{storeId}}/orders/{{orderId}}/cancel
+Authorization: {{ownerToken}}
+
+# =============================================================================
+# STATISTICS
+# =============================================================================
+
+### Revenue for store by month (OWNER)
+GET {{baseUrl}}/api/stores/{{storeId}}/statistics/revenue?year=2026&month=3
+Authorization: {{ownerToken}}
+
+###
+
+### My spending by month (CUSTOMER)
+GET {{baseUrl}}/api/users/me/statistics/spending?year=2026&month=3
+Authorization: {{customerToken}}
+
+# =============================================================================
+# INTERNAL (service-to-service — no auth)
+# =============================================================================
+
+### Get order by ID (internal)
+GET {{baseUrl}}/internal/orders/{{orderId}}
