@@ -18,7 +18,8 @@ Built with **Kotlin 2.x + Spring Boot 4** as a hands-on microservices architectu
 │               │  │               │  │                 │
 │  - Auth       │  │  - Stores     │  │  - Cart         │
 │  - JWT issue  │  │  - Products   │  │  - Orders       │
-│               │  │  - Statistics │  │  - Statistics   │
+│               │  │  - Reviews    │  │  - Statistics   │
+│               │  │  - Statistics │  │                 │
 └───────────────┘  └───────────────┘  └────────┬────────┘
         │                  ▲                    │
         │    JWT secret     │  /internal/        │
@@ -70,7 +71,7 @@ Baemin/
 │   └── Extensions.kt                 # Optional.orThrow(msg)
 │
 ├── user-service/         # Port 8081 — auth & user management
-├── store-service/        # Port 8082 — stores & products
+├── store-service/        # Port 8082 — stores, products, reviews
 ├── order-service/        # Port 8083 — cart, orders, statistics
 │
 ├── docker-compose.yml    # Three PostgreSQL instances
@@ -276,7 +277,7 @@ order-service DB
 | User (auth) | user-service | ✅ |
 | Store | store-service | ✅ |
 | Product | store-service | ✅ |
-| Review | store-service | ❌ |
+| Review | store-service | ✅ |
 | Cart | order-service | ✅ |
 | Order | order-service | ✅ |
 | Statistics | order-service / store-service | ✅ |
