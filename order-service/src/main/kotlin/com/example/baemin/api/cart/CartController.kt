@@ -20,12 +20,14 @@ class CartController(private val cartService: CartService) {
 
     @PostMapping("/api/carts")
     fun addItem(@RequestBody request: AddCartItemRequest): CartResponse {
-        return cartService.addItem(request, currentUser())
+        val cartInfo = cartService.addItem(request, currentUser())
+        return CartResponse.of(cartInfo.cart, cartInfo.items)
     }
 
     @GetMapping("/api/carts")
     fun getMyCart(): CartResponse {
-        return cartService.getMyCart(currentUser())
+        val cartInfo = cartService.getMyCart(currentUser())
+        return CartResponse.of(cartInfo.cart, cartInfo.items)
     }
 
     @DeleteMapping("/api/carts/{cartId}/products/{productId}")
@@ -45,6 +47,7 @@ class CartController(private val cartService: CartService) {
 
     @PutMapping("/api/carts/{cartId}/checkout")
     fun checkout(@PathVariable cartId: Long): OrderResponse {
-        return cartService.checkout(cartId, currentUser())
+        val order = cartService.checkout(cartId, currentUser())
+        return OrderResponse.of(order)
     }
 }

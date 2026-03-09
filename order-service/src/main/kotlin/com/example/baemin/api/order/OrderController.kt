@@ -13,7 +13,7 @@ class OrderController(private val orderService: OrderService) {
 
     @GetMapping("/api/stores/{storeId}/orders")
     fun listByStore(@PathVariable storeId: Long): List<OrderResponse> {
-        return orderService.listByStore(storeId, currentUser())
+        return orderService.listByStore(storeId, currentUser()).map { OrderResponse.of(it) }
     }
 
     @PutMapping("/api/stores/{storeId}/orders/{orderId}/sold")
@@ -21,7 +21,8 @@ class OrderController(private val orderService: OrderService) {
         @PathVariable storeId: Long,
         @PathVariable orderId: Long
     ): OrderResponse {
-        return orderService.markSold(storeId, orderId, currentUser())
+        val order = orderService.markSold(storeId, orderId, currentUser())
+        return OrderResponse.of(order)
     }
 
     @PutMapping("/api/stores/{storeId}/orders/{orderId}/cancel")
@@ -29,6 +30,7 @@ class OrderController(private val orderService: OrderService) {
         @PathVariable storeId: Long,
         @PathVariable orderId: Long
     ): OrderResponse {
-        return orderService.markCanceled(storeId, orderId, currentUser())
+        val order = orderService.markCanceled(storeId, orderId, currentUser())
+        return OrderResponse.of(order)
     }
 }

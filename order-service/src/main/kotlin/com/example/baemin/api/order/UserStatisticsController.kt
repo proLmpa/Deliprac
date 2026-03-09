@@ -15,6 +15,7 @@ class UserStatisticsController(private val statisticsService: StatisticsService)
         @RequestParam year: Int,
         @RequestParam month: Int
     ): SpendingResponse {
-        return statisticsService.getSpending(year, month, currentUser())
+        val totalSpending = statisticsService.getSpending(year, month, currentUser())
+        return SpendingResponse(year = year, month = month, totalSpending = totalSpending)
     }
 }

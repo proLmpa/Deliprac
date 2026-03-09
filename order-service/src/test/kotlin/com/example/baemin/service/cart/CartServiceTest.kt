@@ -64,9 +64,8 @@ class CartServiceTest {
 
         val result = cartService.addItem(makeRequest(), principal)
 
-        assertThat(result.storeId).isEqualTo(storeId)
+        assertThat(result.cart.storeId).isEqualTo(storeId)
         assertThat(result.items).hasSize(1)
-        assertThat(result.totalPrice).isEqualTo(8000)
     }
 
     @Test
@@ -142,13 +141,13 @@ class CartServiceTest {
     // --- getMyCart ---
 
     @Test
-    fun `getMyCart - returns cart response`() {
+    fun `getMyCart - returns cart info`() {
         given(cartRepository.findByUserId(userId)).willReturn(makeCart())
         given(cartProductRepository.findAllByCartId(cartId)).willReturn(listOf(makeCartProduct()))
 
         val result = cartService.getMyCart(principal)
 
-        assertThat(result.id).isEqualTo(cartId)
+        assertThat(result.cart.id).isEqualTo(cartId)
         assertThat(result.items).hasSize(1)
     }
 
@@ -218,7 +217,7 @@ class CartServiceTest {
         val result = cartService.checkout(cartId, principal)
 
         assertThat(result.totalPrice).isEqualTo(8000)
-        assertThat(result.status).isEqualTo("PENDING")
+        assertThat(result.status).isEqualTo(OrderStatus.PENDING)
         assertThat(cart.isOrdered).isTrue()
     }
 

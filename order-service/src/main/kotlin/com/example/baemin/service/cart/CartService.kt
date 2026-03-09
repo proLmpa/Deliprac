@@ -4,8 +4,7 @@ import com.example.baemin.client.StoreServiceClient
 import com.example.baemin.common.orThrow
 import com.example.baemin.common.security.UserPrincipal
 import com.example.baemin.dto.cart.AddCartItemRequest
-import com.example.baemin.dto.cart.CartResponse
-import com.example.baemin.dto.order.OrderResponse
+import com.example.baemin.dto.cart.CartInfo
 import com.example.baemin.entity.cart.Cart
 import com.example.baemin.entity.cart.CartProduct
 import com.example.baemin.entity.order.Order
@@ -25,7 +24,7 @@ class CartService(
 ) {
 
     @Transactional
-    fun addItem(request: AddCartItemRequest, principal: UserPrincipal): CartResponse {
+    fun addItem(request: AddCartItemRequest, principal: UserPrincipal): CartInfo {
         val product = storeServiceClient.getProduct(request.productId)
         if (!product.status) throw IllegalArgumentException("Product is not available")
 
@@ -55,15 +54,15 @@ class CartService(
             cartProductRepository.save(CartProduct(0L, cart.id, request.productId, request.quantity, product.price))
         }
 
-        return CartResponse.of(cart, cartProductRepository.findAllByCartId(cart.id))
+        return CartInfo(cart, cartProductRepository.findAllByCartId(cart.id))
     }
 
     @Transactional
-    fun getMyCart(principal: UserPrincipal): CartResponse {
+    fun getMyCart(principal: UserPrincipal): CartInfo {
         val cart = cartRepository.findByUserId(principal.id)
             ?: throw IllegalArgumentException("Cart not found")
 
-        return CartResponse.of(cart, cartProductRepository.findAllByCartId(cart.id))
+        return CartInfo(cart, cartProductRepository.findAllByCartId(cart.id))
     }
 
     @Transactional
@@ -87,7 +86,7 @@ class CartService(
     }
 
     @Transactional
-    fun checkout(cartId: Long, principal: UserPrincipal): OrderResponse {
+    fun checkout(cartId: Long, principal: UserPrincipal): Order {
         val cart = cartRepository.findById(cartId).orThrow("Cart not found")
         if (cart.userId != principal.id) throw IllegalStateException("Forbidden")
         if (cart.isOrdered) throw IllegalStateException("Cart already checked out")
@@ -113,6 +112,6 @@ class CartService(
         cart.updatedAt = now
         cartRepository.save(cart)
 
-        return OrderResponse.of(order)
+        return order
     }
 }

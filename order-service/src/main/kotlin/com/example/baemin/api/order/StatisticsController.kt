@@ -17,6 +17,7 @@ class StatisticsController(private val statisticsService: StatisticsService) {
         @RequestParam year: Int,
         @RequestParam month: Int
     ): RevenueResponse {
-        return statisticsService.getRevenue(storeId, year, month, currentUser())
+        val totalRevenue = statisticsService.getRevenue(storeId, year, month, currentUser())
+        return RevenueResponse(storeId = storeId, year = year, month = month, totalRevenue = totalRevenue)
     }
 }

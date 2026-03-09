@@ -11,6 +11,6 @@ class UserOrderController(private val orderService: OrderService) {
 
     @GetMapping("/api/users/me/orders")
     fun listMyOrders(): List<OrderResponse> {
-        return orderService.listByUser(currentUser())
+        return orderService.listByUser(currentUser()).map { OrderResponse.of(it) }
     }
 }

@@ -15,6 +15,7 @@ class InternalOrderController(private val orderService: OrderService) {
 
     @GetMapping("/internal/orders/{orderId}")
     fun getOrder(@PathVariable orderId: Long): OrderResponse {
-        return orderService.getById(orderId)
+        val order = orderService.getById(orderId)
+        return OrderResponse.of(order)
     }
 }

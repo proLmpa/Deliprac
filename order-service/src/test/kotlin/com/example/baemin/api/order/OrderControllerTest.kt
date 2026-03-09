@@ -3,9 +3,8 @@ package com.example.baemin.api.order
 import com.example.baemin.common.security.UserPrincipal
 import com.example.baemin.common.security.UserRole
 import com.example.baemin.config.SecurityConfig
-import com.example.baemin.dto.order.OrderResponse
-import com.example.baemin.dto.order.RevenueResponse
-import com.example.baemin.dto.order.SpendingResponse
+import com.example.baemin.entity.order.Order
+import com.example.baemin.entity.order.OrderStatus
 import com.example.baemin.service.order.OrderService
 import com.example.baemin.service.order.StatisticsService
 import io.jsonwebtoken.Jwts
@@ -50,11 +49,12 @@ class OrderControllerTest {
         return "Bearer $token"
     }
 
-    private val sampleOrder = OrderResponse(orderId, storeId, 8000, "PENDING", 0L, 0L)
+    private fun makeOrder(status: OrderStatus = OrderStatus.PENDING) =
+        Order(orderId, 0L, ownerId, storeId, 8000, status, 0L, 0L)
 
     @Test
     fun `GET store orders - 200 with list`() {
-        given(orderService.listByStore(storeId, ownerPrincipal)).willReturn(listOf(sampleOrder))
+        given(orderService.listByStore(storeId, ownerPrincipal)).willReturn(listOf(makeOrder()))
 
         mockMvc.perform(
             get("/api/stores/{storeId}/orders", storeId)
@@ -79,8 +79,7 @@ class OrderControllerTest {
 
     @Test
     fun `PUT mark sold - 200 with updated order`() {
-        val sold = sampleOrder.copy(status = "SOLD")
-        given(orderService.markSold(storeId, orderId, ownerPrincipal)).willReturn(sold)
+        given(orderService.markSold(storeId, orderId, ownerPrincipal)).willReturn(makeOrder(OrderStatus.SOLD))
 
         mockMvc.perform(
             put("/api/stores/{storeId}/orders/{orderId}/sold", storeId, orderId)
@@ -104,8 +103,7 @@ class OrderControllerTest {
 
     @Test
     fun `PUT mark cancel - 200 with updated order`() {
-        val canceled = sampleOrder.copy(status = "CANCELED")
-        given(orderService.markCanceled(storeId, orderId, ownerPrincipal)).willReturn(canceled)
+        given(orderService.markCanceled(storeId, orderId, ownerPrincipal)).willReturn(makeOrder(OrderStatus.CANCELED))
 
         mockMvc.perform(
             put("/api/stores/{storeId}/orders/{orderId}/cancel", storeId, orderId)
@@ -143,7 +141,7 @@ class UserOrderControllerTest {
     @Test
     fun `GET my orders - 200 with list`() {
         given(orderService.listByUser(customerPrincipal))
-            .willReturn(listOf(OrderResponse(200L, 10L, 8000, "PENDING", 0L, 0L)))
+            .willReturn(listOf(Order(200L, 0L, customerId, 10L, 8000, OrderStatus.PENDING, 0L, 0L)))
 
         mockMvc.perform(
             get("/api/users/me/orders")
@@ -181,8 +179,7 @@ class StatisticsControllerTest {
 
     @Test
     fun `GET revenue - 200 with revenue response`() {
-        given(statisticsService.getRevenue(storeId, 2026, 3, ownerPrincipal))
-            .willReturn(RevenueResponse(storeId, 2026, 3, 50000))
+        given(statisticsService.getRevenue(storeId, 2026, 3, ownerPrincipal)).willReturn(50000)
 
         mockMvc.perform(
             get("/api/stores/{storeId}/statistics/revenue", storeId)
@@ -236,8 +233,7 @@ class UserStatisticsControllerTest {
 
     @Test
     fun `GET spending - 200 with spending response`() {
-        given(statisticsService.getSpending(2026, 3, customerPrincipal))
-            .willReturn(SpendingResponse(2026, 3, 24000))
+        given(statisticsService.getSpending(2026, 3, customerPrincipal)).willReturn(24000)
 
         mockMvc.perform(
             get("/api/users/me/statistics/spending")

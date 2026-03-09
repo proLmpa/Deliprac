@@ -72,7 +72,7 @@ class OrderServiceTest {
 
         val result = orderService.markSold(storeId, orderId, ownerPrincipal)
 
-        assertThat(result.status).isEqualTo("SOLD")
+        assertThat(result.status).isEqualTo(OrderStatus.SOLD)
         assertThat(order.status).isEqualTo(OrderStatus.SOLD)
         then(storeServiceClient).should().incrementPopularity(productId, 2)
     }
@@ -114,7 +114,7 @@ class OrderServiceTest {
 
         val result = orderService.markCanceled(storeId, orderId, ownerPrincipal)
 
-        assertThat(result.status).isEqualTo("CANCELED")
+        assertThat(result.status).isEqualTo(OrderStatus.CANCELED)
         assertThat(order.status).isEqualTo(OrderStatus.CANCELED)
     }
 
@@ -172,13 +172,12 @@ class StatisticsServiceTest {
     private val customerPrincipal = UserPrincipal(customerId, "customer@example.com", UserRole.CUSTOMER)
 
     @Test
-    fun `getRevenue - happy path returns revenue response`() {
+    fun `getRevenue - happy path returns total revenue`() {
         given(orderRepository.sumRevenueByStoreAndMonth(storeId, 2026, 3)).willReturn(50000)
 
         val result = statisticsService.getRevenue(storeId, 2026, 3, ownerPrincipal)
 
-        assertThat(result.totalRevenue).isEqualTo(50000)
-        assertThat(result.storeId).isEqualTo(storeId)
+        assertThat(result).isEqualTo(50000)
     }
 
     @Test
@@ -194,16 +193,15 @@ class StatisticsServiceTest {
 
         val result = statisticsService.getRevenue(storeId, 2026, 3, ownerPrincipal)
 
-        assertThat(result.totalRevenue).isEqualTo(0)
+        assertThat(result).isEqualTo(0)
     }
 
     @Test
-    fun `getSpending - returns spending response for user`() {
+    fun `getSpending - returns total spending for user`() {
         given(orderRepository.sumSpendingByUserAndMonth(customerId, 2026, 3)).willReturn(24000)
 
         val result = statisticsService.getSpending(2026, 3, customerPrincipal)
 
-        assertThat(result.totalSpending).isEqualTo(24000)
-        assertThat(result.year).isEqualTo(2026)
+        assertThat(result).isEqualTo(24000)
     }
 }

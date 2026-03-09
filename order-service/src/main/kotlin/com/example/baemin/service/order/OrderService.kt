@@ -4,7 +4,7 @@ import com.example.baemin.client.StoreServiceClient
 import com.example.baemin.common.orThrow
 import com.example.baemin.common.security.UserPrincipal
 import com.example.baemin.common.security.UserRole
-import com.example.baemin.dto.order.OrderResponse
+import com.example.baemin.entity.order.Order
 import com.example.baemin.entity.order.OrderStatus
 import com.example.baemin.repository.cart.CartProductRepository
 import com.example.baemin.repository.order.OrderRepository
@@ -19,15 +19,15 @@ class OrderService(
 ) {
 
     @Transactional
-    fun listByStore(storeId: Long, principal: UserPrincipal): List<OrderResponse> {
+    fun listByStore(storeId: Long, principal: UserPrincipal): List<Order> {
         if (principal.role != UserRole.OWNER)
             throw IllegalStateException("Only OWNER can view store orders")
 
-        return orderRepository.findAllByStoreId(storeId).map { OrderResponse.of(it) }
+        return orderRepository.findAllByStoreId(storeId)
     }
 
     @Transactional
-    fun markSold(storeId: Long, orderId: Long, principal: UserPrincipal): OrderResponse {
+    fun markSold(storeId: Long, orderId: Long, principal: UserPrincipal): Order {
         if (principal.role != UserRole.OWNER) throw IllegalStateException("Only OWNER can update orders")
 
         val order = orderRepository.findById(orderId).orThrow("Order not found")
@@ -41,11 +41,11 @@ class OrderService(
         cartProductRepository.findAllByCartId(order.cartId)
             .forEach { storeServiceClient.incrementPopularity(it.productId, it.quantity) }
 
-        return OrderResponse.of(saved)
+        return saved
     }
 
     @Transactional
-    fun markCanceled(storeId: Long, orderId: Long, principal: UserPrincipal): OrderResponse {
+    fun markCanceled(storeId: Long, orderId: Long, principal: UserPrincipal): Order {
         if (principal.role != UserRole.OWNER) throw IllegalStateException("Only OWNER can update orders")
 
         val order = orderRepository.findById(orderId).orThrow("Order not found")
@@ -55,16 +55,15 @@ class OrderService(
         order.status    = OrderStatus.CANCELED
         order.updatedAt = System.currentTimeMillis()
 
-        return OrderResponse.of(orderRepository.save(order))
+        return orderRepository.save(order)
     }
 
     @Transactional
-    fun listByUser(principal: UserPrincipal): List<OrderResponse> =
-        orderRepository.findAllByUserId(principal.id).map { OrderResponse.of(it) }
+    fun listByUser(principal: UserPrincipal): List<Order> =
+        orderRepository.findAllByUserId(principal.id)
 
     @Transactional
-    fun getById(orderId: Long): OrderResponse {
-        val order = orderRepository.findById(orderId).orThrow("Order not found")
-        return OrderResponse.of(order)
+    fun getById(orderId: Long): Order {
+        return orderRepository.findById(orderId).orThrow("Order not found")
     }
 }
