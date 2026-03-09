@@ -22,6 +22,9 @@ class StoreService(
         if (principal.role != UserRole.OWNER) {
             throw IllegalStateException("Only OWNER can create a store")
         }
+        if (storeRepository.existsByUserIdAndName(principal.id, command.name)) {
+            throw IllegalStateException("Store with that name already exists")
+        }
         val now = System.currentTimeMillis()
         val store = Store(
             id                 = 0L,

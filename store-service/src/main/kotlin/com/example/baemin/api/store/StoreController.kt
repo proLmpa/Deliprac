@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
@@ -42,9 +41,9 @@ class StoreController(private val storeService: StoreService) {
 
     @PutMapping("/api/stores/{id}")
     fun update(@PathVariable id: Long, @RequestBody request: UpdateStoreRequest): StoreResponse {
-
         return StoreResponse.of(storeService.update(id, UpdateStoreCommand(request.name, request.address, request.phone, request.content, request.storePictureUrl, request.productCreatedTime, request.openedTime, request.closedTime, request.closedDays), currentUser()))
     }
+
     @PutMapping("/api/stores/{id}/deactivate")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun deactivate(@PathVariable id: Long) = storeService.deactivate(id, currentUser())

@@ -73,10 +73,12 @@ class StoreServiceTest {
 
     @Test
     fun `create - happy path returns StoreInfo`() {
+        val command = makeCreateCommand()
         val saved = makeStore()
+        given(storeRepository.existsByUserIdAndName(ownerId, command.name)).willReturn(false)
         given(storeRepository.save(any(Store::class.java))).willReturn(saved)
 
-        val result = storeService.create(makeCreateCommand(), ownerPrincipal)
+        val result = storeService.create(command, ownerPrincipal)
 
         assertThat(result.id).isEqualTo(saved.id)
         assertThat(result.name).isEqualTo("Test Store")
@@ -88,6 +90,16 @@ class StoreServiceTest {
         assertThatThrownBy { storeService.create(makeCreateCommand(), customerPrincipal) }
             .isInstanceOf(IllegalStateException::class.java)
             .hasMessage("Only OWNER can create a store")
+    }
+
+    @Test
+    fun `create - duplicate name throws IllegalStateException`() {
+        val command = makeCreateCommand()
+        given(storeRepository.existsByUserIdAndName(ownerId, command.name)).willReturn(true)
+
+        assertThatThrownBy { storeService.create(command, ownerPrincipal) }
+            .isInstanceOf(IllegalStateException::class.java)
+            .hasMessage("Store with that name already exists")
     }
 
     // --- findById ---

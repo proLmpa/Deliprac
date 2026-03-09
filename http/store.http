@@ -1,30 +1,22 @@
 ### Variables - replace tokens with real values after sign-in
 @baseUrl = http://localhost:8082
-@ownerToken = Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiIyIiwiZW1haWwiOiJvd25lckBleGFtcGxlLmNvbSIsInJvbGUiOiJPV05FUiIsImlhdCI6MTc3MjM2NzM3NCwiZXhwIjoxNzcyNDUzNzc0fQ.KU6Yw7ENO3J_DIvpMJfpE4mPdFaa0QD-LB9n9reXe0wkdt8kJGQhWTLAKpTU9IND
-@customerToken = Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiIxIiwiZW1haWwiOiJjdXN0b21lckBleGFtcGxlLmNvbSIsInJvbGUiOiJDVVNUT01FUiIsImlhdCI6MTc3MjM2NzYxNywiZXhwIjoxNzcyNDU0MDE3fQ.U_6Zb4Zft71d67QG5kKuTp7-Pd2WY-4AMeK2DhNEnJiOt32QfPOkZA9AxqlAK6qQ
-@storeId = 1
-@productId = 1
-@reviewId = 1
+@ownerToken = Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiIyIiwiZW1haWwiOiJvd25lckBleGFtcGxlLmNvbSIsInJvbGUiOiJPV05FUiIsImlhdCI6MTc3MzAzNTI0OCwiZXhwIjoxNzczMTIxNjQ4fQ.xf93y4Y87kChfoDorYo649xOi5HS-Svdo2icJWa_X6OJgj5Z--xuqPay-ZLCTMTF
+@customerToken = Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiIyIiwiZW1haWwiOiJvd25lckBleGFtcGxlLmNvbSIsInJvbGUiOiJPV05FUiIsImlhdCI6MTc3MzAzMjMzNSwiZXhwIjoxNzczMTE4NzM1fQ.YrHGpRU-4MtoLYQ1sGID2ImREx7WCz7WH9EbkkT-tC7uhQHJoQBr3NfvU43oI58s
+@storeId = 4
 
-# =============================================================================
-# STORE
-# =============================================================================
-
-### --- PUBLIC ---
-
-### List all stores
+### List all stores (public)
 GET {{baseUrl}}/api/stores
 Authorization: {{customerToken}}
 
-###
-
-### Get store by ID
+### Get store by ID (public)
 GET {{baseUrl}}/api/stores/{{storeId}}
 Authorization: {{customerToken}}
 
-### --- OWNER ---
+### Get my stores (OWNER)
+GET {{baseUrl}}/api/stores/mine
+Authorization: {{ownerToken}}
 
-### Create store - 치킨집
+### Create store - duplicate name → 409 (OWNER)
 POST {{baseUrl}}/api/stores
 Authorization: {{ownerToken}}
 Content-Type: application/json
@@ -41,9 +33,24 @@ Content-Type: application/json
   "closedDays": "MONDAY"
 }
 
-###
+### Create store - 치킨집 (OWNER)
+POST {{baseUrl}}/api/stores
+Authorization: {{ownerToken}}
+Content-Type: application/json
 
-### Create store - 피자집
+{
+  "name": "맛있는 치킨집",
+  "address": "서울특별시 강남구 테헤란로 123",
+  "phone": "02-1234-5678",
+  "content": "바삭한 치킨 전문점입니다.",
+  "storePictureUrl": null,
+  "productCreatedTime": 32400000,
+  "openedTime": 36000000,
+  "closedTime": 79200000,
+  "closedDays": "MONDAY"
+}
+
+### Create store - 피자집 (OWNER)
 POST {{baseUrl}}/api/stores
 Authorization: {{ownerToken}}
 Content-Type: application/json
@@ -60,9 +67,7 @@ Content-Type: application/json
   "closedDays": "TUESDAY"
 }
 
-###
-
-### Create store - 분식집
+### Create store - 분식집 (OWNER)
 POST {{baseUrl}}/api/stores
 Authorization: {{ownerToken}}
 Content-Type: application/json
@@ -79,15 +84,7 @@ Content-Type: application/json
   "closedDays": "SUNDAY"
 }
 
-###
-
-### Get my stores
-GET {{baseUrl}}/api/stores/mine
-Authorization: {{ownerToken}}
-
-###
-
-### Update store
+### Update store (OWNER)
 PUT {{baseUrl}}/api/stores/{{storeId}}
 Authorization: {{ownerToken}}
 Content-Type: application/json
@@ -104,122 +101,6 @@ Content-Type: application/json
   "closedDays": "TUESDAY"
 }
 
-###
-
-### Deactivate store
+### Deactivate store (OWNER)
 PUT {{baseUrl}}/api/stores/{{storeId}}/deactivate
 Authorization: {{ownerToken}}
-
-# =============================================================================
-# PRODUCT
-# =============================================================================
-
-### --- PUBLIC ---
-
-### List products by store
-GET {{baseUrl}}/api/stores/{{storeId}}/products
-Authorization: {{customerToken}}
-
-###
-
-### Get product by ID
-GET {{baseUrl}}/api/stores/{{storeId}}/products/{{productId}}
-Authorization: {{customerToken}}
-
-### --- OWNER ---
-
-### Create product
-POST {{baseUrl}}/api/stores/{{storeId}}/products
-Authorization: {{ownerToken}}
-Content-Type: application/json
-
-{
-  "name": "후라이드 치킨",
-  "description": "바삭바삭한 정통 후라이드 치킨입니다.",
-  "price": 18000,
-  "productPictureUrl": null
-}
-
-###
-
-### Create product 2
-POST {{baseUrl}}/api/stores/{{storeId}}/products
-Authorization: {{ownerToken}}
-Content-Type: application/json
-
-{
-  "name": "양념 치킨",
-  "description": "달콤하고 매콤한 양념 치킨입니다.",
-  "price": 19000,
-  "productPictureUrl": null
-}
-
-###
-
-### Update product
-PUT {{baseUrl}}/api/stores/{{storeId}}/products/{{productId}}
-Authorization: {{ownerToken}}
-Content-Type: application/json
-
-{
-  "name": "후라이드 치킨 (특대)",
-  "description": "바삭바삭한 정통 후라이드 치킨 특대 사이즈입니다.",
-  "price": 22000,
-  "productPictureUrl": "https://example.com/chicken.jpg"
-}
-
-###
-
-### Deactivate product
-PUT {{baseUrl}}/api/stores/{{storeId}}/products/{{productId}}/deactivate
-Authorization: {{ownerToken}}
-
-# =============================================================================
-# REVIEW
-# =============================================================================
-
-### --- ANY AUTHENTICATED USER ---
-
-### List reviews by store
-GET {{baseUrl}}/api/stores/{{storeId}}/reviews
-Authorization: {{customerToken}}
-
-### --- CUSTOMER ---
-
-### Create review
-POST {{baseUrl}}/api/stores/{{storeId}}/reviews
-Authorization: {{customerToken}}
-Content-Type: application/json
-
-{
-  "rating": 5,
-  "content": "치킨이 정말 맛있었어요! 바삭하고 양도 많아서 만족합니다."
-}
-
-###
-
-### Delete review (owner or admin)
-DELETE {{baseUrl}}/api/stores/{{storeId}}/reviews/{{reviewId}}
-Authorization: {{customerToken}}
-
-# =============================================================================
-# STATISTICS (store-service)
-# =============================================================================
-
-### --- OWNER ---
-
-### Get popular products for store
-GET {{baseUrl}}/api/stores/{{storeId}}/statistics/popular-products
-Authorization: {{ownerToken}}
-
-# =============================================================================
-# INTERNAL (service-to-service — no auth)
-# =============================================================================
-
-### Get product by ID (internal)
-GET {{baseUrl}}/internal/products/{{productId}}
-
-###
-
-### Increment product popularity (internal)
-PUT {{baseUrl}}/internal/products/{{productId}}/popularity?delta=1

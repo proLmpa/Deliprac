@@ -135,6 +135,21 @@ class StoreControllerTest {
     }
 
     @Test
+    fun `POST stores - 409 when duplicate name`() {
+        given(storeService.create(createCommand, ownerPrincipal))
+            .willThrow(IllegalStateException("Store with that name already exists"))
+
+        mockMvc.perform(
+            post("/api/stores")
+                .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(createRequest))
+        )
+            .andExpect(status().isConflict)
+            .andExpect(jsonPath("$.error").value("Store with that name already exists"))
+    }
+
+    @Test
     fun `GET stores - 200 with list`() {
         given(storeService.listAll()).willReturn(listOf(sampleInfo))
 
