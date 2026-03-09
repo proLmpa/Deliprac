@@ -14,11 +14,12 @@ data class StoreInfo(
     val openedTime: Long,
     val closedTime: Long,
     val closedDays: String,
+    val averageRating: Double,
     val createdAt: Long,
     val updatedAt: Long
 ) {
     companion object {
-        fun of(store: Store) = StoreInfo(
+        fun of(store: Store, averageRating: Double) = StoreInfo(
             id                 = store.id,
             name               = store.name,
             address            = store.address,
@@ -30,6 +31,7 @@ data class StoreInfo(
             openedTime         = store.openedTime,
             closedTime         = store.closedTime,
             closedDays         = store.closedDays,
+            averageRating      = averageRating,
             createdAt          = store.createdAt,
             updatedAt          = store.updatedAt
         )

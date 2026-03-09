@@ -3,6 +3,7 @@ package com.example.baemin.api.store
 import com.example.baemin.common.security.currentUser
 import com.example.baemin.dto.store.CreateStoreCommand
 import com.example.baemin.dto.store.CreateStoreRequest
+import com.example.baemin.dto.store.StoreSortBy
 import com.example.baemin.dto.store.StoreResponse
 import com.example.baemin.dto.store.UpdateStoreCommand
 import com.example.baemin.dto.store.UpdateStoreRequest
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
@@ -38,8 +40,10 @@ class StoreController(private val storeService: StoreService) {
     }
 
     @GetMapping("/api/stores")
-    fun listAll(): List<StoreResponse> {
-        return storeService.listAll().map { StoreResponse.of(it) }
+    fun listAll(@RequestParam(defaultValue = "CREATED_AT") sortBy: String): List<StoreResponse> {
+        val sort = try { StoreSortBy.valueOf(sortBy) }
+                   catch (e: IllegalArgumentException) { throw IllegalArgumentException("Invalid sortBy: must be CREATED_AT or RATING") }
+        return storeService.listAll(sort).map { StoreResponse.of(it) }
     }
 
     @GetMapping("/api/stores/mine")

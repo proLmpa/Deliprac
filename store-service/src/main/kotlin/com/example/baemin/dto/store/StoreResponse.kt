@@ -12,6 +12,7 @@ data class StoreResponse(
     val openedTime: Long,
     val closedTime: Long,
     val closedDays: String,
+    val averageRating: Double,
     val createdAt: Long,
     val updatedAt: Long
 ) {
@@ -28,6 +29,7 @@ data class StoreResponse(
             openedTime         = info.openedTime,
             closedTime         = info.closedTime,
             closedDays         = info.closedDays,
+            averageRating      = info.averageRating,
             createdAt          = info.createdAt,
             updatedAt          = info.updatedAt
         )
