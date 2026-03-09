@@ -10,12 +10,16 @@ class ProductRepositoryCustomImpl(
     private val queryFactory: JPAQueryFactory
 ) : ProductRepositoryCustom {
 
-    override fun findTopByStoreIdOrderByPopularityDesc(storeId: Long): List<Product> {
+    override fun findTopByStoreIdOrderByPopularityDesc(storeId: Long, limit: Long): List<Product> {
         val product = QProduct.product
         return queryFactory
             .selectFrom(product)
-            .where(product.storeId.eq(storeId))
+            .where(
+                product.storeId.eq(storeId),
+                product.status.eq(true)
+            )
             .orderBy(product.popularity.desc())
+            .limit(limit)
             .fetch()
     }
 }

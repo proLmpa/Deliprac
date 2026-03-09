@@ -20,7 +20,7 @@ class ProductStatisticsService(
         val store = storeRepository.findById(storeId).orThrow("Store not found")
         if (store.userId != principal.id) throw IllegalStateException("Forbidden")
 
-        return productRepository.findTopByStoreIdOrderByPopularityDesc(storeId)
+        return productRepository.findTopByStoreIdOrderByPopularityDesc(storeId, 5)
             .map { ProductInfo.of(it) }
     }
 }
