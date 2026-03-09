@@ -36,3 +36,31 @@ Content-Type: application/json
   "email": "customer@example.com",
   "password": "password123"
 }
+
+### Sign up - ADMIN
+POST http://localhost:8081/api/users/signup
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "password123",
+  "phone": "010-9999-0000",
+  "role": "ADMIN"
+}
+
+### Sign in - ADMIN
+POST http://localhost:8081/api/users/signin
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "password123"
+}
+
+### Suspend user (ADMIN only) — replace {adminToken} and {userId}
+PUT http://localhost:8081/api/users/1/suspend
+Authorization: Bearer {adminToken}
+
+### Withdraw (self) — replace {token}
+PUT http://localhost:8081/api/users/me/withdraw
+Authorization: Bearer {token}

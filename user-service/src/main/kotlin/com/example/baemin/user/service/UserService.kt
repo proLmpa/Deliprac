@@ -1,5 +1,7 @@
 package com.example.baemin.user.service
 
+import com.example.baemin.common.orThrow
+import com.example.baemin.common.security.UserPrincipal
 import com.example.baemin.common.security.UserRole
 import com.example.baemin.user.dto.LoginCommand
 import com.example.baemin.user.dto.RegisterCommand
@@ -18,8 +20,12 @@ class UserService(
     val jwtProvider: JwtProvider
 ) {
 
+    private val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+
     @Transactional
     fun register(command: RegisterCommand) {
+        if (!emailRegex.matches(command.email)) throw IllegalArgumentException("Invalid email format")
+
         if (userRepository.existsByEmail(command.email)) {
             throw IllegalStateException("Email already exists")
         }
@@ -54,5 +60,24 @@ class UserService(
         }
 
         return jwtProvider.generateToken(user.id, user.email, user.role.name)
+    }
+
+    @Transactional
+    fun suspend(targetUserId: Long, principal: UserPrincipal) {
+        if (principal.role != UserRole.ADMIN) throw IllegalStateException("Forbidden")
+        val user = userRepository.findById(targetUserId).orThrow("User not found")
+        if (user.status != UserStatus.ACTIVE) throw IllegalStateException("User is not active")
+
+        user.status = UserStatus.SUSPENDED
+        user.updatedAt = System.currentTimeMillis()
+    }
+
+    @Transactional
+    fun withdraw(principal: UserPrincipal) {
+        val user = userRepository.findById(principal.id).orThrow("User not found")
+        if (user.status != UserStatus.ACTIVE) throw IllegalStateException("User is not active")
+
+        user.status = UserStatus.WITHDRAWN
+        user.updatedAt = System.currentTimeMillis()
     }
 }

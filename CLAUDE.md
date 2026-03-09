@@ -178,11 +178,18 @@ fun jwtAuthFilterRegistration(jwtAuthFilter: JwtAuthenticationFilter): FilterReg
 
 **Endpoints:**
 ```
-POST /api/users/signup   → register (public) — returns {"id": Long}
-POST /api/users/signin   → login, returns JWT (public)
+POST /api/users/signup          → register (public) — returns {"id": Long}
+POST /api/users/signin          → login, returns JWT (public)
+PUT  /api/users/{id}/suspend    → suspend user (ADMIN) — sets status SUSPENDED
+PUT  /api/users/me/withdraw     → self-withdraw (any authenticated) — sets status WITHDRAWN
 ```
 
 **UserRole** (`common.security.UserRole`): `CUSTOMER`, `OWNER`, `ADMIN`
+
+**User status rules:**
+- Only `ACTIVE` users can be suspended or withdrawn (throws 409 otherwise)
+- `ADMIN` role check for suspend is done in service (throws 409 if not ADMIN)
+- Login blocks non-`ACTIVE` accounts
 
 **Schema:** `users` table
 

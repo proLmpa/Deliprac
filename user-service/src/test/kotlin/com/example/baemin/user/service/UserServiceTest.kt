@@ -1,5 +1,6 @@
 package com.example.baemin.user.service
 
+import com.example.baemin.common.security.UserPrincipal
 import com.example.baemin.common.security.UserRole
 import com.example.baemin.user.dto.LoginCommand
 import com.example.baemin.user.dto.RegisterCommand
@@ -18,6 +19,7 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.springframework.security.crypto.password.PasswordEncoder
+import java.util.Optional
 
 @ExtendWith(MockitoExtension::class)
 class UserServiceTest {
@@ -134,5 +136,68 @@ class UserServiceTest {
         assertThatThrownBy { userService.login(command) }
             .isInstanceOf(IllegalStateException::class.java)
             .hasMessage("Account is not active")
+    }
+
+    @Test
+    fun `suspend - admin suspends active user`() {
+        val admin = UserPrincipal(99L, "admin@example.com", UserRole.ADMIN)
+        val user = User(id = 1L, email = "test@example.com", phone = "", passwordHash = "hashed", status = UserStatus.ACTIVE, createdAt = 0L, updatedAt = 0L)
+        given(userRepository.findById(1L)).willReturn(Optional.of(user))
+
+        userService.suspend(1L, admin)
+
+        assertThat(user.status).isEqualTo(UserStatus.SUSPENDED)
+    }
+
+    @Test
+    fun `suspend - non-admin throws IllegalStateException`() {
+        val customer = UserPrincipal(1L, "test@example.com", UserRole.CUSTOMER)
+
+        assertThatThrownBy { userService.suspend(1L, customer) }
+            .isInstanceOf(IllegalStateException::class.java)
+            .hasMessage("Forbidden")
+    }
+
+    @Test
+    fun `suspend - user not found throws IllegalArgumentException`() {
+        val admin = UserPrincipal(99L, "admin@example.com", UserRole.ADMIN)
+        given(userRepository.findById(1L)).willReturn(Optional.empty())
+
+        assertThatThrownBy { userService.suspend(1L, admin) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessage("User not found")
+    }
+
+    @Test
+    fun `suspend - already inactive throws IllegalStateException`() {
+        val admin = UserPrincipal(99L, "admin@example.com", UserRole.ADMIN)
+        val user = User(id = 1L, email = "test@example.com", phone = "", passwordHash = "hashed", status = UserStatus.SUSPENDED, createdAt = 0L, updatedAt = 0L)
+        given(userRepository.findById(1L)).willReturn(Optional.of(user))
+
+        assertThatThrownBy { userService.suspend(1L, admin) }
+            .isInstanceOf(IllegalStateException::class.java)
+            .hasMessage("User is not active")
+    }
+
+    @Test
+    fun `withdraw - active user withdraws`() {
+        val principal = UserPrincipal(1L, "test@example.com", UserRole.CUSTOMER)
+        val user = User(id = 1L, email = "test@example.com", phone = "", passwordHash = "hashed", status = UserStatus.ACTIVE, createdAt = 0L, updatedAt = 0L)
+        given(userRepository.findById(1L)).willReturn(Optional.of(user))
+
+        userService.withdraw(principal)
+
+        assertThat(user.status).isEqualTo(UserStatus.WITHDRAWN)
+    }
+
+    @Test
+    fun `withdraw - already inactive throws IllegalStateException`() {
+        val principal = UserPrincipal(1L, "test@example.com", UserRole.CUSTOMER)
+        val user = User(id = 1L, email = "test@example.com", phone = "", passwordHash = "hashed", status = UserStatus.WITHDRAWN, createdAt = 0L, updatedAt = 0L)
+        given(userRepository.findById(1L)).willReturn(Optional.of(user))
+
+        assertThatThrownBy { userService.withdraw(principal) }
+            .isInstanceOf(IllegalStateException::class.java)
+            .hasMessage("User is not active")
     }
 }
