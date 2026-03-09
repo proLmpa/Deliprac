@@ -85,14 +85,26 @@ Authorization: {{ownerToken}}
 # STATISTICS
 # =============================================================================
 
-### Revenue for store by month (OWNER)
+### Revenue for store by month — UTC (OWNER)
 GET {{baseUrl}}/api/stores/{{storeId}}/statistics/revenue?year=2026&month=3
 Authorization: {{ownerToken}}
 
 ###
 
-### My spending by month (CUSTOMER)
+### Revenue for store by month — Seoul time (OWNER)
+GET {{baseUrl}}/api/stores/{{storeId}}/statistics/revenue?year=2026&month=3&timezone=Asia/Seoul
+Authorization: {{ownerToken}}
+
+###
+
+### My spending by month — UTC (CUSTOMER)
 GET {{baseUrl}}/api/users/me/statistics/spending?year=2026&month=3
+Authorization: {{customerToken}}
+
+###
+
+### My spending by month — New York time (CUSTOMER)
+GET {{baseUrl}}/api/users/me/statistics/spending?year=2026&month=3&timezone=America/New_York
 Authorization: {{customerToken}}
 
 # =============================================================================
