@@ -34,9 +34,13 @@ class UserController(
 
     @PutMapping("/api/users/{id}/suspend")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun suspend(@PathVariable id: Long) = userService.suspend(id, currentUser())
+    fun suspend(@PathVariable id: Long) {
+        userService.suspend(id, currentUser())
+    }
 
     @PutMapping("/api/users/me/withdraw")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun withdraw() = userService.withdraw(currentUser())
+    fun withdraw() {
+        userService.withdraw(currentUser())
+    }
 }

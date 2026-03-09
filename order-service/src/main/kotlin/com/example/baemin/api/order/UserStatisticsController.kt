@@ -14,5 +14,7 @@ class UserStatisticsController(private val statisticsService: StatisticsService)
     fun getSpending(
         @RequestParam year: Int,
         @RequestParam month: Int
-    ): SpendingResponse = statisticsService.getSpending(year, month, currentUser())
+    ): SpendingResponse {
+        return statisticsService.getSpending(year, month, currentUser())
+    }
 }

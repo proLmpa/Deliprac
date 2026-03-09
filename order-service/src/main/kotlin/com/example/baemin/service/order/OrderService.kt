@@ -20,13 +20,16 @@ class OrderService(
 
     @Transactional
     fun listByStore(storeId: Long, principal: UserPrincipal): List<OrderResponse> {
-        if (principal.role != UserRole.OWNER) throw IllegalStateException("Only OWNER can view store orders")
+        if (principal.role != UserRole.OWNER)
+            throw IllegalStateException("Only OWNER can view store orders")
+
         return orderRepository.findAllByStoreId(storeId).map { OrderResponse.of(it) }
     }
 
     @Transactional
     fun markSold(storeId: Long, orderId: Long, principal: UserPrincipal): OrderResponse {
         if (principal.role != UserRole.OWNER) throw IllegalStateException("Only OWNER can update orders")
+
         val order = orderRepository.findById(orderId).orThrow("Order not found")
         if (order.storeId != storeId) throw IllegalArgumentException("Order not found in this store")
         if (order.status != OrderStatus.PENDING) throw IllegalStateException("Order cannot be marked as sold")
@@ -44,12 +47,14 @@ class OrderService(
     @Transactional
     fun markCanceled(storeId: Long, orderId: Long, principal: UserPrincipal): OrderResponse {
         if (principal.role != UserRole.OWNER) throw IllegalStateException("Only OWNER can update orders")
+
         val order = orderRepository.findById(orderId).orThrow("Order not found")
         if (order.storeId != storeId) throw IllegalArgumentException("Order not found in this store")
         if (order.status != OrderStatus.PENDING) throw IllegalStateException("Order cannot be canceled")
 
         order.status    = OrderStatus.CANCELED
         order.updatedAt = System.currentTimeMillis()
+
         return OrderResponse.of(orderRepository.save(order))
     }
 

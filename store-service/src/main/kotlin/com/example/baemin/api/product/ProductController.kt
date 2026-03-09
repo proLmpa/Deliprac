@@ -22,29 +22,40 @@ class ProductController(private val productService: ProductService) {
     fun create(
         @PathVariable storeId: Long,
         @RequestBody request: CreateProductRequest
-    ): ProductResponse = ProductResponse.of(productService.create(storeId, request, currentUser()))
+    ): ProductResponse {
+        val product = productService.create(storeId, request, currentUser())
+        return ProductResponse.of(product)
+    }
 
     @GetMapping("/api/stores/{storeId}/products")
-    fun listByStore(@PathVariable storeId: Long): List<ProductResponse> =
-        productService.listByStore(storeId).map { ProductResponse.of(it) }
+    fun listByStore(@PathVariable storeId: Long): List<ProductResponse> {
+        return productService.listByStore(storeId).map { ProductResponse.of(it) }
+    }
 
     @GetMapping("/api/stores/{storeId}/products/{productId}")
     fun findById(
         @PathVariable storeId: Long,
         @PathVariable productId: Long
-    ): ProductResponse = ProductResponse.of(productService.findById(storeId, productId))
+    ): ProductResponse {
+        return ProductResponse.of(productService.findById(storeId, productId))
+    }
 
     @PutMapping("/api/stores/{storeId}/products/{productId}")
     fun update(
         @PathVariable storeId: Long,
         @PathVariable productId: Long,
         @RequestBody request: UpdateProductRequest
-    ): ProductResponse = ProductResponse.of(productService.update(storeId, productId, request, currentUser()))
+    ): ProductResponse {
+        val product = productService.update(storeId, productId, request, currentUser())
+        return ProductResponse.of(product)
+    }
 
     @PutMapping("/api/stores/{storeId}/products/{productId}/deactivate")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun deactivate(
         @PathVariable storeId: Long,
         @PathVariable productId: Long
-    ) = productService.deactivate(storeId, productId, currentUser())
+    ) {
+        productService.deactivate(storeId, productId, currentUser())
+    }
 }

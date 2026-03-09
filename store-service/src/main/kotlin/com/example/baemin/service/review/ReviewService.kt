@@ -21,7 +21,9 @@ class ReviewService(
     fun create(storeId: Long, request: CreateReviewRequest, principal: UserPrincipal): ReviewInfo {
         if (principal.role != UserRole.CUSTOMER) throw IllegalStateException("Only CUSTOMER can create reviews")
         if (request.rating < 1 || request.rating > 5) throw IllegalArgumentException("Rating must be between 1 and 5")
+
         storeRepository.findById(storeId).orThrow("Store not found")
+
         val now = System.currentTimeMillis()
         val review = Review(
             id        = 0L,
@@ -32,6 +34,7 @@ class ReviewService(
             createdAt = now,
             updatedAt = now
         )
+
         return ReviewInfo.of(reviewRepository.save(review))
     }
 
@@ -44,6 +47,7 @@ class ReviewService(
         val review = reviewRepository.findById(reviewId).orThrow("Review not found")
         if (review.storeId != storeId) throw IllegalArgumentException("Review not found in this store")
         if (review.userId != principal.id) throw IllegalStateException("Forbidden")
+
         reviewRepository.delete(review)
     }
 }

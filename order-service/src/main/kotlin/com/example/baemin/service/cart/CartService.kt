@@ -62,6 +62,7 @@ class CartService(
     fun getMyCart(principal: UserPrincipal): CartResponse {
         val cart = cartRepository.findByUserId(principal.id)
             ?: throw IllegalArgumentException("Cart not found")
+
         return CartResponse.of(cart, cartProductRepository.findAllByCartId(cart.id))
     }
 
@@ -69,6 +70,7 @@ class CartService(
     fun removeItem(cartId: Long, productId: Long, principal: UserPrincipal) {
         val cart = cartRepository.findById(cartId).orThrow("Cart not found")
         if (cart.userId != principal.id) throw IllegalStateException("Forbidden")
+
         cartProductRepository.deleteByCartIdAndProductId(cartId, productId)
         cart.updatedAt = System.currentTimeMillis()
         cartRepository.save(cart)
@@ -78,6 +80,7 @@ class CartService(
     fun clearCart(cartId: Long, principal: UserPrincipal) {
         val cart = cartRepository.findById(cartId).orThrow("Cart not found")
         if (cart.userId != principal.id) throw IllegalStateException("Forbidden")
+
         cartProductRepository.deleteByCartId(cartId)
         cart.updatedAt = System.currentTimeMillis()
         cartRepository.save(cart)

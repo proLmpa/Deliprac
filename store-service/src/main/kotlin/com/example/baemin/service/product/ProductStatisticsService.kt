@@ -15,9 +15,11 @@ class ProductStatisticsService(
 ) {
 
     fun getPopularProducts(storeId: Long, principal: UserPrincipal): List<ProductInfo> {
-        val store = storeRepository.findById(storeId).orThrow("Store not found")
         if (principal.role != UserRole.OWNER) throw IllegalStateException("Only OWNER can view store statistics")
+
+        val store = storeRepository.findById(storeId).orThrow("Store not found")
         if (store.userId != principal.id) throw IllegalStateException("Forbidden")
+
         return productRepository.findTopByStoreIdOrderByPopularityDesc(storeId)
             .map { ProductInfo.of(it) }
     }

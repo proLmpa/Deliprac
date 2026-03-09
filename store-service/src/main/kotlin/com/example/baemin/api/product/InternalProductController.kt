@@ -16,12 +16,15 @@ import org.springframework.web.bind.annotation.RestController
 class InternalProductController(private val productService: ProductService) {
 
     @GetMapping("/internal/products/{productId}")
-    fun getProduct(@PathVariable productId: Long): ProductResponse =
-        ProductResponse.of(productService.getById(productId))
+    fun getProduct(@PathVariable productId: Long): ProductResponse {
+        return ProductResponse.of(productService.getById(productId))
+    }
 
     @PutMapping("/internal/products/{productId}/popularity")
     fun incrementPopularity(
         @PathVariable productId: Long,
         @RequestParam delta: Int
-    ) = productService.incrementPopularity(productId, delta)
+    ) {
+        productService.incrementPopularity(productId, delta)
+    }
 }

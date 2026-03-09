@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController
 class InternalOrderController(private val orderService: OrderService) {
 
     @GetMapping("/internal/orders/{orderId}")
-    fun getOrder(@PathVariable orderId: Long): OrderResponse =
-        orderService.getById(orderId)
+    fun getOrder(@PathVariable orderId: Long): OrderResponse {
+        return orderService.getById(orderId)
+    }
 }

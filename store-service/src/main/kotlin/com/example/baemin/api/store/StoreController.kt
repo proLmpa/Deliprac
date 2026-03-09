@@ -22,7 +22,19 @@ class StoreController(private val storeService: StoreService) {
     @PostMapping("/api/stores")
     @ResponseStatus(HttpStatus.CREATED)
     fun create(@RequestBody request: CreateStoreRequest): StoreResponse {
-        return StoreResponse.of(storeService.create(CreateStoreCommand(request.name, request.address, request.phone, request.content, request.storePictureUrl, request.productCreatedTime, request.openedTime, request.closedTime, request.closedDays), currentUser()))
+        val command = CreateStoreCommand(
+            request.name,
+            request.address,
+            request.phone,
+            request.content,
+            request.storePictureUrl,
+            request.productCreatedTime,
+            request.openedTime,
+            request.closedTime,
+            request.closedDays
+        )
+        val store = storeService.create(command, currentUser())
+        return StoreResponse.of(store)
     }
 
     @GetMapping("/api/stores")
@@ -34,6 +46,7 @@ class StoreController(private val storeService: StoreService) {
     fun mine(): List<StoreResponse> {
         return storeService.findMine(currentUser()).map { StoreResponse.of(it) }
     }
+
     @GetMapping("/api/stores/{id}")
     fun findById(@PathVariable id: Long): StoreResponse {
         return StoreResponse.of(storeService.findById(id))
@@ -41,10 +54,24 @@ class StoreController(private val storeService: StoreService) {
 
     @PutMapping("/api/stores/{id}")
     fun update(@PathVariable id: Long, @RequestBody request: UpdateStoreRequest): StoreResponse {
-        return StoreResponse.of(storeService.update(id, UpdateStoreCommand(request.name, request.address, request.phone, request.content, request.storePictureUrl, request.productCreatedTime, request.openedTime, request.closedTime, request.closedDays), currentUser()))
+        val command = UpdateStoreCommand(
+            request.name,
+            request.address,
+            request.phone,
+            request.content,
+            request.storePictureUrl,
+            request.productCreatedTime,
+            request.openedTime,
+            request.closedTime,
+            request.closedDays
+        )
+        val store = storeService.update(id, command, currentUser())
+        return StoreResponse.of(store)
     }
 
     @PutMapping("/api/stores/{id}/deactivate")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun deactivate(@PathVariable id: Long) = storeService.deactivate(id, currentUser())
+    fun deactivate(@PathVariable id: Long) {
+        storeService.deactivate(id, currentUser())
+    }
 }

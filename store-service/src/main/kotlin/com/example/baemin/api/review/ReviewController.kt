@@ -21,16 +21,22 @@ class ReviewController(private val reviewService: ReviewService) {
     fun create(
         @PathVariable storeId: Long,
         @RequestBody request: CreateReviewRequest
-    ): ReviewResponse = ReviewResponse.of(reviewService.create(storeId, request, currentUser()))
+    ): ReviewResponse {
+        val review = reviewService.create(storeId, request, currentUser())
+        return ReviewResponse.of(review)
+    }
 
     @GetMapping("/api/stores/{storeId}/reviews")
-    fun listByStore(@PathVariable storeId: Long): List<ReviewResponse> =
-        reviewService.listByStore(storeId).map { ReviewResponse.of(it) }
+    fun listByStore(@PathVariable storeId: Long): List<ReviewResponse> {
+        return reviewService.listByStore(storeId).map { ReviewResponse.of(it) }
+    }
 
     @DeleteMapping("/api/stores/{storeId}/reviews/{reviewId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun delete(
         @PathVariable storeId: Long,
         @PathVariable reviewId: Long
-    ) = reviewService.delete(storeId, reviewId, currentUser())
+    ) {
+        reviewService.delete(storeId, reviewId, currentUser())
+    }
 }

@@ -16,5 +16,7 @@ class StatisticsController(private val statisticsService: StatisticsService) {
         @PathVariable storeId: Long,
         @RequestParam year: Int,
         @RequestParam month: Int
-    ): RevenueResponse = statisticsService.getRevenue(storeId, year, month, currentUser())
+    ): RevenueResponse {
+        return statisticsService.getRevenue(storeId, year, month, currentUser())
+    }
 }

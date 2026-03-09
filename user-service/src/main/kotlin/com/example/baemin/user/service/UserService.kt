@@ -65,6 +65,7 @@ class UserService(
     @Transactional
     fun suspend(targetUserId: Long, principal: UserPrincipal) {
         if (principal.role != UserRole.ADMIN) throw IllegalStateException("Forbidden")
+
         val user = userRepository.findById(targetUserId).orThrow("User not found")
         if (user.status != UserStatus.ACTIVE) throw IllegalStateException("User is not active")
 

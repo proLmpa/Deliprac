@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController
 class StoreStatisticsController(private val productStatisticsService: ProductStatisticsService) {
 
     @GetMapping("/api/stores/{storeId}/statistics/popular-products")
-    fun getPopularProducts(@PathVariable storeId: Long): List<ProductResponse> =
-        productStatisticsService.getPopularProducts(storeId, currentUser()).map { ProductResponse.of(it) }
+    fun getPopularProducts(@PathVariable storeId: Long): List<ProductResponse> {
+        return productStatisticsService.getPopularProducts(storeId, currentUser()).map { ProductResponse.of(it) }
+    }
 }
