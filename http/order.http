@@ -1,7 +1,4 @@
-### Variables - replace tokens with real values after sign-in
 @baseUrl = http://localhost:8083
-@ownerToken = Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiIyIiwiZW1haWwiOiJvd25lckBleGFtcGxlLmNvbSIsInJvbGUiOiJPV05FUiIsImlhdCI6MTc3MjM2NzM3NCwiZXhwIjoxNzcyNDUzNzc0fQ.KU6Yw7ENO3J_DIvpMJfpE4mPdFaa0QD-LB9n9reXe0wkdt8kJGQhWTLAKpTU9IND
-@customerToken = Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiIxIiwiZW1haWwiOiJjdXN0b21lckBleGFtcGxlLmNvbSIsInJvbGUiOiJDVVNUT01FUiIsImlhdCI6MTc3MjM2NzYxNywiZXhwIjoxNzcyNDU0MDE3fQ.U_6Zb4Zft71d67QG5kKuTp7-Pd2WY-4AMeK2DhNEnJiOt32QfPOkZA9AxqlAK6qQ
 @storeId = 1
 @cartId = 1
 @orderId = 1

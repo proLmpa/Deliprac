@@ -8,6 +8,19 @@ Content-Type: application/json
   "phone": "010-1111-2222"
 }
 
+### Sign in - CUSTOMER
+POST http://localhost:8081/api/users/signin
+Content-Type: application/json
+
+{
+  "email": "customer@example.com",
+  "password": "password123"
+}
+
+> {%
+client.global.set("customerToken", "Bearer " + response.body.accessToken);
+%}
+
 ### Sign up - OWNER (for Store domain)
 POST http://localhost:8081/api/users/signup
 Content-Type: application/json
@@ -28,14 +41,9 @@ Content-Type: application/json
   "password": "password123"
 }
 
-### Sign in - CUSTOMER
-POST http://localhost:8081/api/users/signin
-Content-Type: application/json
-
-{
-  "email": "customer@example.com",
-  "password": "password123"
-}
+> {%
+client.global.set("ownerToken", "Bearer " + response.body.accessToken);
+%}
 
 ### Sign up - ADMIN
 POST http://localhost:8081/api/users/signup
@@ -57,10 +65,14 @@ Content-Type: application/json
   "password": "password123"
 }
 
-### Suspend user (ADMIN only) — replace {adminToken} and {userId}
-PUT http://localhost:8081/api/users/1/suspend
-Authorization: Bearer {adminToken}
+> {%
+client.global.set("adminToken", "Bearer " + response.body.accessToken);
+%}
 
-### Withdraw (self) — replace {token}
-PUT http://localhost:8081/api/users/me/withdraw
-Authorization: Bearer {token}
+### Suspend user (ADMIN only) — replace {userId}
+// PUT http://localhost:8081/api/users/1/suspend
+// Authorization: {{adminToken}}
+
+### Withdraw (self)
+// PUT http://localhost:8081/api/users/me/withdraw
+// Authorization: {{customerToken}}

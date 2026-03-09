@@ -1,7 +1,4 @@
-### Variables - replace tokens with real values after sign-in
 @baseUrl = http://localhost:8082
-@ownerToken = Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiIyIiwiZW1haWwiOiJvd25lckBleGFtcGxlLmNvbSIsInJvbGUiOiJPV05FUiIsImlhdCI6MTc3MzAzNTI0OCwiZXhwIjoxNzczMTIxNjQ4fQ.xf93y4Y87kChfoDorYo649xOi5HS-Svdo2icJWa_X6OJgj5Z--xuqPay-ZLCTMTF
-@customerToken = Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiIyIiwiZW1haWwiOiJvd25lckBleGFtcGxlLmNvbSIsInJvbGUiOiJPV05FUiIsImlhdCI6MTc3MzAzMjMzNSwiZXhwIjoxNzczMTE4NzM1fQ.YrHGpRU-4MtoLYQ1sGID2ImREx7WCz7WH9EbkkT-tC7uhQHJoQBr3NfvU43oI58s
 @storeId = 4
 
 ### List all stores (public)
@@ -102,5 +99,5 @@ Content-Type: application/json
 }
 
 ### Deactivate store (OWNER)
-PUT {{baseUrl}}/api/stores/{{storeId}}/deactivate
-Authorization: {{ownerToken}}
+// PUT {{baseUrl}}/api/stores/{{storeId}}/deactivate
+// Authorization: {{ownerToken}}
