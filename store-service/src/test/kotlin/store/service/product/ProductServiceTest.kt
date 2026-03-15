@@ -41,18 +41,18 @@ class ProductServiceTest {
         closedDays = "MONDAY", createdAt = 0L, updatedAt = 0L
     )
 
-    private fun makeProduct(storeId: Long = this.storeId, popularity: Int = 0) = Product(
+    private fun makeProduct(storeId: Long = this.storeId, popularity: Long = 0L) = Product(
         id = productId, storeId = storeId, name = "Burger", description = "Tasty burger",
-        price = 8000, productPictureUrl = null, popularity = popularity, status = true,
+        price = 8000L, productPictureUrl = null, popularity = popularity, status = true,
         createdAt = 0L, updatedAt = 0L
     )
 
     private fun makeCreateRequest() = CreateProductRequest(
-        name = "Burger", description = "Tasty burger", price = 8000, productPictureUrl = null
+        name = "Burger", description = "Tasty burger", price = 8000L, productPictureUrl = null
     )
 
     private fun makeUpdateRequest() = UpdateProductRequest(
-        name = "Updated Burger", description = "Even tastier", price = 9000, productPictureUrl = null
+        name = "Updated Burger", description = "Even tastier", price = 9000L, productPictureUrl = null
     )
 
     // --- create ---
@@ -68,7 +68,7 @@ class ProductServiceTest {
         assertThat(result.id).isEqualTo(productId)
         assertThat(result.name).isEqualTo("Burger")
         assertThat(result.status).isTrue()
-        assertThat(result.popularity).isEqualTo(0)
+        assertThat(result.popularity).isEqualTo(0L)
     }
 
     @Test
@@ -148,7 +148,7 @@ class ProductServiceTest {
         val result = productService.update(storeId, productId, makeUpdateRequest(), ownerId)
 
         assertThat(result.name).isEqualTo("Updated Burger")
-        assertThat(result.price).isEqualTo(9000)
+        assertThat(result.price).isEqualTo(9000L)
         then(productRepository).should().save(product)
     }
 
@@ -218,13 +218,13 @@ class ProductServiceTest {
 
     @Test
     fun `incrementPopularity - increases popularity by delta`() {
-        val product = makeProduct(popularity = 3)
+        val product = makeProduct(popularity = 3L)
         given(productRepository.findById(productId)).willReturn(Optional.of(product))
         given(productRepository.save(any(Product::class.java))).willReturn(product)
 
         productService.incrementPopularity(productId, 5)
 
-        assertThat(product.popularity).isEqualTo(8)
+        assertThat(product.popularity).isEqualTo(8L)
     }
 }
 
@@ -250,7 +250,7 @@ class ProductStatisticsServiceTest {
 
     private fun makeProduct() = Product(
         id = productId, storeId = storeId, name = "Burger", description = "Tasty burger",
-        price = 8000, productPictureUrl = null, popularity = 10, status = true,
+        price = 8000L, productPictureUrl = null, popularity = 10L, status = true,
         createdAt = 0L, updatedAt = 0L
     )
 
@@ -262,7 +262,7 @@ class ProductStatisticsServiceTest {
         val result = productStatisticsService.getPopularProducts(storeId, ownerPrincipal)
 
         assertThat(result).hasSize(1)
-        assertThat(result[0].popularity).isEqualTo(10)
+        assertThat(result[0].popularity).isEqualTo(10L)
     }
 
     @Test

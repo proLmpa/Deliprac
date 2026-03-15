@@ -33,7 +33,7 @@ class ProductService(
             description       = request.description,
             price             = request.price,
             productPictureUrl = request.productPictureUrl,
-            popularity        = 0,
+            popularity        = 0L,
             status            = true,
             createdAt         = now,
             updatedAt         = now
@@ -92,7 +92,7 @@ class ProductService(
     }
 
     @Transactional
-    fun incrementPopularity(productId: Long, delta: Int) {
+    fun incrementPopularity(productId: Long, delta: Long) {
         val product = productRepository.findById(productId).orThrow("Product not found")
 
         product.popularity += delta

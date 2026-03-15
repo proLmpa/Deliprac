@@ -24,9 +24,9 @@ CREATE TABLE IF NOT EXISTS products
     store_id            BIGINT       NOT NULL REFERENCES stores (id),
     name                VARCHAR(100) NOT NULL,
     description         TEXT         NOT NULL,
-    price               INT          NOT NULL,
+    price               BIGINT       NOT NULL,
     product_picture_url VARCHAR(500),
-    popularity          INT          NOT NULL,
+    popularity          BIGINT       NOT NULL,
     status              BOOLEAN      NOT NULL,
     created_at          BIGINT       NOT NULL,
     updated_at          BIGINT       NOT NULL

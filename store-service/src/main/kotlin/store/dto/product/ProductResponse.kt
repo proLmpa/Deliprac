@@ -7,9 +7,9 @@ data class ProductInfo(
     val storeId: Long,
     val name: String,
     val description: String,
-    val price: Int,
+    val price: Long,
     val productPictureUrl: String?,
-    val popularity: Int,
+    val popularity: Long,
     val status: Boolean,
     val createdAt: Long,
     val updatedAt: Long
@@ -35,9 +35,9 @@ data class ProductResponse(
     val storeId: Long,
     val name: String,
     val description: String,
-    val price: Int,
+    val price: Long,
     val productPictureUrl: String?,
-    val popularity: Int,
+    val popularity: Long,
     val status: Boolean,
     val createdAt: Long,
     val updatedAt: Long

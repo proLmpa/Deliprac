@@ -61,16 +61,16 @@ class ProductControllerTest {
 
     private val sampleInfo = ProductInfo(
         id = productId, storeId = storeId, name = "Burger", description = "Tasty burger",
-        price = 8000, productPictureUrl = null, popularity = 0, status = true,
+        price = 8000L, productPictureUrl = null, popularity = 0L, status = true,
         createdAt = 0L, updatedAt = 0L
     )
 
     private val createRequest = CreateProductRequest(
-        name = "Burger", description = "Tasty burger", price = 8000, productPictureUrl = null
+        name = "Burger", description = "Tasty burger", price = 8000L, productPictureUrl = null
     )
 
     private val updateRequest = UpdateProductRequest(
-        name = "Updated Burger", description = "Even tastier", price = 9000, productPictureUrl = null
+        name = "Updated Burger", description = "Even tastier", price = 9000L, productPictureUrl = null
     )
 
     @Test
@@ -144,7 +144,7 @@ class ProductControllerTest {
 
     @Test
     fun `PUT products - 200 with updated product`() {
-        val updated = sampleInfo.copy(name = "Updated Burger", price = 9000)
+        val updated = sampleInfo.copy(name = "Updated Burger", price = 9000L)
         given(productService.update(storeId, productId, updateRequest, ownerId)).willReturn(updated)
 
         mockMvc.perform(
@@ -210,7 +210,7 @@ class StoreStatisticsControllerTest {
 
     private val sampleInfo = ProductInfo(
         id = productId, storeId = storeId, name = "Burger", description = "Tasty burger",
-        price = 8000, productPictureUrl = null, popularity = 10, status = true,
+        price = 8000L, productPictureUrl = null, popularity = 10L, status = true,
         createdAt = 0L, updatedAt = 0L
     )
 

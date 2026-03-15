@@ -24,13 +24,13 @@ open class Product(
     var description: String,
 
     @Column(nullable = false)
-    var price: Int,
+    var price: Long,
 
     @Column(name = "product_picture_url", length = 500)
     var productPictureUrl: String?,
 
     @Column(nullable = false)
-    var popularity: Int,
+    var popularity: Long,
 
     @Column(nullable = false)
     var status: Boolean,

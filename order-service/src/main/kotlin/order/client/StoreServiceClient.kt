@@ -8,7 +8,7 @@ import org.springframework.web.client.RestClient
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class RemoteProductInfo(
     val storeId: Long,
-    val price: Int,
+    val price: Long,
     val status: Boolean
 )
 
@@ -24,7 +24,7 @@ class StoreServiceClient(
             .retrieve()
             .body(RemoteProductInfo::class.java)!!
 
-    fun incrementPopularity(productId: Long, delta: Int) {
+    fun incrementPopularity(productId: Long, delta: Long) {
         restClient.put()
             .uri("$storeServiceUrl/internal/products/$productId/popularity?delta=$delta")
             .retrieve()

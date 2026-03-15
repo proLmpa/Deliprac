@@ -21,8 +21,8 @@ open class CartProduct(
     val productId: Long,
 
     @Column(nullable = false)
-    var quantity: Int,
+    var quantity: Long,
 
     @Column(name = "unit_price", nullable = false)
-    val unitPrice: Int
+    val unitPrice: Long
 )

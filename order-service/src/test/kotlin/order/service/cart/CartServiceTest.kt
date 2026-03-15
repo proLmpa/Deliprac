@@ -36,16 +36,16 @@ class CartServiceTest {
     private val cartId    = 50L
     private val productId = 100L
 
-    private val activeProduct = RemoteProductInfo(storeId = storeId, price = 8000, status = true)
-    private val inactiveProduct = RemoteProductInfo(storeId = storeId, price = 8000, status = false)
+    private val activeProduct = RemoteProductInfo(storeId = storeId, price = 8000L, status = true)
+    private val inactiveProduct = RemoteProductInfo(storeId = storeId, price = 8000L, status = false)
 
     private fun makeCart(isOrdered: Boolean = false, storeId: Long = this.storeId) =
         Cart(id = cartId, userId = userId, storeId = storeId, isOrdered = isOrdered, createdAt = 0L, updatedAt = 0L)
 
     private fun makeCartProduct() =
-        CartProduct(id = 1L, cartId = cartId, productId = productId, quantity = 1, unitPrice = 8000)
+        CartProduct(id = 1L, cartId = cartId, productId = productId, quantity = 1L, unitPrice = 8000L)
 
-    private fun makeRequest(qty: Int = 1) = AddCartItemRequest(productId = productId, quantity = qty)
+    private fun makeRequest(qty: Long = 1L) = AddCartItemRequest(productId = productId, quantity = qty)
 
     // --- addItem ---
 
@@ -121,9 +121,9 @@ class CartServiceTest {
         given(cartProductRepository.save(any(CartProduct::class.java))).willReturn(existingItem)
         given(cartProductRepository.findAllByCartId(cartId)).willReturn(listOf(existingItem))
 
-        cartService.addItem(makeRequest(qty = 2), userId)
+        cartService.addItem(makeRequest(qty = 2L), userId)
 
-        assertThat(existingItem.quantity).isEqualTo(3)
+        assertThat(existingItem.quantity).isEqualTo(3L)
     }
 
     @Test
@@ -212,7 +212,7 @@ class CartServiceTest {
 
         val result = cartService.checkout(cartId, userId)
 
-        assertThat(result.totalPrice).isEqualTo(8000)
+        assertThat(result.totalPrice).isEqualTo(8000L)
         assertThat(result.status).isEqualTo(OrderStatus.PENDING)
         assertThat(cart.isOrdered).isTrue()
     }

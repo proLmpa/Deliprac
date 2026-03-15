@@ -19,7 +19,7 @@ class OrderRepositoryCustomImpl(
         return start until end
     }
 
-    override fun sumRevenueByStoreAndMonth(storeId: Long, year: Int, month: Int, zoneId: ZoneId): Int {
+    override fun sumRevenueByStoreAndMonth(storeId: Long, year: Int, month: Int, zoneId: ZoneId): Long {
         val order = QOrder.order
         val range = monthRange(year, month, zoneId)
         return queryFactory
@@ -31,10 +31,10 @@ class OrderRepositoryCustomImpl(
                 order.createdAt.goe(range.start),
                 order.createdAt.lt(range.last)
             )
-            .fetchOne() ?: 0
+            .fetchOne() ?: 0L
     }
 
-    override fun sumSpendingByUserAndMonth(userId: Long, year: Int, month: Int, zoneId: ZoneId): Int {
+    override fun sumSpendingByUserAndMonth(userId: Long, year: Int, month: Int, zoneId: ZoneId): Long {
         val order = QOrder.order
         val range = monthRange(year, month, zoneId)
         return queryFactory
@@ -46,6 +46,6 @@ class OrderRepositoryCustomImpl(
                 order.createdAt.goe(range.first),
                 order.createdAt.lt(range.last)
             )
-            .fetchOne() ?: 0
+            .fetchOne() ?: 0L
     }
 }

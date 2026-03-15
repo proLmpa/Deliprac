@@ -10,14 +10,14 @@ import java.time.ZoneId
 class StatisticsService(private val orderRepository: OrderRepository) {
 
     @Transactional(readOnly = true)
-    fun getRevenue(storeId: Long, year: Int, month: Int, zoneId: ZoneId, role: UserRole): Int {
+    fun getRevenue(storeId: Long, year: Int, month: Int, zoneId: ZoneId, role: UserRole): Long {
         if (role != UserRole.OWNER) throw IllegalStateException("Only OWNER can view revenue statistics")
 
         return orderRepository.sumRevenueByStoreAndMonth(storeId, year, month, zoneId)
     }
 
     @Transactional(readOnly = true)
-    fun getSpending(year: Int, month: Int, zoneId: ZoneId, userId: Long): Int {
+    fun getSpending(year: Int, month: Int, zoneId: ZoneId, userId: Long): Long {
         return orderRepository.sumSpendingByUserAndMonth(userId, year, month, zoneId)
     }
 }

@@ -26,7 +26,7 @@ open class Order(
     val storeId: Long,
 
     @Column(name = "total_price", nullable = false)
-    val totalPrice: Int,
+    val totalPrice: Long,
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

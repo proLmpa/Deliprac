@@ -23,7 +23,7 @@ class InternalProductController(private val productService: ProductService) {
     @PutMapping("/internal/products/{productId}/popularity")
     fun incrementPopularity(
         @PathVariable productId: Long,
-        @RequestParam delta: Int
+        @RequestParam delta: Long
     ) {
         productService.incrementPopularity(productId, delta)
     }

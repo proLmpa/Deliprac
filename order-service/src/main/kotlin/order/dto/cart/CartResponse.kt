@@ -11,8 +11,8 @@ data class CartInfo(
 data class CartProductResponse(
     val id: Long,
     val productId: Long,
-    val quantity: Int,
-    val unitPrice: Int
+    val quantity: Long,
+    val unitPrice: Long
 ) {
     companion object {
         fun of(cartProduct: CartProduct) = CartProductResponse(
@@ -28,7 +28,7 @@ data class CartResponse(
     val id: Long,
     val storeId: Long,
     val items: List<CartProductResponse>,
-    val totalPrice: Int
+    val totalPrice: Long
 ) {
     companion object {
         fun of(cart: Cart, items: List<CartProduct>) = CartResponse(
