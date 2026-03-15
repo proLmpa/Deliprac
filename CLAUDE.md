@@ -111,7 +111,8 @@ user-service/src/main/kotlin/user/
 ├── UserServiceApplication.kt
 ├── api/          ← UserController.kt
 ├── config/       ← SecurityConfig.kt
-├── dto/          ← RegisterUserRequest, LoginUserRequest, TokenResponse, RegisterCommand, LoginCommand
+├── dto/          ← UserRequest.kt  (RegisterUserRequest, LoginUserRequest, RegisterCommand, LoginCommand)
+│                   UserResponse.kt (TokenResponse)
 ├── entity/       ← User.kt (role: common.security.UserRole), UserStatus.kt
 ├── repository/   ← UserRepository.kt
 ├── security/     ← JwtProvider.kt (token generation; stays in user-service only)
@@ -128,21 +129,52 @@ store-service/src/main/kotlin/store/
 │   └── review/   ← ReviewController.kt
 ├── config/       ← SecurityConfig.kt, QueryDslConfig.kt
 ├── dto/
-│   ├── store/    ← CreateStoreRequest.kt, UpdateStoreRequest.kt, StoreInfo.kt, StoreResponse.kt
-│   │                CreateStoreCommand.kt, UpdateStoreCommand.kt
-│   ├── product/  ← CreateProductRequest.kt, UpdateProductRequest.kt, ProductInfo.kt, ProductResponse.kt
-│   └── review/   ← CreateReviewRequest.kt, ReviewInfo.kt, ReviewResponse.kt
+│   ├── store/    ← StoreRequest.kt  (CreateStoreRequest, UpdateStoreRequest, CreateStoreCommand,
+│   │                                  UpdateStoreCommand, StoreSortBy, ListStoreRequest, FindStoreRequest)
+│   │               StoreResponse.kt (StoreInfo, StoreResponse)
+│   ├── product/  ← ProductRequest.kt  (CreateProductRequest, UpdateProductRequest,
+│   │                                    ListProductRequest, FindProductRequest,
+│   │                                    PopularProductRequest, FindInternalProductRequest)
+│   │               ProductResponse.kt (ProductInfo, ProductResponse)
+│   └── review/   ← ReviewRequest.kt  (CreateReviewRequest, ListReviewRequest)
+│                   ReviewResponse.kt (ReviewInfo, ReviewResponse)
 ├── entity/
 │   ├── store/    ← Store.kt (userId: Long — no @ManyToOne), StoreStatus.kt
 │   └── product/  ← Product.kt
 ├── repository/
-│   ├── store/    ← StoreRepository.kt (findByUserId: List<Store>)
+│   ├── store/    ← StoreRepository.kt
 │   ├── product/  ← ProductRepository.kt, ProductRepositoryCustom.kt, ProductRepositoryCustomImpl.kt
-│   └── review/   ← ReviewRepository.kt
+│   └── review/   ← ReviewRepository.kt, ReviewRepositoryCustom.kt, ReviewRepositoryCustomImpl.kt
 └── service/
     ├── store/    ← StoreService.kt
     ├── product/  ← ProductService.kt, ProductStatisticsService.kt
     └── review/   ← ReviewService.kt
+```
+
+### order-service
+```
+order-service/src/main/kotlin/order/
+├── OrderServiceApplication.kt
+├── api/
+│   ├── cart/   ← CartController.kt
+│   └── order/  ← OrderController.kt, UserOrderController.kt, StatisticsController.kt,
+│                  UserStatisticsController.kt, InternalOrderController.kt
+├── client/     ← StoreServiceClient.kt (RestClient wrapper for /internal/** calls)
+├── config/     ← SecurityConfig.kt, QueryDslConfig.kt
+├── dto/
+│   ├── cart/   ← CartRequest.kt  (AddCartItemRequest)
+│   │              CartResponse.kt (CartInfo, CartProductResponse, CartResponse)
+│   └── order/  ← OrderRequest.kt  (ListOrderRequest, RevenueRequest, SpendingRequest, FindOrderRequest)
+│                  OrderResponse.kt (OrderResponse, RevenueResponse, SpendingResponse)
+├── entity/
+│   ├── cart/   ← Cart.kt, CartProduct.kt
+│   └── order/  ← Order.kt, OrderStatus.kt
+├── repository/
+│   ├── cart/   ← CartRepository.kt, CartProductRepository.kt
+│   └── order/  ← OrderRepository.kt, OrderRepositoryCustom.kt, OrderRepositoryCustomImpl.kt
+└── service/
+    ├── cart/   ← CartService.kt
+    └── order/  ← OrderService.kt, StatisticsService.kt
 ```
 
 **Note:** `currentUser()`, `UserPrincipal`, `UserRole`, `JwtAuthenticationFilter`, `GlobalExceptionHandler`, `orThrow` are all from `common.*`.
@@ -163,7 +195,7 @@ baemin-jwt-secret-key-must-be-at-least-32-characters-long
 
 ### FilterRegistrationBean fix (required in every service's SecurityConfig)
 
-Spring Boot auto-registers every `Filter` bean as a standalone servlet filter, causing the JWT filter to run twice (once standalone, once inside `FilterChainProxy`). Fix:
+Spring Boot auto-registers every `Filter` bean as a standalone servlet filter, causing the JWT filter to run twice. Fix:
 
 ```kotlin
 @Bean
@@ -202,12 +234,12 @@ PUT  /api/users/me/withdraw     → self-withdraw (any authenticated) — sets s
 
 **Store endpoints:**
 ```
-POST   /api/stores                     → create store (OWNER)
-GET    /api/stores                     → list all stores (public)
-GET    /api/stores/mine                → owner's own stores (OWNER) — List<StoreResponse>
-GET    /api/stores/{id}                → store detail (public)
-PUT    /api/stores/{id}                → update store (OWNER, must own)
-PUT    /api/stores/{id}/deactivate     → soft-delete store — sets status INACTIVE (OWNER, must own)
+POST   /api/stores                      → create store (OWNER)
+POST   /api/stores/list                 → list all stores; body: { sortBy: "CREATED_AT"|"RATING" }
+POST   /api/stores/mine                 → owner's own stores (OWNER)
+POST   /api/stores/find                 → store detail; body: { id }
+PUT    /api/stores/{id}                 → update store (OWNER, must own)
+PUT    /api/stores/{id}/deactivate      → soft-delete store — sets status INACTIVE (OWNER, must own)
 ```
 
 **Store business rules:**
@@ -217,35 +249,35 @@ PUT    /api/stores/{id}/deactivate     → soft-delete store — sets status INA
 - `userId: Long` — plain column, no `@ManyToOne` (cross-DB boundary)
 - Ownership check: `store.userId != principal.id`
 
-**Schema:** `stores` table with `user_id BIGINT NOT NULL` + non-unique index `idx_stores_user_id` (no FK constraint — different DB from users)
+**Schema:** `stores` table with `user_id BIGINT NOT NULL` + non-unique index `idx_stores_user_id` (no FK constraint)
 
 ---
 
 **Product endpoints:**
 ```
-POST   /api/stores/{storeId}/products/{productId}            → create product (OWNER, must own store)
-GET    /api/stores/{storeId}/products                        → list products (public)
-GET    /api/stores/{storeId}/products/{productId}            → product detail (public)
+POST   /api/stores/{storeId}/products               → create product (OWNER, must own store)
+POST   /api/stores/products/list                    → list products; body: { storeId }
+POST   /api/stores/products/find                    → product detail; body: { storeId, productId }
 PUT    /api/stores/{storeId}/products/{productId}            → update product (OWNER, must own store)
 PUT    /api/stores/{storeId}/products/{productId}/deactivate → deactivate product (OWNER, must own store)
-GET    /api/stores/{storeId}/statistics/popular-products     → top products by popularity (OWNER)
-GET    /internal/products/{productId}                        → product info (internal, no auth)
-PUT    /internal/products/{productId}/popularity?delta=      → increment popularity (internal, no auth)
+POST   /api/stores/statistics/popular-products      → top products by popularity; body: { storeId } (OWNER)
+POST   /internal/products/find                      → product info; body: { productId } (internal, no auth)
+PUT    /internal/products/{productId}/popularity?delta= → increment popularity (internal, no auth)
 ```
 
 **Product business rules:**
-- `popularity: Int` starts at 0; incremented by order-service via `/internal` endpoint when an order is marked `SOLD`
-- Deactivate: sets `active = false`; no row deleted
+- `popularity: Long` starts at 0; incremented by order-service via `/internal` endpoint when an order is marked `SOLD`
+- Deactivate: sets `status = false`; no row deleted
 - Popular products query uses QueryDSL (`ORDER BY popularity DESC`)
 
-**Schema:** `products` table with `store_id BIGINT NOT NULL REFERENCES stores(id)`, `active BOOLEAN`, `popularity INT`
+**Schema:** `products` table with `price BIGINT`, `popularity BIGINT`, `status BOOLEAN`
 
 ---
 
 **Review endpoints:**
 ```
 POST   /api/stores/{storeId}/reviews              → create review (CUSTOMER)
-GET    /api/stores/{storeId}/reviews              → list reviews (any authenticated)
+POST   /api/stores/reviews/list                   → list reviews; body: { storeId }
 DELETE /api/stores/{storeId}/reviews/{reviewId}   → delete review (CUSTOMER who wrote it, or ADMIN)
 ```
 
@@ -264,39 +296,39 @@ DELETE /api/stores/{storeId}/reviews/{reviewId}   → delete review (CUSTOMER wh
 
 **Cart endpoints:**
 ```
-POST   /api/carts                              → add item to cart (CUSTOMER); creates cart if none; clears if different store
-GET    /api/carts                              → get caller's active cart (CUSTOMER)
+POST   /api/carts                               → add item; body: { productId, quantity } (CUSTOMER)
+POST   /api/carts/me                            → get caller's active cart (CUSTOMER)
 DELETE /api/carts/{cartId}/products/{productId} → remove one item (CUSTOMER, must own cart)
-DELETE /api/carts/{cartId}                    → clear all items (CUSTOMER, must own cart)
-PUT    /api/carts/{cartId}/checkout            → checkout → creates Order(PENDING) (CUSTOMER, must own cart)
+DELETE /api/carts/{cartId}                      → clear all items (CUSTOMER, must own cart)
+PUT    /api/carts/{cartId}/checkout             → checkout → creates Order(PENDING) (CUSTOMER, must own cart)
 ```
 
 **Cart business rules:**
 - `carts.user_id` is UNIQUE. Replacing store: cart is reset in-place (items cleared, `store_id` updated, `is_ordered = false`)
-- Snapshot: `unit_price` is copied from product at add-time via `/internal/products/{id}`
+- Snapshot: `unit_price` is copied from product at add-time via `/internal/products/find`
 
 **Order endpoints:**
 ```
-GET    /api/stores/{storeId}/orders                     → list store's orders (OWNER, must own store)
-PUT    /api/stores/{storeId}/orders/{orderId}/sold      → mark SOLD; increments product popularity (OWNER)
-PUT    /api/stores/{storeId}/orders/{orderId}/cancel    → mark CANCELED (OWNER)
-GET    /api/users/me/orders                             → caller's order history (CUSTOMER)
-GET    /internal/orders/{orderId}                       → order detail (internal, no auth)
+POST   /api/stores/orders/list                      → list store's orders; body: { storeId } (OWNER)
+PUT    /api/stores/{storeId}/orders/{orderId}/sold   → mark SOLD; increments product popularity (OWNER)
+PUT    /api/stores/{storeId}/orders/{orderId}/cancel → mark CANCELED (OWNER)
+POST   /api/users/me/orders                         → caller's order history (CUSTOMER)
+POST   /internal/orders/find                        → order detail; body: { orderId } (internal, no auth)
 ```
 
 **Order status flow:** `PENDING → SOLD | CANCELED` (only PENDING can transition)
 
 **Statistics endpoints:**
 ```
-GET    /api/stores/{storeId}/statistics/revenue?year=&month=   → monthly revenue from SOLD orders (OWNER)
-GET    /api/users/me/statistics/spending?year=&month=          → monthly spending from SOLD orders (CUSTOMER)
+POST   /api/stores/statistics/revenue         → monthly revenue; body: { storeId, year, month, timezone? } (OWNER)
+POST   /api/users/me/statistics/spending      → monthly spending; body: { year, month, timezone? } (CUSTOMER)
 ```
 
 **Cross-service calls (RestClient → store-service):**
-- `GET  /internal/products/{id}` — validate product active + snapshot price at cart-add time
+- `POST /internal/products/find` `{ productId }` — validate product active + snapshot price at cart-add time
 - `PUT  /internal/products/{id}/popularity?delta=N` — on order marked SOLD
 
-**Schema:** `carts`, `cart_products`, `orders` tables
+**Schema:** `carts` (`quantity BIGINT`, `unit_price BIGINT`), `cart_products`, `orders` (`total_price BIGINT`) tables
 
 ---
 
@@ -307,6 +339,7 @@ GET    /api/users/me/statistics/spending?year=&month=          → monthly spend
 - All entities must be `open class` — required for Hibernate proxy generation (`allOpen` plugin in root `build.gradle.kts`)
 - Timestamps: `Long` (epoch millis via `System.currentTimeMillis()`)
 - Enums: `@Enumerated(EnumType.STRING)` / `VARCHAR`
+- Money and accumulative fields (`price`, `unit_price`, `total_price`, `popularity`, `quantity`, `total_revenue`, `total_spending`): always `Long` / `BIGINT`
 
 ---
 
@@ -337,29 +370,41 @@ The `-Xannotation-default-target=param-property` option makes Jakarta validation
 
 ## Shared Patterns
 
-### Controller URL mapping
-Never use `@RequestMapping` on a controller class. Write the full path directly on each HTTP method annotation:
+### HTTP method convention
+- **Mutation** (create/update/action): `POST` / `PUT` / `DELETE` — path includes the resource ID
+- **Query** (read): `POST` with a JSON request body containing filter/identity fields — no path variables on read-only endpoints
+
+```kotlin
+// Create: POST with path variable for parent resource
+@PostMapping("/api/stores/{storeId}/products")
+fun create(@PathVariable storeId: Long, @RequestBody request: CreateProductRequest): ProductResponse
+
+// Read: POST with body — no path variable
+@PostMapping("/api/stores/products/find")
+fun findById(@RequestBody request: FindProductRequest): ProductResponse
+// FindProductRequest(storeId: Long, productId: Long)
+```
+
+### No @RequestMapping on controller class
+Write the full path directly on each method annotation:
 ```kotlin
 // CORRECT
 @RestController
 class StoreController {
-    @GetMapping("/api/stores")
-    fun listAll(): ...
-
-    @PostMapping("/api/stores")
-    fun create(): ...
-
-    @GetMapping("/api/stores/{id}")
-    fun findById(@PathVariable id: Long): ...
+    @PostMapping("/api/stores")        fun create(): ...
+    @PostMapping("/api/stores/list")   fun listAll(): ...
+    @PostMapping("/api/stores/find")   fun findById(): ...
+    @PutMapping("/api/stores/{id}")    fun update(): ...
 }
 
 // WRONG — do not do this
 @RestController
 @RequestMapping("/api/stores")
-class StoreController {
-    @GetMapping fun listAll(): ...
-}
+class StoreController { ... }
 ```
+
+### No @Transactional in repository layer
+`@Transactional` belongs only in the **service layer**. Repository interfaces (extending `JpaRepository`) and custom `RepositoryCustomImpl` classes must not carry `@Transactional` annotations.
 
 ### Ownership check (store-service — plain userId column)
 ```kotlin
@@ -375,6 +420,11 @@ data class StoreResponse(...) {
 }
 ```
 
+### DTO file layout
+Each domain has exactly two DTO files:
+- `{Domain}Request.kt` — all input-side classes (request bodies, commands, query DTOs)
+- `{Domain}Response.kt` — all output-side classes (info projections, response wrappers)
+
 ---
 
 ## Testing Conventions
@@ -382,6 +432,7 @@ data class StoreResponse(...) {
 - **Unit tests**: plain JUnit 5 + `@ExtendWith(MockitoExtension::class)`, no Spring context
 - **Slice tests**: `@WebMvcTest` + `@Import(SecurityConfig::class)` + `@MockitoBean` for the service
 - Controller tests: send a real JWT in `Authorization: Bearer <token>`; filter parses it to `UserPrincipal`
+- POST-body tests: set `.contentType(MediaType.APPLICATION_JSON).content(...)` on every POST with a body
 - Mockito 5 + Kotlin: avoid `any()` matchers; stub with exact objects to prevent NPE from `@NonNull` annotation
 
 ### Test checklist per domain
@@ -417,16 +468,16 @@ For a new subdomain `{sub}` in a multi-domain service (e.g. store-service):
 1. {service}/src/main/resources/db/schema.sql        ← ADD SQL block
 2. entity/{sub}/XxxStatus.kt                          ← enum (if needed)
 3. entity/{sub}/Xxx.kt                                ← @Entity open class
-4. repository/{sub}/XxxRepository.kt                  ← JpaRepository
-5. dto/{sub}/CreateXxxRequest.kt                      ← input DTO
-6. dto/{sub}/XxxResponse.kt                           ← output DTO with companion .of()
-7. service/{sub}/XxxService.kt                        ← business logic
-8. api/{sub}/XxxController.kt                         ← REST endpoints
+4. repository/{sub}/XxxRepository.kt                  ← JpaRepository (no @Transactional)
+5. dto/{sub}/XxxRequest.kt                            ← all input-side classes
+6. dto/{sub}/XxxResponse.kt                           ← all output-side classes with companion .of()
+7. service/{sub}/XxxService.kt                        ← business logic (@Transactional here)
+8. api/{sub}/XxxController.kt                         ← REST endpoints (POST for reads, no @RequestMapping on class)
 9. test/service/{sub}/XxxServiceTest.kt
 10. test/api/{sub}/XxxControllerTest.kt
 ```
 
 For user-service (single domain), omit the `{sub}/` level:
 ```
-entity/Xxx.kt, repository/XxxRepository.kt, dto/XxxResponse.kt ...
+entity/Xxx.kt, repository/XxxRepository.kt, dto/XxxRequest.kt, dto/XxxResponse.kt ...
 ```
