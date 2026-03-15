@@ -43,10 +43,10 @@ class ReviewService(
         reviewRepository.findAllByStoreId(storeId).map { ReviewInfo.of(it) }
 
     @Transactional
-    fun delete(storeId: Long, reviewId: Long, userId: Long) {
+    fun delete(storeId: Long, reviewId: Long, principal: UserPrincipal) {
         val review = reviewRepository.findById(reviewId).orThrow("Review not found")
         if (review.storeId != storeId) throw IllegalArgumentException("Review not found in this store")
-        if (review.userId != userId) throw IllegalStateException("Forbidden")
+        if ((review.userId != principal.id) and (principal.role != UserRole.ADMIN)) throw IllegalStateException("Forbidden")
 
         reviewRepository.delete(review)
     }

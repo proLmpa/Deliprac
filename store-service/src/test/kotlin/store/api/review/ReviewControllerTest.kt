@@ -133,7 +133,7 @@ class ReviewControllerTest {
 
     @Test
     fun `DELETE review - 409 when wrong user`() {
-        given(reviewService.delete(storeId, reviewId, customerId))
+        given(reviewService.delete(storeId, reviewId, customerPrincipal))
             .willThrow(IllegalStateException("Forbidden"))
 
         mockMvc.perform(
@@ -145,7 +145,7 @@ class ReviewControllerTest {
 
     @Test
     fun `DELETE review - 400 when review not found`() {
-        given(reviewService.delete(storeId, reviewId, customerId))
+        given(reviewService.delete(storeId, reviewId, customerPrincipal))
             .willThrow(IllegalArgumentException("Review not found"))
 
         mockMvc.perform(

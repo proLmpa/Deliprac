@@ -37,6 +37,6 @@ class ReviewController(private val reviewService: ReviewService) {
         @PathVariable storeId: Long,
         @PathVariable reviewId: Long
     ) {
-        reviewService.delete(storeId, reviewId, currentUser().id)
+        reviewService.delete(storeId, reviewId, currentUser())
     }
 }

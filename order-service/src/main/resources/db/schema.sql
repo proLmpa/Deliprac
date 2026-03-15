@@ -7,7 +7,6 @@ CREATE TABLE IF NOT EXISTS carts
     created_at BIGINT  NOT NULL,
     updated_at BIGINT  NOT NULL
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_carts_user_id ON carts (user_id);
 
 CREATE TABLE IF NOT EXISTS cart_products
 (

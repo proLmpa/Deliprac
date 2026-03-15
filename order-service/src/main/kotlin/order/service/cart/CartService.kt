@@ -77,7 +77,7 @@ class CartService(
 
         cartProductRepository.deleteByCartIdAndProductId(cartId, productId)
         cart.updatedAt = System.currentTimeMillis()
-//        cartRepository.save(cart)
+        cartRepository.save(cart)
     }
 
     @Transactional

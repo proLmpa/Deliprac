@@ -105,7 +105,7 @@ class ReviewServiceTest {
         val review = makeReview()
         given(reviewRepository.findById(reviewId)).willReturn(Optional.of(review))
 
-        reviewService.delete(storeId, reviewId, customerId)
+        reviewService.delete(storeId, reviewId, customerPrincipal)
 
         then(reviewRepository).should().delete(review)
     }
@@ -114,7 +114,7 @@ class ReviewServiceTest {
     fun `delete - review not found throws IllegalArgumentException`() {
         given(reviewRepository.findById(reviewId)).willReturn(Optional.empty())
 
-        assertThatThrownBy { reviewService.delete(storeId, reviewId, customerId) }
+        assertThatThrownBy { reviewService.delete(storeId, reviewId, customerPrincipal) }
             .isInstanceOf(IllegalArgumentException::class.java)
             .hasMessage("Review not found")
     }
@@ -123,7 +123,7 @@ class ReviewServiceTest {
     fun `delete - review belongs to different store throws IllegalArgumentException`() {
         given(reviewRepository.findById(reviewId)).willReturn(Optional.of(makeReview(storeId = 999L)))
 
-        assertThatThrownBy { reviewService.delete(storeId, reviewId, customerId) }
+        assertThatThrownBy { reviewService.delete(storeId, reviewId, customerPrincipal) }
             .isInstanceOf(IllegalArgumentException::class.java)
             .hasMessage("Review not found in this store")
     }
@@ -132,8 +132,19 @@ class ReviewServiceTest {
     fun `delete - wrong user throws IllegalStateException`() {
         given(reviewRepository.findById(reviewId)).willReturn(Optional.of(makeReview(userId = 999L)))
 
-        assertThatThrownBy { reviewService.delete(storeId, reviewId, customerId) }
+        assertThatThrownBy { reviewService.delete(storeId, reviewId, customerPrincipal) }
             .isInstanceOf(IllegalStateException::class.java)
             .hasMessage("Forbidden")
+    }
+
+    @Test
+    fun `delete - ADMIN can delete another user's review`() {
+        val adminPrincipal = UserPrincipal(99L, UserRole.ADMIN)
+        val review = makeReview(userId = 999L)
+        given(reviewRepository.findById(reviewId)).willReturn(Optional.of(review))
+
+        reviewService.delete(storeId, reviewId, adminPrincipal)
+
+        then(reviewRepository).should().delete(review)
     }
 }

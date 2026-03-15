@@ -28,8 +28,8 @@ class OrderRepositoryCustomImpl(
             .where(
                 order.storeId.eq(storeId),
                 order.status.eq(OrderStatus.SOLD),
-                order.createdAt.goe(range.start),
-                order.createdAt.lt(range.last)
+                order.createdAt.goe(range.first),
+                order.createdAt.loe(range.last)
             )
             .fetchOne() ?: 0L
     }
@@ -44,7 +44,7 @@ class OrderRepositoryCustomImpl(
                 order.userId.eq(userId),
                 order.status.eq(OrderStatus.SOLD),
                 order.createdAt.goe(range.first),
-                order.createdAt.lt(range.last)
+                order.createdAt.loe(range.last)
             )
             .fetchOne() ?: 0L
     }
