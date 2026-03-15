@@ -18,7 +18,6 @@ import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
@@ -109,12 +108,14 @@ class ReviewControllerTest {
     }
 
     @Test
-    fun `GET reviews - 200 with list`() {
+    fun `POST reviews list - 200 with list`() {
         given(reviewService.listByStore(storeId)).willReturn(listOf(sampleInfo))
 
         mockMvc.perform(
-            get("/api/stores/{storeId}/reviews", storeId)
+            post("/api/stores/reviews/list")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId}""")
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].id").value(reviewId))

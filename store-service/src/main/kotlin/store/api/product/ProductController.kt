@@ -2,11 +2,12 @@ package store.api.product
 
 import common.security.currentUser
 import store.dto.product.CreateProductRequest
+import store.dto.product.FindProductRequest
+import store.dto.product.ListProductRequest
 import store.dto.product.ProductResponse
 import store.dto.product.UpdateProductRequest
 import store.service.product.ProductService
 import org.springframework.http.HttpStatus
-import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
@@ -27,17 +28,14 @@ class ProductController(private val productService: ProductService) {
         return ProductResponse.of(product)
     }
 
-    @GetMapping("/api/stores/{storeId}/products")
-    fun listByStore(@PathVariable storeId: Long): List<ProductResponse> {
-        return productService.listByStore(storeId).map { ProductResponse.of(it) }
+    @PostMapping("/api/stores/products/list")
+    fun listByStore(@RequestBody request: ListProductRequest): List<ProductResponse> {
+        return productService.listByStore(request.storeId).map { ProductResponse.of(it) }
     }
 
-    @GetMapping("/api/stores/{storeId}/products/{productId}")
-    fun findById(
-        @PathVariable storeId: Long,
-        @PathVariable productId: Long
-    ): ProductResponse {
-        return ProductResponse.of(productService.findById(storeId, productId))
+    @PostMapping("/api/stores/products/find")
+    fun findById(@RequestBody request: FindProductRequest): ProductResponse {
+        return ProductResponse.of(productService.findById(request.storeId, request.productId))
     }
 
     @PutMapping("/api/stores/{storeId}/products/{productId}")

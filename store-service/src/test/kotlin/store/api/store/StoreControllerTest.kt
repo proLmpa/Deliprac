@@ -21,7 +21,6 @@ import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -152,24 +151,28 @@ class StoreControllerTest {
     }
 
     @Test
-    fun `GET stores - 200 with list`() {
+    fun `POST stores list - 200 with list`() {
         given(storeService.listAll(StoreSortBy.CREATED_AT)).willReturn(listOf(sampleInfo))
 
         mockMvc.perform(
-            get("/api/stores")
+            post("/api/stores/list")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"sortBy":"CREATED_AT"}""")
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].id").value(storeId))
     }
 
     @Test
-    fun `GET stores by id - 200 with store response`() {
+    fun `POST stores find - 200 with store response`() {
         given(storeService.findById(storeId)).willReturn(sampleInfo)
 
         mockMvc.perform(
-            get("/api/stores/{id}", storeId)
+            post("/api/stores/find")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"id":$storeId}""")
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.id").value(storeId))
@@ -177,24 +180,26 @@ class StoreControllerTest {
     }
 
     @Test
-    fun `GET stores by id - 400 when not found`() {
+    fun `POST stores find - 400 when not found`() {
         given(storeService.findById(storeId))
             .willThrow(IllegalArgumentException("Store not found"))
 
         mockMvc.perform(
-            get("/api/stores/{id}", storeId)
+            post("/api/stores/find")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"id":$storeId}""")
         )
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error").value("Store not found"))
     }
 
     @Test
-    fun `GET stores mine - 200 with owner stores`() {
+    fun `POST stores mine - 200 with owner stores`() {
         given(storeService.findMine(ownerPrincipal)).willReturn(listOf(sampleInfo))
 
         mockMvc.perform(
-            get("/api/stores/mine")
+            post("/api/stores/mine")
                 .header("Authorization", bearerToken())
         )
             .andExpect(status().isOk)

@@ -7,7 +7,6 @@ import order.dto.order.OrderResponse
 import order.service.cart.CartService
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.DeleteMapping
-import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
@@ -24,7 +23,7 @@ class CartController(private val cartService: CartService) {
         return CartResponse.of(cartInfo.cart, cartInfo.items)
     }
 
-    @GetMapping("/api/carts")
+    @PostMapping("/api/carts/me")
     fun getMyCart(): CartResponse {
         val cartInfo = cartService.getMyCart(currentUser().id)
         return CartResponse.of(cartInfo.cart, cartInfo.items)

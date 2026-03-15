@@ -1,10 +1,12 @@
 package store.api.product
 
+import store.dto.product.FindInternalProductRequest
 import store.dto.product.ProductResponse
 import store.service.product.ProductService
-import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
@@ -15,9 +17,9 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 class InternalProductController(private val productService: ProductService) {
 
-    @GetMapping("/internal/products/{productId}")
-    fun getProduct(@PathVariable productId: Long): ProductResponse {
-        return ProductResponse.of(productService.getById(productId))
+    @PostMapping("/internal/products/find")
+    fun getProduct(@RequestBody request: FindInternalProductRequest): ProductResponse {
+        return ProductResponse.of(productService.getById(request.productId))
     }
 
     @PutMapping("/internal/products/{productId}/popularity")

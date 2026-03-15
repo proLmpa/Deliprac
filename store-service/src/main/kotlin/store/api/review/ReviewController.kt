@@ -2,11 +2,11 @@ package store.api.review
 
 import common.security.currentUser
 import store.dto.review.CreateReviewRequest
+import store.dto.review.ListReviewRequest
 import store.dto.review.ReviewResponse
 import store.service.review.ReviewService
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.DeleteMapping
-import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -26,9 +26,9 @@ class ReviewController(private val reviewService: ReviewService) {
         return ReviewResponse.of(review)
     }
 
-    @GetMapping("/api/stores/{storeId}/reviews")
-    fun listByStore(@PathVariable storeId: Long): List<ReviewResponse> {
-        return reviewService.listByStore(storeId).map { ReviewResponse.of(it) }
+    @PostMapping("/api/stores/reviews/list")
+    fun listByStore(@RequestBody request: ListReviewRequest): List<ReviewResponse> {
+        return reviewService.listByStore(request.storeId).map { ReviewResponse.of(it) }
     }
 
     @DeleteMapping("/api/stores/{storeId}/reviews/{reviewId}")

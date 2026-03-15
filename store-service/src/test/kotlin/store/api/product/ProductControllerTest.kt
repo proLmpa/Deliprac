@@ -11,7 +11,6 @@ import store.service.product.ProductStatisticsService
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.BDDMockito.given
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
@@ -20,7 +19,6 @@ import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -104,12 +102,14 @@ class ProductControllerTest {
     }
 
     @Test
-    fun `GET products - 200 with list`() {
+    fun `POST products list - 200 with list`() {
         given(productService.listByStore(storeId)).willReturn(listOf(sampleInfo))
 
         mockMvc.perform(
-            get("/api/stores/{storeId}/products", storeId)
+            post("/api/stores/products/list")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId}""")
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].id").value(productId))
@@ -117,12 +117,14 @@ class ProductControllerTest {
     }
 
     @Test
-    fun `GET products by id - 200 with product response`() {
+    fun `POST products find - 200 with product response`() {
         given(productService.findById(storeId, productId)).willReturn(sampleInfo)
 
         mockMvc.perform(
-            get("/api/stores/{storeId}/products/{productId}", storeId, productId)
+            post("/api/stores/products/find")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId,"productId":$productId}""")
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.id").value(productId))
@@ -130,13 +132,15 @@ class ProductControllerTest {
     }
 
     @Test
-    fun `GET products by id - 400 when not found`() {
+    fun `POST products find - 400 when not found`() {
         given(productService.findById(storeId, productId))
             .willThrow(IllegalArgumentException("Product not found"))
 
         mockMvc.perform(
-            get("/api/stores/{storeId}/products/{productId}", storeId, productId)
+            post("/api/stores/products/find")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId,"productId":$productId}""")
         )
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error").value("Product not found"))
@@ -188,6 +192,7 @@ class StoreStatisticsControllerTest {
 
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var productStatisticsService: ProductStatisticsService
+    @Autowired private lateinit var objectMapper: ObjectMapper
     @Value("\${jwt.secret}") private lateinit var jwtSecret: String
 
     private val ownerId  = 1L
@@ -215,13 +220,15 @@ class StoreStatisticsControllerTest {
     )
 
     @Test
-    fun `GET popular-products - 200 with sorted list`() {
+    fun `POST popular-products - 200 with sorted list`() {
         given(productStatisticsService.getPopularProducts(storeId, ownerPrincipal))
             .willReturn(listOf(sampleInfo))
 
         mockMvc.perform(
-            get("/api/stores/{storeId}/statistics/popular-products", storeId)
+            post("/api/stores/statistics/popular-products")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId}""")
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].id").value(productId))
@@ -229,13 +236,15 @@ class StoreStatisticsControllerTest {
     }
 
     @Test
-    fun `GET popular-products - 409 when wrong owner`() {
+    fun `POST popular-products - 409 when wrong owner`() {
         given(productStatisticsService.getPopularProducts(storeId, ownerPrincipal))
             .willThrow(IllegalStateException("Forbidden"))
 
         mockMvc.perform(
-            get("/api/stores/{storeId}/statistics/popular-products", storeId)
+            post("/api/stores/statistics/popular-products")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId}""")
         )
             .andExpect(status().isConflict)
     }

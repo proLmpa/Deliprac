@@ -21,7 +21,6 @@ import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -104,11 +103,11 @@ class CartControllerTest {
     }
 
     @Test
-    fun `GET carts - 200 with cart response`() {
+    fun `POST carts me - 200 with cart response`() {
         given(cartService.getMyCart(userId)).willReturn(sampleCartInfo)
 
         mockMvc.perform(
-            get("/api/carts")
+            post("/api/carts/me")
                 .header("Authorization", bearerToken())
         )
             .andExpect(status().isOk)
@@ -116,12 +115,12 @@ class CartControllerTest {
     }
 
     @Test
-    fun `GET carts - 400 when cart not found`() {
+    fun `POST carts me - 400 when cart not found`() {
         given(cartService.getMyCart(userId))
             .willThrow(IllegalArgumentException("Cart not found"))
 
         mockMvc.perform(
-            get("/api/carts")
+            post("/api/carts/me")
                 .header("Authorization", bearerToken())
         )
             .andExpect(status().isBadRequest)

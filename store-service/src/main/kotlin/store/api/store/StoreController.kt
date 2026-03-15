@@ -3,18 +3,18 @@ package store.api.store
 import common.security.currentUser
 import store.dto.store.CreateStoreCommand
 import store.dto.store.CreateStoreRequest
+import store.dto.store.FindStoreRequest
+import store.dto.store.ListStoreRequest
 import store.dto.store.StoreSortBy
 import store.dto.store.StoreResponse
 import store.dto.store.UpdateStoreCommand
 import store.dto.store.UpdateStoreRequest
 import store.service.store.StoreService
 import org.springframework.http.HttpStatus
-import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
@@ -39,21 +39,21 @@ class StoreController(private val storeService: StoreService) {
         return StoreResponse.of(store)
     }
 
-    @GetMapping("/api/stores")
-    fun listAll(@RequestParam(defaultValue = "CREATED_AT") sortBy: String): List<StoreResponse> {
-        val sort = try { StoreSortBy.valueOf(sortBy) }
+    @PostMapping("/api/stores/list")
+    fun listAll(@RequestBody request: ListStoreRequest): List<StoreResponse> {
+        val sort = try { StoreSortBy.valueOf(request.sortBy) }
                    catch (e: IllegalArgumentException) { throw IllegalArgumentException("Invalid sortBy: must be CREATED_AT or RATING") }
         return storeService.listAll(sort).map { StoreResponse.of(it) }
     }
 
-    @GetMapping("/api/stores/mine")
+    @PostMapping("/api/stores/mine")
     fun mine(): List<StoreResponse> {
         return storeService.findMine(currentUser()).map { StoreResponse.of(it) }
     }
 
-    @GetMapping("/api/stores/{id}")
-    fun findById(@PathVariable id: Long): StoreResponse {
-        return StoreResponse.of(storeService.findById(id))
+    @PostMapping("/api/stores/find")
+    fun findById(@RequestBody request: FindStoreRequest): StoreResponse {
+        return StoreResponse.of(storeService.findById(request.id))
     }
 
     @PutMapping("/api/stores/{id}")

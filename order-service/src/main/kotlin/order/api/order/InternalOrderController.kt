@@ -1,9 +1,10 @@
 package order.api.order
 
+import order.dto.order.FindOrderRequest
 import order.dto.order.OrderResponse
 import order.service.order.OrderService
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 
 /**
@@ -13,9 +14,9 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 class InternalOrderController(private val orderService: OrderService) {
 
-    @GetMapping("/internal/orders/{orderId}")
-    fun getOrder(@PathVariable orderId: Long): OrderResponse {
-        val order = orderService.getById(orderId)
+    @PostMapping("/internal/orders/find")
+    fun getOrder(@RequestBody request: FindOrderRequest): OrderResponse {
+        val order = orderService.getById(request.orderId)
         return OrderResponse.of(order)
     }
 }

@@ -49,3 +49,6 @@ data class UpdateStoreCommand(
 )
 
 enum class StoreSortBy { CREATED_AT, RATING }
+
+data class ListStoreRequest(val sortBy: String = "CREATED_AT")
+data class FindStoreRequest(val id: Long)

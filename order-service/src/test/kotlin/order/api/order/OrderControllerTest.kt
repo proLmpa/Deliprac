@@ -14,12 +14,14 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Import
+import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import tools.jackson.databind.ObjectMapper
 import java.util.Date
 
 @WebMvcTest(OrderController::class)
@@ -28,6 +30,7 @@ class OrderControllerTest {
 
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var orderService: OrderService
+    @Autowired private lateinit var objectMapper: ObjectMapper
     @Value("\${jwt.secret}") private lateinit var jwtSecret: String
 
     private val ownerId  = 1L
@@ -47,15 +50,17 @@ class OrderControllerTest {
     }
 
     private fun makeOrder(status: OrderStatus = OrderStatus.PENDING) =
-        Order(orderId, 0L, ownerId, storeId, 8000, status, 0L, 0L)
+        Order(orderId, 0L, ownerId, storeId, 8000L, status, 0L, 0L)
 
     @Test
-    fun `GET store orders - 200 with list`() {
+    fun `POST store orders list - 200 with list`() {
         given(orderService.listByStore(storeId, UserRole.OWNER)).willReturn(listOf(makeOrder()))
 
         mockMvc.perform(
-            get("/api/stores/{storeId}/orders", storeId)
+            post("/api/stores/orders/list")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId}""")
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].id").value(orderId))
@@ -63,13 +68,15 @@ class OrderControllerTest {
     }
 
     @Test
-    fun `GET store orders - 409 when non-OWNER`() {
+    fun `POST store orders list - 409 when non-OWNER`() {
         given(orderService.listByStore(storeId, UserRole.OWNER))
             .willThrow(IllegalStateException("Only OWNER can view store orders"))
 
         mockMvc.perform(
-            get("/api/stores/{storeId}/orders", storeId)
+            post("/api/stores/orders/list")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId}""")
         )
             .andExpect(status().isConflict)
     }
@@ -135,12 +142,12 @@ class UserOrderControllerTest {
     }
 
     @Test
-    fun `GET my orders - 200 with list`() {
+    fun `POST my orders - 200 with list`() {
         given(orderService.listByUser(customerId))
-            .willReturn(listOf(Order(200L, 0L, customerId, 10L, 8000, OrderStatus.PENDING, 0L, 0L)))
+            .willReturn(listOf(Order(200L, 0L, customerId, 10L, 8000L, OrderStatus.PENDING, 0L, 0L)))
 
         mockMvc.perform(
-            get("/api/users/me/orders")
+            post("/api/users/me/orders")
                 .header("Authorization", bearerToken())
         )
             .andExpect(status().isOk)
@@ -154,6 +161,7 @@ class StatisticsControllerTest {
 
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var statisticsService: StatisticsService
+    @Autowired private lateinit var objectMapper: ObjectMapper
     @Value("\${jwt.secret}") private lateinit var jwtSecret: String
 
     private val ownerId = 1L
@@ -174,14 +182,14 @@ class StatisticsControllerTest {
     }
 
     @Test
-    fun `GET revenue - 200 with revenue response`() {
-        given(statisticsService.getRevenue(storeId, 2026, 3, utc, UserRole.OWNER)).willReturn(50000)
+    fun `POST revenue - 200 with revenue response`() {
+        given(statisticsService.getRevenue(storeId, 2026, 3, utc, UserRole.OWNER)).willReturn(50000L)
 
         mockMvc.perform(
-            get("/api/stores/{storeId}/statistics/revenue", storeId)
-                .param("year", "2026")
-                .param("month", "3")
+            post("/api/stores/statistics/revenue")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId,"year":2026,"month":3}""")
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.totalRevenue").value(50000))
@@ -189,15 +197,15 @@ class StatisticsControllerTest {
     }
 
     @Test
-    fun `GET revenue - 409 when non-OWNER`() {
+    fun `POST revenue - 409 when non-OWNER`() {
         given(statisticsService.getRevenue(storeId, 2026, 3, utc, UserRole.OWNER))
             .willThrow(IllegalStateException("Only OWNER can view revenue statistics"))
 
         mockMvc.perform(
-            get("/api/stores/{storeId}/statistics/revenue", storeId)
-                .param("year", "2026")
-                .param("month", "3")
+            post("/api/stores/statistics/revenue")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId,"year":2026,"month":3}""")
         )
             .andExpect(status().isConflict)
     }
@@ -209,6 +217,7 @@ class UserStatisticsControllerTest {
 
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var statisticsService: StatisticsService
+    @Autowired private lateinit var objectMapper: ObjectMapper
     @Value("\${jwt.secret}") private lateinit var jwtSecret: String
 
     private val customerId = 2L
@@ -228,14 +237,14 @@ class UserStatisticsControllerTest {
     }
 
     @Test
-    fun `GET spending - 200 with spending response`() {
-        given(statisticsService.getSpending(2026, 3, utc, customerId)).willReturn(24000)
+    fun `POST spending - 200 with spending response`() {
+        given(statisticsService.getSpending(2026, 3, utc, customerId)).willReturn(24000L)
 
         mockMvc.perform(
-            get("/api/users/me/statistics/spending")
-                .param("year", "2026")
-                .param("month", "3")
+            post("/api/users/me/statistics/spending")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"year":2026,"month":3}""")
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.totalSpending").value(24000))

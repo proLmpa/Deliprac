@@ -1,19 +1,21 @@
 package order.api.order
 
 import common.security.currentUser
+import order.dto.order.ListOrderRequest
 import order.dto.order.OrderResponse
 import order.service.order.OrderService
-import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
 class OrderController(private val orderService: OrderService) {
 
-    @GetMapping("/api/stores/{storeId}/orders")
-    fun listByStore(@PathVariable storeId: Long): List<OrderResponse> {
-        return orderService.listByStore(storeId, currentUser().role).map { OrderResponse.of(it) }
+    @PostMapping("/api/stores/orders/list")
+    fun listByStore(@RequestBody request: ListOrderRequest): List<OrderResponse> {
+        return orderService.listByStore(request.storeId, currentUser().role).map { OrderResponse.of(it) }
     }
 
     @PutMapping("/api/stores/{storeId}/orders/{orderId}/sold")

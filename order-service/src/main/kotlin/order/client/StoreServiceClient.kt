@@ -2,6 +2,7 @@ package order.client
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 
@@ -12,6 +13,8 @@ data class RemoteProductInfo(
     val status: Boolean
 )
 
+private data class FindProductBody(val productId: Long)
+
 @Component
 class StoreServiceClient(
     @Value("\${store-service.url}") private val storeServiceUrl: String
@@ -19,8 +22,10 @@ class StoreServiceClient(
     private val restClient = RestClient.create()
 
     fun getProduct(productId: Long): RemoteProductInfo =
-        restClient.get()
-            .uri("$storeServiceUrl/internal/products/$productId")
+        restClient.post()
+            .uri("$storeServiceUrl/internal/products/find")
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(FindProductBody(productId))
             .retrieve()
             .body(RemoteProductInfo::class.java)!!
 
