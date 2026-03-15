@@ -1,0 +1,41 @@
+package order.dto.cart
+
+import order.entity.cart.Cart
+import order.entity.cart.CartProduct
+
+data class CartInfo(
+    val cart: Cart,
+    val items: List<CartProduct>
+)
+
+data class CartProductResponse(
+    val id: Long,
+    val productId: Long,
+    val quantity: Int,
+    val unitPrice: Int
+) {
+    companion object {
+        fun of(cartProduct: CartProduct) = CartProductResponse(
+            id        = cartProduct.id,
+            productId = cartProduct.productId,
+            quantity  = cartProduct.quantity,
+            unitPrice = cartProduct.unitPrice
+        )
+    }
+}
+
+data class CartResponse(
+    val id: Long,
+    val storeId: Long,
+    val items: List<CartProductResponse>,
+    val totalPrice: Int
+) {
+    companion object {
+        fun of(cart: Cart, items: List<CartProduct>) = CartResponse(
+            id         = cart.id,
+            storeId    = cart.storeId,
+            items      = items.map { CartProductResponse.of(it) },
+            totalPrice = items.sumOf { it.unitPrice * it.quantity }
+        )
+    }
+}

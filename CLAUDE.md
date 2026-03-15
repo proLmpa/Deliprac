@@ -15,7 +15,7 @@
 ./gradlew test
 ./gradlew :user-service:test
 ./gradlew :store-service:test
-./gradlew :store-service:test --tests "com.example.baemin.service.store.StoreServiceTest"
+./gradlew :store-service:test --tests "store.service.store.StoreServiceTest"
 ```
 
 ## Database
@@ -65,21 +65,21 @@ Shared library — **not** a Spring Boot app. Declared as `implementation(projec
 
 ### Key classes
 
-**`UserRole`** (`common/src/main/kotlin/com/example/baemin/common/security/UserRole.kt`)
+**`UserRole`** (`common/src/main/kotlin/common/security/UserRole.kt`)
 ```kotlin
 enum class UserRole { CUSTOMER, OWNER, ADMIN }
 ```
 
-**`UserPrincipal`** (`common/src/main/kotlin/com/example/baemin/common/security/UserPrincipal.kt`)
+**`UserPrincipal`** (`common/src/main/kotlin/common/security/UserPrincipal.kt`)
 ```kotlin
 data class UserPrincipal(val id: Long, val email: String, val role: UserRole)
 ```
 
-**`GlobalExceptionHandler`** (`common/src/main/kotlin/com/example/baemin/common/exception/GlobalExceptionHandler.kt`)
+**`GlobalExceptionHandler`** (`common/src/main/kotlin/common/exception/GlobalExceptionHandler.kt`)
 - `IllegalArgumentException` → 400 Bad Request
 - `IllegalStateException` → 409 Conflict
 
-**`Extensions.kt`** (`common/src/main/kotlin/com/example/baemin/common/Extensions.kt`)
+**`Extensions.kt`** (`common/src/main/kotlin/common/Extensions.kt`)
 ```kotlin
 fun <T> Optional<T>.orThrow(msg: String): T = orElseThrow { IllegalArgumentException(msg) }
 ```
@@ -92,12 +92,13 @@ fun <T> Optional<T>.orThrow(msg: String): T = orElseThrow { IllegalArgumentExcep
 
 **user-service** uses a flat `layer` structure (single domain):
 ```
-com.example.baemin.{layer}
+user.{layer}
 ```
 
 **store-service** and **order-service** use `layer/subdomain` (multiple subdomains per service):
 ```
-com.example.baemin.{layer}.{subdomain}
+store.{layer}.{subdomain}
+order.{layer}.{subdomain}
 ```
 When adding a new subdomain (e.g. `product`), create files under every layer:
 `api/product/`, `dto/product/`, `entity/product/`, `repository/product/`, `service/product/`
@@ -106,7 +107,7 @@ When adding a new subdomain (e.g. `product`), create files under every layer:
 
 ### user-service
 ```
-user-service/src/main/kotlin/com/example/baemin/
+user-service/src/main/kotlin/user/
 ├── UserServiceApplication.kt
 ├── api/          ← UserController.kt
 ├── config/       ← SecurityConfig.kt
@@ -119,7 +120,7 @@ user-service/src/main/kotlin/com/example/baemin/
 
 ### store-service
 ```
-store-service/src/main/kotlin/com/example/baemin/
+store-service/src/main/kotlin/store/
 ├── StoreServiceApplication.kt
 ├── api/
 │   ├── store/    ← StoreController.kt
@@ -144,7 +145,7 @@ store-service/src/main/kotlin/com/example/baemin/
     └── review/   ← ReviewService.kt
 ```
 
-**Note:** `currentUser()`, `UserPrincipal`, `UserRole`, `JwtAuthenticationFilter`, `GlobalExceptionHandler`, `orThrow` are all from `com.example.baemin.common.*`.
+**Note:** `currentUser()`, `UserPrincipal`, `UserRole`, `JwtAuthenticationFilter`, `GlobalExceptionHandler`, `orThrow` are all from `common.*`.
 
 ---
 

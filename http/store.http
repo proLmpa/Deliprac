@@ -1,5 +1,5 @@
 @baseUrl = http://localhost:8082
-@storeId = 4
+@storeId = 1
 
 ### List all stores — newest first (public)
 GET {{baseUrl}}/api/stores

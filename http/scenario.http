@@ -1,0 +1,332 @@
+@userBaseUrl  = http://localhost:8081
+@storeBaseUrl = http://localhost:8082
+@orderBaseUrl = http://localhost:8083
+
+# =============================================================================
+# End-to-End Scenario
+#
+# Actors : 1 customer, 1 owner
+# Flow   : signup → signin → create store+5 products → cart → order → sold
+#          → price change (snapshot comparison) → monthly statistics
+#
+# Cart snapshot
+#   product 1 (후라이드 치킨)  qty 2 × 18,000 = 36,000
+#   product 2 (양념 치킨)      qty 1 × 19,000 = 19,000
+#   product 3 (간장 치킨)      qty 1 × 20,000 = 20,000
+#   ─────────────────────────────────────────────────
+#   order totalPrice (frozen)              = 75,000
+#
+# After the order is SOLD the owner raises product 1 to 22,000.
+#   Same order at new price: 22,000×2 + 19,000 + 20,000 = 83,000
+#   Existing order totalPrice stays at 75,000  → 8,000원 difference
+# =============================================================================
+
+
+# =============================================================================
+# STEP 1 — Sign up
+# =============================================================================
+
+### [1-1] Sign up — CUSTOMER
+POST {{userBaseUrl}}/api/users/signup
+Content-Type: application/json
+
+{
+  "email": "mentee@example.com",
+  "password": "password123",
+  "phone": "010-1212-1212"
+}
+
+### [1-2] Sign up — OWNER
+POST {{userBaseUrl}}/api/users/signup
+Content-Type: application/json
+
+{
+  "email": "mentor@example.com",
+  "password": "password123",
+  "phone": "010-2323-2323",
+  "role": "OWNER"
+}
+
+
+### =============================================================================
+# STEP 2 — Sign in (tokens saved to global)
+# =============================================================================
+
+### [2-1] Sign in — CUSTOMER  →  saves customerToken
+POST {{userBaseUrl}}/api/users/signin
+Content-Type: application/json
+
+{
+  "email": "mentee@example.com",
+  "password": "password123"
+}
+
+> {%
+client.global.set("customerToken", "Bearer " + response.body.accessToken);
+%}
+
+### [2-2] Sign in — OWNER  →  saves ownerToken
+POST {{userBaseUrl}}/api/users/signin
+Content-Type: application/json
+
+{
+  "email": "mentor@example.com",
+  "password": "password123"
+}
+
+> {%
+client.global.set("ownerToken", "Bearer " + response.body.accessToken);
+%}
+
+
+### =============================================================================
+# STEP 3 — Owner creates store
+# =============================================================================
+
+### [3-1] Create store  →  saves storeId
+POST {{storeBaseUrl}}/api/stores
+Authorization: {{ownerToken}}
+Content-Type: application/json
+
+{
+  "name": "바삭 치킨집22",
+  "address": "서울특별시 강남구 테헤란로 1",
+  "phone": "02-1234-5678",
+  "content": "신선한 재료로 만든 바삭한 치킨 전문점",
+  "storePictureUrl": null,
+  "productCreatedTime": 32400000,
+  "openedTime": 36000000,
+  "closedTime": 79200000,
+  "closedDays": "MONDAY"
+}
+
+> {%
+client.global.set("storeId", response.body.id);
+%}
+
+### Get my stores (OWNER)
+GET {{storeBaseUrl}}/api/stores/mine
+Authorization: {{ownerToken}}
+
+### =============================================================================
+# STEP 4 — Owner creates 5 products
+# =============================================================================
+
+### [4-1] Create product 1 — 후라이드 치킨  18,000원  →  saves product1Id
+POST {{storeBaseUrl}}/api/stores/{{storeId}}/products
+Authorization: {{ownerToken}}
+Content-Type: application/json
+
+{
+  "name": "후라이드 치킨",
+  "description": "바삭하고 담백한 정통 후라이드 치킨",
+  "price": 18000,
+  "productPictureUrl": null
+}
+
+> {%
+client.global.set("product1Id", response.body.id);
+%}
+
+### [4-2] Create product 2 — 양념 치킨  19,000원  →  saves product2Id
+POST {{storeBaseUrl}}/api/stores/{{storeId}}/products
+Authorization: {{ownerToken}}
+Content-Type: application/json
+
+{
+  "name": "양념 치킨",
+  "description": "달콤하고 매콤한 양념 치킨",
+  "price": 19000,
+  "productPictureUrl": null
+}
+
+> {%
+client.global.set("product2Id", response.body.id);
+%}
+
+###
+
+### [4-3] Create product 3 — 간장 치킨  20,000원  →  saves product3Id
+POST {{storeBaseUrl}}/api/stores/{{storeId}}/products
+Authorization: {{ownerToken}}
+Content-Type: application/json
+
+{
+  "name": "간장 치킨",
+  "description": "고소한 간장 소스의 치킨",
+  "price": 20000,
+  "productPictureUrl": null
+}
+
+> {%
+client.global.set("product3Id", response.body.id);
+%}
+
+###
+
+### [4-4] Create product 4 — 파닭  21,000원
+POST {{storeBaseUrl}}/api/stores/{{storeId}}/products
+Authorization: {{ownerToken}}
+Content-Type: application/json
+
+{
+  "name": "파닭",
+  "description": "파와 함께 즐기는 바삭한 치킨",
+  "price": 21000,
+  "productPictureUrl": null
+}
+
+### [4-5] Create product 5 — 순살 치킨  22,000원
+POST {{storeBaseUrl}}/api/stores/{{storeId}}/products
+Authorization: {{ownerToken}}
+Content-Type: application/json
+
+{
+  "name": "순살 치킨",
+  "description": "뼈 없이 즐기는 부드러운 순살 치킨",
+  "price": 22000,
+  "productPictureUrl": null
+}
+
+### List products by store (public)
+GET {{storeBaseUrl}}/api/stores/{{storeId}}/products
+Authorization: {{customerToken}}
+
+### =============================================================================
+# STEP 5 — Customer adds 3 products to cart (unit prices snapshotted here)
+# =============================================================================
+
+### [5-1] Add product 1  qty 2  →  unitPrice 18,000 snapshotted  →  saves cartId
+POST {{orderBaseUrl}}/api/carts
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "productId": {{product1Id}},
+  "quantity": 2
+}
+
+> {%
+client.global.set("cartId", response.body.id);
+%}
+
+###
+
+### [5-2] Add product 2  qty 1  →  unitPrice 19,000 snapshotted
+POST {{orderBaseUrl}}/api/carts
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "productId": {{product2Id}},
+  "quantity": 1
+}
+
+###
+
+### [5-3] Add product 3  qty 1  →  unitPrice 20,000 snapshotted
+POST {{orderBaseUrl}}/api/carts
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "productId": {{product3Id}},
+  "quantity": 1
+}
+
+###
+
+### [5-4] View cart — confirm items and snapshotted unit prices
+# Expected: items[].unitPrice = [18000, 19000, 20000], totalPrice = 75000
+GET {{orderBaseUrl}}/api/carts
+Authorization: {{customerToken}}
+
+
+# =============================================================================
+# STEP 6 — Customer checks out  (cart → Order PENDING)
+# =============================================================================
+
+### [6-1] Checkout  →  saves orderId
+PUT {{orderBaseUrl}}/api/carts/{{cartId}}/checkout
+Authorization: {{customerToken}}
+
+> {%
+client.global.set("orderId", response.body.id);
+%}
+
+
+### =============================================================================
+# STEP 7 — Owner views orders and marks as SOLD
+# =============================================================================
+
+### [7-1] Owner lists orders for store  →  confirm order status = PENDING
+GET {{orderBaseUrl}}/api/stores/{{storeId}}/orders
+Authorization: {{ownerToken}}
+
+###
+
+### [7-2] Owner marks order SOLD  (product popularities incremented via internal call)
+PUT {{orderBaseUrl}}/api/stores/{{storeId}}/orders/{{orderId}}/sold
+Authorization: {{ownerToken}}
+
+
+# =============================================================================
+# STEP 8 — Price change comparison
+#
+# Owner raises product 1 from 18,000 → 22,000 after the order is already SOLD.
+# The existing order's totalPrice must stay at 75,000 (frozen snapshot).
+#
+# BEFORE  product 1 price : 18,000원
+# AFTER   product 1 price : 22,000원  (+4,000)
+#
+# Order snapshot total   : 75,000원  (18,000×2 + 19,000 + 20,000)
+# Re-order at new prices : 83,000원  (22,000×2 + 19,000 + 20,000)  → +8,000원
+# =============================================================================
+
+### [8-1] BEFORE — product 1 price: 18,000원
+GET {{storeBaseUrl}}/api/stores/{{storeId}}/products/{{product1Id}}
+Authorization: {{ownerToken}}
+
+###
+
+### [8-2] Owner raises product 1 price to 22,000원
+PUT {{storeBaseUrl}}/api/stores/{{storeId}}/products/{{product1Id}}
+Authorization: {{ownerToken}}
+Content-Type: application/json
+
+{
+  "name": "후라이드 치킨",
+  "description": "바삭하고 담백한 정통 후라이드 치킨",
+  "price": 22000,
+  "productPictureUrl": null
+}
+
+###
+
+### [8-3] AFTER — product 1 price: 22,000원  (changed)
+GET {{storeBaseUrl}}/api/stores/{{storeId}}/products/{{product1Id}}
+Authorization: {{ownerToken}}
+
+###
+
+### [8-4] Order snapshot — totalPrice still 75,000원  (frozen at purchase time)
+# Proves unit prices were captured at add-to-cart time, not at current product price
+GET {{orderBaseUrl}}/internal/orders/{{orderId}}
+
+
+# =============================================================================
+# STEP 9 — Monthly statistics
+#
+# Owner   revenue  : 75,000원
+# Customer spending: 75,000원
+# =============================================================================
+
+### [9-1] Owner revenue — March 2026 (Seoul time)
+GET {{orderBaseUrl}}/api/stores/{{storeId}}/statistics/revenue?year=2026&month=3&timezone=Asia/Seoul
+Authorization: {{ownerToken}}
+
+###
+
+### [9-2] Customer spending — March 2026 (Seoul time)
+GET {{orderBaseUrl}}/api/users/me/statistics/spending?year=2026&month=3&timezone=Asia/Seoul
+Authorization: {{customerToken}}

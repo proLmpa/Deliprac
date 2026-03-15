@@ -1,0 +1,51 @@
+package store.dto.store
+
+data class CreateStoreRequest(
+    val name: String,
+    val address: String,
+    val phone: String,
+    val content: String,
+    val storePictureUrl: String?,
+    val productCreatedTime: Long,
+    val openedTime: Long,
+    val closedTime: Long,
+    val closedDays: String
+)
+
+data class UpdateStoreRequest(
+    val name: String,
+    val address: String,
+    val phone: String,
+    val content: String,
+    val storePictureUrl: String?,
+    val productCreatedTime: Long,
+    val openedTime: Long,
+    val closedTime: Long,
+    val closedDays: String
+)
+
+data class CreateStoreCommand(
+    val name: String,
+    val address: String,
+    val phone: String,
+    val content: String,
+    val storePictureUrl: String?,
+    val productCreatedTime: Long,
+    val openedTime: Long,
+    val closedTime: Long,
+    val closedDays: String
+)
+
+data class UpdateStoreCommand(
+    val name: String,
+    val address: String,
+    val phone: String,
+    val content: String,
+    val storePictureUrl: String?,
+    val productCreatedTime: Long,
+    val openedTime: Long,
+    val closedTime: Long,
+    val closedDays: String
+)
+
+enum class StoreSortBy { CREATED_AT, RATING }

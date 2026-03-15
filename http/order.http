@@ -1,6 +1,6 @@
 @baseUrl = http://localhost:8083
 @storeId = 1
-@cartId = 1
+@cartId = 2
 @orderId = 1
 
 # =============================================================================
@@ -38,7 +38,7 @@ Authorization: {{customerToken}}
 ###
 
 ### Remove single item from cart
-DELETE {{baseUrl}}/api/carts/{{cartId}}/products/1
+DELETE {{baseUrl}}/api/carts/{{cartId}}/products/123
 Authorization: {{customerToken}}
 
 ###
