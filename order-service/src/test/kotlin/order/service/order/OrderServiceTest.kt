@@ -201,4 +201,13 @@ class StatisticsServiceTest {
 
         assertThat(result).isEqualTo(24000)
     }
+
+    @Test
+    fun `getSpending - returns zero when no spending`() {
+        given(orderRepository.sumSpendingByUserAndMonth(customerId, 2026, 3, utc)).willReturn(0)
+
+        val result = statisticsService.getSpending(2026, 3, utc, customerId)
+
+        assertThat(result).isEqualTo(0)
+    }
 }

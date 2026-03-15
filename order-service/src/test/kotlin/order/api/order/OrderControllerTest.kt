@@ -209,6 +209,33 @@ class StatisticsControllerTest {
         )
             .andExpect(status().isConflict)
     }
+
+    @Test
+    fun `POST revenue - 400 when invalid timezone`() {
+        mockMvc.perform(
+            post("/api/stores/statistics/revenue")
+                .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId,"year":2026,"month":3,"timezone":"INVALID"}""")
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error").value("Invalid timezone: INVALID"))
+    }
+
+    @Test
+    fun `POST revenue - 200 with non-UTC timezone`() {
+        val seoul = java.time.ZoneId.of("Asia/Seoul")
+        given(statisticsService.getRevenue(storeId, 2026, 3, seoul, UserRole.OWNER)).willReturn(30000L)
+
+        mockMvc.perform(
+            post("/api/stores/statistics/revenue")
+                .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId,"year":2026,"month":3,"timezone":"Asia/Seoul"}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.totalRevenue").value(30000))
+    }
 }
 
 @WebMvcTest(UserStatisticsController::class)
@@ -248,5 +275,32 @@ class UserStatisticsControllerTest {
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.totalSpending").value(24000))
+    }
+
+    @Test
+    fun `POST spending - 400 when invalid timezone`() {
+        mockMvc.perform(
+            post("/api/users/me/statistics/spending")
+                .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"year":2026,"month":3,"timezone":"INVALID"}""")
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error").value("Invalid timezone: INVALID"))
+    }
+
+    @Test
+    fun `POST spending - 200 with non-UTC timezone`() {
+        val seoul = java.time.ZoneId.of("Asia/Seoul")
+        given(statisticsService.getSpending(2026, 3, seoul, customerId)).willReturn(15000L)
+
+        mockMvc.perform(
+            post("/api/users/me/statistics/spending")
+                .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"year":2026,"month":3,"timezone":"Asia/Seoul"}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.totalSpending").value(15000))
     }
 }
