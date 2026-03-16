@@ -39,12 +39,12 @@ class ReviewServiceTest {
         id = storeId, userId = 99L, name = "Test Store", address = "Seoul",
         phone = "02-1234-5678", content = "Good food", status = StoreStatus.ACTIVE,
         productCreatedTime = 32400000L, openedTime = 36000000L, closedTime = 79200000L,
-        closedDays = "MONDAY", createdAt = 0L, updatedAt = 0L
+        closedDays = "MONDAY",
     )
 
     private fun makeReview(userId: Long = customerId, storeId: Long = this.storeId) = Review(
         id = reviewId, storeId = storeId, userId = userId,
-        rating = 5, content = "Great food!", createdAt = 0L, updatedAt = 0L
+        rating = 5, content = "Great food!",
     )
 
     private fun makeCreateRequest() = CreateReviewRequest(storeId = storeId, rating = 5, content = "Great food!")

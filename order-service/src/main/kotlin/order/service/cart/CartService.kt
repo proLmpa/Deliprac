@@ -25,12 +25,11 @@ class CartService(
 
     @Transactional
     fun addItem(request: AddCartItemRequest, userId: Long): CartInfo {
-        val now = System.currentTimeMillis()
         val activeCart = cartRepository.findByUserIdAndIsOrderedFalse(userId)
 
         val cart: Cart = when {
-            activeCart == null                    -> createCart(userId, request.storeId, now)
-            activeCart.storeId != request.storeId -> resetCart(activeCart, request.storeId, now)
+            activeCart == null                    -> createCart(userId, request.storeId)
+            activeCart.storeId != request.storeId -> resetCart(activeCart, request.storeId)
             else                                  -> activeCart
         }
 
@@ -59,7 +58,6 @@ class CartService(
         if (cart.userId != userId) throw ForbiddenException("Forbidden")
 
         cartProductRepository.deleteByCartIdAndProductId(cartId, productId)
-        cart.updatedAt = System.currentTimeMillis()
         cartRepository.save(cart)
     }
 
@@ -69,7 +67,6 @@ class CartService(
         if (cart.userId != userId) throw ForbiddenException("Forbidden")
 
         cartProductRepository.deleteByCartId(cartId)
-        cart.updatedAt = System.currentTimeMillis()
         cartRepository.save(cart)
     }
 
@@ -82,25 +79,22 @@ class CartService(
         val items = cartProductRepository.findAllByCartId(cartId)
         if (items.isEmpty()) throw ConflictException("Cart is empty")
 
-        val now = System.currentTimeMillis()
         val order = orderRepository.save(
-            Order(0L, cartId, userId, cart.storeId, items.sumOf { it.unitPrice * it.quantity }, OrderStatus.PENDING, now, now)
+            Order(0L, cartId, userId, cart.storeId, items.sumOf { it.unitPrice * it.quantity }, OrderStatus.PENDING)
         )
 
         cart.isOrdered = true
-        cart.updatedAt = now
         cartRepository.save(cart)
 
         return order
     }
 
-    private fun createCart(userId: Long, storeId: Long, now: Long): Cart =
-        cartRepository.save(Cart(0L, userId, storeId, false, now, now))
+    private fun createCart(userId: Long, storeId: Long): Cart =
+        cartRepository.save(Cart(0L, userId, storeId, false))
 
-    private fun resetCart(cart: Cart, newStoreId: Long, now: Long): Cart {
+    private fun resetCart(cart: Cart, newStoreId: Long): Cart {
         cartProductRepository.deleteByCartId(cart.id)
-        cart.storeId   = newStoreId
-        cart.updatedAt = now
+        cart.storeId = newStoreId
         return cartRepository.save(cart)
     }
 }

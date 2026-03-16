@@ -40,13 +40,12 @@ class ProductServiceTest {
         id = storeId, userId = userId, name = "Test Store", address = "Seoul",
         phone = "02-1234-5678", content = "Good food", status = StoreStatus.ACTIVE,
         productCreatedTime = 32400000L, openedTime = 36000000L, closedTime = 79200000L,
-        closedDays = "MONDAY", createdAt = 0L, updatedAt = 0L
+        closedDays = "MONDAY",
     )
 
     private fun makeProduct(storeId: Long = this.storeId, popularity: Long = 0L) = Product(
         id = productId, storeId = storeId, name = "Burger", description = "Tasty burger",
         price = 8000L, productPictureUrl = null, popularity = popularity, status = true,
-        createdAt = 0L, updatedAt = 0L
     )
 
     private fun makeCreateRequest() = CreateProductRequest(
@@ -249,13 +248,12 @@ class ProductStatisticsServiceTest {
         id = storeId, userId = userId, name = "Test Store", address = "Seoul",
         phone = "02-1234-5678", content = "Good food", status = StoreStatus.ACTIVE,
         productCreatedTime = 32400000L, openedTime = 36000000L, closedTime = 79200000L,
-        closedDays = "MONDAY", createdAt = 0L, updatedAt = 0L
+        closedDays = "MONDAY",
     )
 
     private fun makeProduct() = Product(
         id = productId, storeId = storeId, name = "Burger", description = "Tasty burger",
         price = 8000L, productPictureUrl = null, popularity = 10L, status = true,
-        createdAt = 0L, updatedAt = 0L
     )
 
     @Test

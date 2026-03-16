@@ -41,7 +41,7 @@ class UserServiceTest {
     @Test
     fun `register - happy path saves user`() {
         val command = RegisterCommand("test@example.com", "password123", null)
-        val savedUser = User(id = 1L, email = command.email, phone = "", passwordHash = "hashed", createdAt = 0L, updatedAt = 0L)
+        val savedUser = User(id = 1L, email = command.email, phone = "", passwordHash = "hashed")
 
         given(userRepository.existsByEmail(command.email)).willReturn(false)
         given(passwordEncoder.encode(command.password)).willReturn("hashed")
@@ -65,7 +65,7 @@ class UserServiceTest {
     @Test
     fun `register - password is hashed via passwordEncoder`() {
         val command = RegisterCommand("test@example.com", "rawPassword", null)
-        val savedUser = User(id = 1L, email = command.email, phone = "", passwordHash = "hashed", createdAt = 0L, updatedAt = 0L)
+        val savedUser = User(id = 1L, email = command.email, phone = "", passwordHash = "hashed")
 
         given(userRepository.existsByEmail(command.email)).willReturn(false)
         given(passwordEncoder.encode(command.password)).willReturn("hashed")
@@ -80,7 +80,7 @@ class UserServiceTest {
     fun `login - valid credentials returns jwt token string`() {
         val command = LoginCommand("test@example.com", "password123")
         val userId = 1L
-        val user = User(id = userId, email = command.email, phone = "", passwordHash = "hashed", status = UserStatus.ACTIVE, createdAt = 0L, updatedAt = 0L)
+        val user = User(id = userId, email = command.email, phone = "", passwordHash = "hashed", status = UserStatus.ACTIVE)
 
         given(userRepository.findByEmail(command.email)).willReturn(user)
         given(passwordEncoder.matches(command.password, user.passwordHash)).willReturn(true)
@@ -104,7 +104,7 @@ class UserServiceTest {
     @Test
     fun `login - wrong password throws IllegalArgumentException`() {
         val command = LoginCommand("test@example.com", "wrongpassword")
-        val user = User(id = 1L, email = command.email, phone = "", passwordHash = "hashed", createdAt = 0L, updatedAt = 0L)
+        val user = User(id = 1L, email = command.email, phone = "", passwordHash = "hashed")
 
         given(userRepository.findByEmail(command.email)).willReturn(user)
         given(passwordEncoder.matches(command.password, user.passwordHash)).willReturn(false)
@@ -117,7 +117,7 @@ class UserServiceTest {
     @Test
     fun `login - suspended account throws ConflictException`() {
         val command = LoginCommand("test@example.com", "password123")
-        val user = User(id = 1L, email = command.email, phone = "", passwordHash = "hashed", status = UserStatus.SUSPENDED, createdAt = 0L, updatedAt = 0L)
+        val user = User(id = 1L, email = command.email, phone = "", passwordHash = "hashed", status = UserStatus.SUSPENDED)
 
         given(userRepository.findByEmail(command.email)).willReturn(user)
         given(passwordEncoder.matches(command.password, user.passwordHash)).willReturn(true)
@@ -130,7 +130,7 @@ class UserServiceTest {
     @Test
     fun `login - withdrawn account throws ConflictException`() {
         val command = LoginCommand("test@example.com", "password123")
-        val user = User(id = 1L, email = command.email, phone = "", passwordHash = "hashed", status = UserStatus.WITHDRAWN, createdAt = 0L, updatedAt = 0L)
+        val user = User(id = 1L, email = command.email, phone = "", passwordHash = "hashed", status = UserStatus.WITHDRAWN)
 
         given(userRepository.findByEmail(command.email)).willReturn(user)
         given(passwordEncoder.matches(command.password, user.passwordHash)).willReturn(true)
@@ -142,7 +142,7 @@ class UserServiceTest {
 
     @Test
     fun `suspend - admin suspends active user`() {
-        val user = User(id = 1L, email = "test@example.com", phone = "", passwordHash = "hashed", status = UserStatus.ACTIVE, createdAt = 0L, updatedAt = 0L)
+        val user = User(id = 1L, email = "test@example.com", phone = "", passwordHash = "hashed", status = UserStatus.ACTIVE)
         given(userRepository.findById(1L)).willReturn(Optional.of(user))
 
         userService.suspend(1L, UserRole.ADMIN)
@@ -168,7 +168,7 @@ class UserServiceTest {
 
     @Test
     fun `suspend - already inactive throws ConflictException`() {
-        val user = User(id = 1L, email = "test@example.com", phone = "", passwordHash = "hashed", status = UserStatus.SUSPENDED, createdAt = 0L, updatedAt = 0L)
+        val user = User(id = 1L, email = "test@example.com", phone = "", passwordHash = "hashed", status = UserStatus.SUSPENDED)
         given(userRepository.findById(1L)).willReturn(Optional.of(user))
 
         assertThatThrownBy { userService.suspend(1L, UserRole.ADMIN) }
@@ -178,7 +178,7 @@ class UserServiceTest {
 
     @Test
     fun `withdraw - active user withdraws`() {
-        val user = User(id = 1L, email = "test@example.com", phone = "", passwordHash = "hashed", status = UserStatus.ACTIVE, createdAt = 0L, updatedAt = 0L)
+        val user = User(id = 1L, email = "test@example.com", phone = "", passwordHash = "hashed", status = UserStatus.ACTIVE)
         given(userRepository.findById(1L)).willReturn(Optional.of(user))
 
         userService.withdraw(1L)
@@ -188,7 +188,7 @@ class UserServiceTest {
 
     @Test
     fun `withdraw - already inactive throws ConflictException`() {
-        val user = User(id = 1L, email = "test@example.com", phone = "", passwordHash = "hashed", status = UserStatus.WITHDRAWN, createdAt = 0L, updatedAt = 0L)
+        val user = User(id = 1L, email = "test@example.com", phone = "", passwordHash = "hashed", status = UserStatus.WITHDRAWN)
         given(userRepository.findById(1L)).willReturn(Optional.of(user))
 
         assertThatThrownBy { userService.withdraw(1L) }

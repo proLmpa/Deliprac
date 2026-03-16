@@ -56,7 +56,7 @@ class CartControllerTest {
     }
 
     private val sampleCartInfo = CartInfo(
-        cart  = Cart(id = cartId, userId = userId, storeId = 10L, isOrdered = false, createdAt = 0L, updatedAt = 0L),
+        cart  = Cart(id = cartId, userId = userId, storeId = 10L, isOrdered = false),
         items = listOf(CartProduct(id = 1L, cartId = cartId, productId = 100L, quantity = 1L, unitPrice = 8000L))
     )
 
@@ -67,8 +67,6 @@ class CartControllerTest {
         storeId    = 10L,
         totalPrice = 8000L,
         status     = OrderStatus.PENDING,
-        createdAt  = 0L,
-        updatedAt  = 0L
     )
 
     private val addRequest = AddCartItemRequest(productId = 100L, storeId = 10L, unitPrice = 8000L, quantity = 1L)

@@ -1,5 +1,6 @@
 package store.entity.store
 
+import common.entity.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -50,9 +51,4 @@ open class Store(
     @Column(name = "closed_days", nullable = false, length = 50)
     var closedDays: String,
 
-    @Column(name = "created_at", nullable = false)
-    val createdAt: Long,
-
-    @Column(name = "updated_at", nullable = false)
-    var updatedAt: Long
-)
+) : BaseEntity()

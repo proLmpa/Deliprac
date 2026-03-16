@@ -70,6 +70,8 @@ Baemin/
 │   │   ├── NotFoundException.kt      # → 404
 │   │   ├── ForbiddenException.kt     # → 403
 │   │   └── ConflictException.kt      # → 409
+│   ├── entity/
+│   │   └── BaseEntity.kt             # @MappedSuperclass — createdAt/updatedAt (JPA Auditing)
 │   └── Extensions.kt                 # Optional.orThrow(msg) → NotFoundException
 │
 ├── user-service/         # Port 8081 — auth & user management

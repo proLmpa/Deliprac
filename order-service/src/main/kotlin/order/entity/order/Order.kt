@@ -1,5 +1,6 @@
 package order.entity.order
 
+import common.entity.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -32,9 +33,4 @@ open class Order(
     @Column(nullable = false)
     var status: OrderStatus,
 
-    @Column(name = "created_at", nullable = false)
-    val createdAt: Long,
-
-    @Column(name = "updated_at", nullable = false)
-    var updatedAt: Long
-)
+) : BaseEntity()

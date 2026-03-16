@@ -47,8 +47,6 @@ class StoreServiceTest {
         openedTime         = 36000000L,
         closedTime         = 79200000L,
         closedDays         = "MONDAY",
-        createdAt          = 0L,
-        updatedAt          = 0L
     )
 
     private fun makeCreateCommand() = CreateStoreCommand(

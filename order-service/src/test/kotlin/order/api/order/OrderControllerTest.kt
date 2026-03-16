@@ -52,7 +52,7 @@ class OrderControllerTest {
     }
 
     private fun makeOrder(status: OrderStatus = OrderStatus.PENDING) =
-        Order(orderId, 0L, ownerId, storeId, 8000L, status, 0L, 0L)
+        Order(orderId, 0L, ownerId, storeId, 8000L, status)
 
     @Test
     fun `POST store orders list - 200 with list`() {
@@ -152,7 +152,7 @@ class UserOrderControllerTest {
     @Test
     fun `POST my orders - 200 with list`() {
         given(orderService.listByUser(customerId))
-            .willReturn(listOf(Order(200L, 0L, customerId, 10L, 8000L, OrderStatus.PENDING, 0L, 0L)))
+            .willReturn(listOf(Order(200L, 0L, customerId, 10L, 8000L, OrderStatus.PENDING)))
 
         mockMvc.perform(
             post("/api/users/me/orders")

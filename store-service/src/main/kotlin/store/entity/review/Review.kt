@@ -1,5 +1,6 @@
 package store.entity.review
 
+import common.entity.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue
@@ -26,9 +27,4 @@ open class Review(
     @Column(nullable = false, columnDefinition = "TEXT")
     var content: String,
 
-    @Column(name = "created_at", nullable = false)
-    val createdAt: Long,
-
-    @Column(name = "updated_at", nullable = false)
-    var updatedAt: Long
-)
+) : BaseEntity()

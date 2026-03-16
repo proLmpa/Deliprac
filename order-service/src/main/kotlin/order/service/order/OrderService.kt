@@ -34,8 +34,7 @@ class OrderService(
         if (order.storeId != storeId) throw NotFoundException("Order not found in this store")
         if (order.status != OrderStatus.PENDING) throw ConflictException("Order cannot be marked as sold")
 
-        order.status    = OrderStatus.SOLD
-        order.updatedAt = System.currentTimeMillis()
+        order.status = OrderStatus.SOLD
 
         return orderRepository.save(order)
     }
@@ -48,8 +47,7 @@ class OrderService(
         if (order.storeId != storeId) throw NotFoundException("Order not found in this store")
         if (order.status != OrderStatus.PENDING) throw ConflictException("Order cannot be canceled")
 
-        order.status    = OrderStatus.CANCELED
-        order.updatedAt = System.currentTimeMillis()
+        order.status = OrderStatus.CANCELED
 
         return orderRepository.save(order)
     }

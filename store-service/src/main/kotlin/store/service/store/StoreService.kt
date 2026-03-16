@@ -31,7 +31,6 @@ class StoreService(
             throw ConflictException("Store with that name already exists")
         }
 
-        val now = System.currentTimeMillis()
         val store = Store(
             id                 = 0L,
             userId             = principal.id,
@@ -45,8 +44,6 @@ class StoreService(
             openedTime         = command.openedTime,
             closedTime         = command.closedTime,
             closedDays         = command.closedDays,
-            createdAt          = now,
-            updatedAt          = now
         )
 
         return StoreInfo.of(storeRepository.save(store), 0.0)
@@ -103,7 +100,6 @@ class StoreService(
         store.openedTime         = command.openedTime
         store.closedTime         = command.closedTime
         store.closedDays         = command.closedDays
-        store.updatedAt          = System.currentTimeMillis()
 
         val rating = reviewRepository.calculateAverageRatingByStoreId(id)
         return StoreInfo.of(storeRepository.save(store), rating)
@@ -116,8 +112,7 @@ class StoreService(
             throw ForbiddenException("Forbidden")
         }
 
-        store.status    = StoreStatus.INACTIVE
-        store.updatedAt = System.currentTimeMillis()
+        store.status = StoreStatus.INACTIVE
 
         storeRepository.save(store)
     }

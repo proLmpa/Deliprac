@@ -36,7 +36,7 @@ class OrderServiceTest {
     private val productId  = 100L
 
     private fun makeOrder(status: OrderStatus = OrderStatus.PENDING, storeId: Long = this.storeId) =
-        Order(orderId, cartId, customerId, storeId, 8000, status, 0L, 0L)
+        Order(orderId, cartId, customerId, storeId, 8000, status)
 
     private fun makeCartProduct() =
         CartProduct(1L, cartId, productId, 2, 8000)

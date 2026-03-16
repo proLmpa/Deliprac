@@ -38,7 +38,7 @@ class CartServiceTest {
     private val unitPrice = 8000L
 
     private fun makeCart(storeId: Long = this.storeId) =
-        Cart(id = cartId, userId = userId, storeId = storeId, isOrdered = false, createdAt = 0L, updatedAt = 0L)
+        Cart(id = cartId, userId = userId, storeId = storeId, isOrdered = false)
 
     private fun makeCartProduct() =
         CartProduct(id = 1L, cartId = cartId, productId = productId, quantity = 1L, unitPrice = unitPrice)
@@ -174,7 +174,7 @@ class CartServiceTest {
     fun `checkout - happy path creates order and marks cart as ordered`() {
         val cart = makeCart()
         val items = listOf(makeCartProduct())
-        val order = Order(1L, cartId, userId, storeId, 8000, OrderStatus.PENDING, 0L, 0L)
+        val order = Order(1L, cartId, userId, storeId, 8000, OrderStatus.PENDING)
         given(cartRepository.findById(cartId)).willReturn(Optional.of(cart))
         given(cartProductRepository.findAllByCartId(cartId)).willReturn(items)
         given(orderRepository.save(any(Order::class.java))).willReturn(order)
@@ -189,7 +189,7 @@ class CartServiceTest {
 
     @Test
     fun `checkout - already checked out throws IllegalStateException`() {
-        val orderedCart = Cart(cartId, userId, storeId, isOrdered = true, 0L, 0L)
+        val orderedCart = Cart(cartId, userId, storeId, isOrdered = true)
         given(cartRepository.findById(cartId)).willReturn(Optional.of(orderedCart))
 
         assertThatThrownBy { cartService.checkout(cartId, userId) }

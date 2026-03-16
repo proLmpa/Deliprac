@@ -34,15 +34,12 @@ class UserService(
         val role = runCatching { UserRole.valueOf(command.role) }
             .getOrElse { throw IllegalArgumentException("Invalid role: ${command.role}") }
 
-        val now = System.currentTimeMillis()
         val user = User(
             id = 0L,
             email = command.email,
             passwordHash = passwordEncoder.encode(command.password),
             phone = command.phone ?: "",
             role = role,
-            createdAt = now,
-            updatedAt = now
         )
 
         userRepository.save(user)
@@ -71,7 +68,6 @@ class UserService(
         if (user.status != UserStatus.ACTIVE) throw ConflictException("User is not active")
 
         user.status = UserStatus.SUSPENDED
-        user.updatedAt = System.currentTimeMillis()
     }
 
     @Transactional
@@ -80,6 +76,5 @@ class UserService(
         if (user.status != UserStatus.ACTIVE) throw ConflictException("User is not active")
 
         user.status = UserStatus.WITHDRAWN
-        user.updatedAt = System.currentTimeMillis()
     }
 }

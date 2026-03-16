@@ -1,5 +1,6 @@
 package user.entity
 
+import common.entity.BaseEntity
 import common.security.UserRole
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -33,10 +34,5 @@ open class User(
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     var status: UserStatus = UserStatus.ACTIVE,
-
-    @Column(name = "created_at", nullable = false)
-    var createdAt: Long,
-
-    @Column(name = "updated_at", nullable = false)
-    var updatedAt: Long
-)
+    
+) : BaseEntity()

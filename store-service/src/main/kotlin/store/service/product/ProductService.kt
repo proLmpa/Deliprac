@@ -28,7 +28,6 @@ class ProductService(
         val store = storeRepository.findById(storeId).orThrow("Store not found")
         if (store.userId != principal.id) throw ForbiddenException("Forbidden")
 
-        val now = System.currentTimeMillis()
         val product = Product(
             id                = 0L,
             storeId           = storeId,
@@ -38,8 +37,6 @@ class ProductService(
             productPictureUrl = request.productPictureUrl,
             popularity        = 0L,
             status            = true,
-            createdAt         = now,
-            updatedAt         = now
         )
 
         return ProductInfo.of(productRepository.save(product))
@@ -69,7 +66,6 @@ class ProductService(
         product.description       = request.description
         product.price             = request.price
         product.productPictureUrl = request.productPictureUrl
-        product.updatedAt         = System.currentTimeMillis()
 
         return ProductInfo.of(productRepository.save(product))
     }
@@ -82,8 +78,7 @@ class ProductService(
         val product = productRepository.findById(productId).orThrow("Product not found")
         if (product.storeId != storeId) throw NotFoundException("Product not found in this store")
 
-        product.status    = false
-        product.updatedAt = System.currentTimeMillis()
+        product.status = false
 
         productRepository.save(product)
     }
@@ -103,7 +98,6 @@ class ProductService(
         if (product.storeId != storeId) throw NotFoundException("Product not found in this store")
 
         product.popularity += delta
-        product.updatedAt  = System.currentTimeMillis()
 
         productRepository.save(product)
     }

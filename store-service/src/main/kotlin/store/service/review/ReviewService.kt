@@ -27,15 +27,12 @@ class ReviewService(
 
         storeRepository.findById(storeId).orThrow("Store not found")
 
-        val now = System.currentTimeMillis()
         val review = Review(
-            id        = 0L,
-            storeId   = storeId,
-            userId    = principal.id,
-            rating    = request.rating,
-            content   = request.content,
-            createdAt = now,
-            updatedAt = now
+            id      = 0L,
+            storeId = storeId,
+            userId  = principal.id,
+            rating  = request.rating,
+            content = request.content,
         )
 
         return ReviewInfo.of(reviewRepository.save(review))
