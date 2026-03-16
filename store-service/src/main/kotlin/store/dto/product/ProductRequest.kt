@@ -17,4 +17,3 @@ data class UpdateProductRequest(
 data class ListProductRequest(val storeId: Long)
 data class FindProductRequest(val storeId: Long, val productId: Long)
 data class PopularProductRequest(val storeId: Long)
-data class FindInternalProductRequest(val productId: Long)

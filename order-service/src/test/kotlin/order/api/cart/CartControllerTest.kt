@@ -69,7 +69,7 @@ class CartControllerTest {
         updatedAt  = 0L
     )
 
-    private val addRequest = AddCartItemRequest(productId = 100L, quantity = 1L)
+    private val addRequest = AddCartItemRequest(productId = 100L, storeId = 10L, unitPrice = 8000L, quantity = 1L)
 
     @Test
     fun `POST carts - 200 with cart response`() {
@@ -88,9 +88,9 @@ class CartControllerTest {
     }
 
     @Test
-    fun `POST carts - 400 when product not available`() {
+    fun `POST carts - 400 when cart not found on add`() {
         given(cartService.addItem(addRequest, userId))
-            .willThrow(IllegalArgumentException("Product is not available"))
+            .willThrow(IllegalArgumentException("Cart not found"))
 
         mockMvc.perform(
             post("/api/carts")
@@ -99,7 +99,7 @@ class CartControllerTest {
                 .content(objectMapper.writeValueAsString(addRequest))
         )
             .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("Product is not available"))
+            .andExpect(jsonPath("$.error").value("Cart not found"))
     }
 
     @Test

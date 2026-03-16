@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
@@ -55,5 +56,15 @@ class ProductController(private val productService: ProductService) {
         @PathVariable productId: Long
     ) {
         productService.deactivate(storeId, productId, currentUser().id)
+    }
+
+    @PutMapping("/api/stores/{storeId}/products/{productId}/popularity")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun incrementPopularity(
+        @PathVariable storeId: Long,
+        @PathVariable productId: Long,
+        @RequestParam delta: Long
+    ) {
+        productService.incrementPopularity(productId, delta)
     }
 }

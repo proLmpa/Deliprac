@@ -1,6 +1,5 @@
 package order.service.order
 
-import order.client.StoreServiceClient
 import common.orThrow
 import common.security.UserRole
 import order.entity.order.Order
@@ -13,8 +12,7 @@ import org.springframework.stereotype.Service
 @Service
 class OrderService(
     private val orderRepository: OrderRepository,
-    private val cartProductRepository: CartProductRepository,
-    private val storeServiceClient: StoreServiceClient
+    private val cartProductRepository: CartProductRepository
 ) {
 
     @Transactional(readOnly = true)
@@ -35,12 +33,8 @@ class OrderService(
 
         order.status    = OrderStatus.SOLD
         order.updatedAt = System.currentTimeMillis()
-        val saved = orderRepository.save(order)
 
-        cartProductRepository.findAllByCartId(order.cartId)
-            .forEach { storeServiceClient.incrementPopularity(it.productId, it.quantity) }
-
-        return saved
+        return orderRepository.save(order)
     }
 
     @Transactional

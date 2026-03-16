@@ -72,7 +72,7 @@ enum class UserRole { CUSTOMER, OWNER, ADMIN }
 
 **`UserPrincipal`** (`common/src/main/kotlin/common/security/UserPrincipal.kt`)
 ```kotlin
-data class UserPrincipal(val id: Long, val email: String, val role: UserRole)
+data class UserPrincipal(val id: Long, val role: UserRole)
 ```
 
 **`GlobalExceptionHandler`** (`common/src/main/kotlin/common/exception/GlobalExceptionHandler.kt`)

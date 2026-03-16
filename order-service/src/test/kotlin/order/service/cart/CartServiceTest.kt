@@ -1,7 +1,5 @@
 package order.service.cart
 
-import order.client.RemoteProductInfo
-import order.client.StoreServiceClient
 import order.dto.cart.AddCartItemRequest
 import order.entity.cart.Cart
 import order.entity.cart.CartProduct
@@ -28,31 +26,28 @@ class CartServiceTest {
     @Mock private lateinit var cartRepository: CartRepository
     @Mock private lateinit var cartProductRepository: CartProductRepository
     @Mock private lateinit var orderRepository: OrderRepository
-    @Mock private lateinit var storeServiceClient: StoreServiceClient
     @InjectMocks private lateinit var cartService: CartService
 
     private val userId    = 1L
     private val storeId   = 10L
     private val cartId    = 50L
     private val productId = 100L
-
-    private val activeProduct = RemoteProductInfo(storeId = storeId, price = 8000L, status = true)
-    private val inactiveProduct = RemoteProductInfo(storeId = storeId, price = 8000L, status = false)
+    private val unitPrice = 8000L
 
     private fun makeCart(isOrdered: Boolean = false, storeId: Long = this.storeId) =
         Cart(id = cartId, userId = userId, storeId = storeId, isOrdered = isOrdered, createdAt = 0L, updatedAt = 0L)
 
     private fun makeCartProduct() =
-        CartProduct(id = 1L, cartId = cartId, productId = productId, quantity = 1L, unitPrice = 8000L)
+        CartProduct(id = 1L, cartId = cartId, productId = productId, quantity = 1L, unitPrice = unitPrice)
 
-    private fun makeRequest(qty: Long = 1L) = AddCartItemRequest(productId = productId, quantity = qty)
+    private fun makeRequest(qty: Long = 1L, storeId: Long = this.storeId) =
+        AddCartItemRequest(productId = productId, storeId = storeId, unitPrice = unitPrice, quantity = qty)
 
     // --- addItem ---
 
     @Test
     fun `addItem - creates new cart and adds item when no cart exists`() {
         val newCart = makeCart()
-        given(storeServiceClient.getProduct(productId)).willReturn(activeProduct)
         given(cartRepository.findByUserId(userId)).willReturn(null)
         given(cartRepository.save(any(Cart::class.java))).willReturn(newCart)
         given(cartProductRepository.findByCartIdAndProductId(cartId, productId)).willReturn(null)
@@ -68,7 +63,6 @@ class CartServiceTest {
     @Test
     fun `addItem - adds to existing cart with same store`() {
         val existingCart = makeCart()
-        given(storeServiceClient.getProduct(productId)).willReturn(activeProduct)
         given(cartRepository.findByUserId(userId)).willReturn(existingCart)
         given(cartProductRepository.findByCartIdAndProductId(cartId, productId)).willReturn(null)
         given(cartProductRepository.save(any(CartProduct::class.java))).willReturn(makeCartProduct())
@@ -83,7 +77,6 @@ class CartServiceTest {
     fun `addItem - replaces cart when product is from a different store`() {
         val existingCart = makeCart(storeId = 999L)
         val resetCart = makeCart()
-        given(storeServiceClient.getProduct(productId)).willReturn(activeProduct)
         given(cartRepository.findByUserId(userId)).willReturn(existingCart)
         given(cartRepository.save(any(Cart::class.java))).willReturn(resetCart)
         given(cartProductRepository.findByCartIdAndProductId(cartId, productId)).willReturn(null)
@@ -99,7 +92,6 @@ class CartServiceTest {
     fun `addItem - resets checked-out cart when adding new items`() {
         val orderedCart = makeCart(isOrdered = true)
         val resetCart = makeCart()
-        given(storeServiceClient.getProduct(productId)).willReturn(activeProduct)
         given(cartRepository.findByUserId(userId)).willReturn(orderedCart)
         given(cartRepository.save(any(Cart::class.java))).willReturn(resetCart)
         given(cartProductRepository.findByCartIdAndProductId(cartId, productId)).willReturn(null)
@@ -115,7 +107,6 @@ class CartServiceTest {
     fun `addItem - increments quantity when item already in cart`() {
         val existingItem = makeCartProduct()
         val existingCart = makeCart()
-        given(storeServiceClient.getProduct(productId)).willReturn(activeProduct)
         given(cartRepository.findByUserId(userId)).willReturn(existingCart)
         given(cartProductRepository.findByCartIdAndProductId(cartId, productId)).willReturn(existingItem)
         given(cartProductRepository.save(any(CartProduct::class.java))).willReturn(existingItem)
@@ -124,15 +115,6 @@ class CartServiceTest {
         cartService.addItem(makeRequest(qty = 2L), userId)
 
         assertThat(existingItem.quantity).isEqualTo(3L)
-    }
-
-    @Test
-    fun `addItem - product not available throws IllegalArgumentException`() {
-        given(storeServiceClient.getProduct(productId)).willReturn(inactiveProduct)
-
-        assertThatThrownBy { cartService.addItem(makeRequest(), userId) }
-            .isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessage("Product is not available")
     }
 
     // --- getMyCart ---

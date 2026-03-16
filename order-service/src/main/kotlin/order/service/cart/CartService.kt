@@ -1,6 +1,5 @@
 package order.service.cart
 
-import order.client.StoreServiceClient
 import common.orThrow
 import order.dto.cart.AddCartItemRequest
 import order.dto.cart.CartInfo
@@ -18,33 +17,29 @@ import org.springframework.transaction.annotation.Transactional
 class CartService(
     private val cartRepository: CartRepository,
     private val cartProductRepository: CartProductRepository,
-    private val orderRepository: OrderRepository,
-    private val storeServiceClient: StoreServiceClient
+    private val orderRepository: OrderRepository
 ) {
 
     @Transactional
     fun addItem(request: AddCartItemRequest, userId: Long): CartInfo {
-        val product = storeServiceClient.getProduct(request.productId)
-        if (!product.status) throw IllegalArgumentException("Product is not available")
-
         val now = System.currentTimeMillis()
         val existingCart = cartRepository.findByUserId(userId)
 
         val cart: Cart = when {
             existingCart == null -> {
-                cartRepository.save(Cart(0L, userId, product.storeId, false, now, now))
+                cartRepository.save(Cart(0L, userId, request.storeId, false, now, now))
             }
             existingCart.isOrdered -> {
                 // Already checked out — the old cartId is permanently bound to an existing order.
                 // Reusing it would violate orders_cart_id_key, so delete and create a fresh cart.
                 cartProductRepository.deleteByCartId(existingCart.id)
                 cartRepository.delete(existingCart)
-                cartRepository.save(Cart(0L, userId, product.storeId, false, now, now))
+                cartRepository.save(Cart(0L, userId, request.storeId, false, now, now))
             }
-            existingCart.storeId != product.storeId -> {
+            existingCart.storeId != request.storeId -> {
                 // Different store — clear items and reset in-place (no existing order, cartId is safe to reuse)
                 cartProductRepository.deleteByCartId(existingCart.id)
-                existingCart.storeId   = product.storeId
+                existingCart.storeId   = request.storeId
                 existingCart.updatedAt = now
                 cartRepository.save(existingCart)
             }
@@ -56,7 +51,7 @@ class CartService(
             existing.quantity += request.quantity
             cartProductRepository.save(existing)
         } else {
-            cartProductRepository.save(CartProduct(0L, cart.id, request.productId, request.quantity, product.price))
+            cartProductRepository.save(CartProduct(0L, cart.id, request.productId, request.quantity, request.unitPrice))
         }
 
         return CartInfo(cart, cartProductRepository.findAllByCartId(cart.id))

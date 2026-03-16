@@ -1,6 +1,5 @@
 package order.service.order
 
-import order.client.StoreServiceClient
 import common.security.UserRole
 import order.entity.cart.CartProduct
 import order.entity.order.Order
@@ -14,7 +13,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.ArgumentMatchers.any
 import org.mockito.BDDMockito.given
-import org.mockito.BDDMockito.then
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
@@ -25,7 +23,6 @@ class OrderServiceTest {
 
     @Mock private lateinit var orderRepository: OrderRepository
     @Mock private lateinit var cartProductRepository: CartProductRepository
-    @Mock private lateinit var storeServiceClient: StoreServiceClient
     @InjectMocks private lateinit var orderService: OrderService
 
     private val ownerId    = 1L
@@ -62,17 +59,15 @@ class OrderServiceTest {
     // --- markSold ---
 
     @Test
-    fun `markSold - happy path sets status SOLD and increments popularity`() {
+    fun `markSold - happy path sets status SOLD`() {
         val order = makeOrder()
         given(orderRepository.findById(orderId)).willReturn(Optional.of(order))
         given(orderRepository.save(any(Order::class.java))).willReturn(order)
-        given(cartProductRepository.findAllByCartId(cartId)).willReturn(listOf(makeCartProduct()))
 
         val result = orderService.markSold(storeId, orderId, UserRole.OWNER)
 
         assertThat(result.status).isEqualTo(OrderStatus.SOLD)
         assertThat(order.status).isEqualTo(OrderStatus.SOLD)
-        then(storeServiceClient).should().incrementPopularity(productId, 2)
     }
 
     @Test

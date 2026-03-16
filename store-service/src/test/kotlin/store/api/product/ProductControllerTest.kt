@@ -184,6 +184,30 @@ class ProductControllerTest {
         )
             .andExpect(status().isNoContent)
     }
+
+    @Test
+    fun `PUT products popularity - 204 no content`() {
+        mockMvc.perform(
+            put("/api/stores/{storeId}/products/{productId}/popularity", storeId, productId)
+                .header("Authorization", bearerToken())
+                .param("delta", "2")
+        )
+            .andExpect(status().isNoContent)
+    }
+
+    @Test
+    fun `PUT products popularity - 400 when product not found`() {
+        given(productService.incrementPopularity(productId, 2L))
+            .willThrow(IllegalArgumentException("Product not found"))
+
+        mockMvc.perform(
+            put("/api/stores/{storeId}/products/{productId}/popularity", storeId, productId)
+                .header("Authorization", bearerToken())
+                .param("delta", "2")
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error").value("Product not found"))
+    }
 }
 
 @WebMvcTest(StoreStatisticsController::class)
