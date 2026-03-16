@@ -2,6 +2,8 @@ package store.service.review
 
 import common.security.UserPrincipal
 import common.security.UserRole
+import common.exception.ForbiddenException
+import common.exception.NotFoundException
 import store.dto.review.CreateReviewRequest
 import store.entity.review.Review
 import store.entity.store.Store
@@ -65,7 +67,7 @@ class ReviewServiceTest {
     @Test
     fun `create - non-CUSTOMER role throws IllegalStateException`() {
         assertThatThrownBy { reviewService.create(storeId, makeCreateRequest(), ownerPrincipal) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Only CUSTOMER can create reviews")
     }
 
@@ -83,7 +85,7 @@ class ReviewServiceTest {
         given(storeRepository.findById(storeId)).willReturn(Optional.empty())
 
         assertThatThrownBy { reviewService.create(storeId, makeCreateRequest(), customerPrincipal) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("Store not found")
     }
 
@@ -115,7 +117,7 @@ class ReviewServiceTest {
         given(reviewRepository.findById(reviewId)).willReturn(Optional.empty())
 
         assertThatThrownBy { reviewService.delete(storeId, reviewId, customerPrincipal) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("Review not found")
     }
 
@@ -124,7 +126,7 @@ class ReviewServiceTest {
         given(reviewRepository.findById(reviewId)).willReturn(Optional.of(makeReview(storeId = 999L)))
 
         assertThatThrownBy { reviewService.delete(storeId, reviewId, customerPrincipal) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("Review not found in this store")
     }
 
@@ -133,7 +135,7 @@ class ReviewServiceTest {
         given(reviewRepository.findById(reviewId)).willReturn(Optional.of(makeReview(userId = 999L)))
 
         assertThatThrownBy { reviewService.delete(storeId, reviewId, customerPrincipal) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Forbidden")
     }
 

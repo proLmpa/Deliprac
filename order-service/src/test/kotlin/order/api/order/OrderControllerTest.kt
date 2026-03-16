@@ -1,6 +1,8 @@
 package order.api.order
 
 import common.security.UserRole
+import common.exception.ConflictException
+import common.exception.ForbiddenException
 import order.config.SecurityConfig
 import order.entity.order.Order
 import order.entity.order.OrderStatus
@@ -70,7 +72,7 @@ class OrderControllerTest {
     @Test
     fun `POST store orders list - 409 when non-OWNER`() {
         given(orderService.listByStore(storeId, UserRole.OWNER))
-            .willThrow(IllegalStateException("Only OWNER can view store orders"))
+            .willThrow(ForbiddenException("Only OWNER can view store orders"))
 
         mockMvc.perform(
             post("/api/stores/orders/list")
@@ -78,7 +80,7 @@ class OrderControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"storeId":$storeId}""")
         )
-            .andExpect(status().isConflict)
+            .andExpect(status().isForbidden)
     }
 
     @Test
@@ -98,7 +100,7 @@ class OrderControllerTest {
     @Test
     fun `PUT mark sold - 409 when non-PENDING`() {
         given(orderService.markSold(storeId, orderId, UserRole.OWNER))
-            .willThrow(IllegalStateException("Order cannot be marked as sold"))
+            .willThrow(ConflictException("Order cannot be marked as sold"))
 
         mockMvc.perform(
             put("/api/stores/orders/sold")
@@ -205,7 +207,7 @@ class StatisticsControllerTest {
     @Test
     fun `POST revenue - 409 when non-OWNER`() {
         given(statisticsService.getRevenue(storeId, 2026, 3, utc, UserRole.OWNER))
-            .willThrow(IllegalStateException("Only OWNER can view revenue statistics"))
+            .willThrow(ForbiddenException("Only OWNER can view revenue statistics"))
 
         mockMvc.perform(
             post("/api/stores/statistics/revenue")
@@ -213,7 +215,7 @@ class StatisticsControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"storeId":$storeId,"year":2026,"month":3}""")
         )
-            .andExpect(status().isConflict)
+            .andExpect(status().isForbidden)
     }
 
     @Test
@@ -225,7 +227,7 @@ class StatisticsControllerTest {
                 .content("""{"storeId":$storeId,"year":2026,"month":3,"timezone":"INVALID"}""")
         )
             .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("Invalid timezone: INVALID"))
+            .andExpect(jsonPath("$.detail").value("Invalid timezone: INVALID"))
     }
 
     @Test
@@ -292,7 +294,7 @@ class UserStatisticsControllerTest {
                 .content("""{"year":2026,"month":3,"timezone":"INVALID"}""")
         )
             .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("Invalid timezone: INVALID"))
+            .andExpect(jsonPath("$.detail").value("Invalid timezone: INVALID"))
     }
 
     @Test

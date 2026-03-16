@@ -1,5 +1,6 @@
 package order.service.order
 
+import common.exception.ForbiddenException
 import common.security.UserRole
 import order.repository.order.OrderRepository
 import org.springframework.transaction.annotation.Transactional
@@ -11,7 +12,7 @@ class StatisticsService(private val orderRepository: OrderRepository) {
 
     @Transactional(readOnly = true)
     fun getRevenue(storeId: Long, year: Int, month: Int, zoneId: ZoneId, role: UserRole): Long {
-        if (role != UserRole.OWNER) throw IllegalStateException("Only OWNER can view revenue statistics")
+        if (role != UserRole.OWNER) throw ForbiddenException("Only OWNER can view revenue statistics")
 
         return orderRepository.sumRevenueByStoreAndMonth(storeId, year, month, zoneId)
     }

@@ -1,5 +1,8 @@
 package order.service.cart
 
+import common.exception.ConflictException
+import common.exception.ForbiddenException
+import common.exception.NotFoundException
 import common.orThrow
 import order.dto.cart.AddCartItemRequest
 import order.dto.cart.CartInfo
@@ -45,7 +48,7 @@ class CartService(
     @Transactional(readOnly = true)
     fun getMyCart(userId: Long): CartInfo {
         val cart = cartRepository.findByUserIdAndIsOrderedFalse(userId)
-            ?: throw IllegalArgumentException("Cart not found")
+            ?: throw NotFoundException("Cart not found")
 
         return CartInfo(cart, cartProductRepository.findAllByCartId(cart.id))
     }
@@ -53,7 +56,7 @@ class CartService(
     @Transactional
     fun removeItem(cartId: Long, productId: Long, userId: Long) {
         val cart = cartRepository.findById(cartId).orThrow("Cart not found")
-        if (cart.userId != userId) throw IllegalStateException("Forbidden")
+        if (cart.userId != userId) throw ForbiddenException("Forbidden")
 
         cartProductRepository.deleteByCartIdAndProductId(cartId, productId)
         cart.updatedAt = System.currentTimeMillis()
@@ -63,7 +66,7 @@ class CartService(
     @Transactional
     fun clearCart(cartId: Long, userId: Long) {
         val cart = cartRepository.findById(cartId).orThrow("Cart not found")
-        if (cart.userId != userId) throw IllegalStateException("Forbidden")
+        if (cart.userId != userId) throw ForbiddenException("Forbidden")
 
         cartProductRepository.deleteByCartId(cartId)
         cart.updatedAt = System.currentTimeMillis()
@@ -73,11 +76,11 @@ class CartService(
     @Transactional
     fun checkout(cartId: Long, userId: Long): Order {
         val cart = cartRepository.findById(cartId).orThrow("Cart not found")
-        if (cart.userId != userId) throw IllegalStateException("Forbidden")
-        if (cart.isOrdered or orderRepository.existsByCartId(cartId)) throw IllegalStateException("Cart already checked out")
+        if (cart.userId != userId) throw ForbiddenException("Forbidden")
+        if (cart.isOrdered or orderRepository.existsByCartId(cartId)) throw ConflictException("Cart already checked out")
 
         val items = cartProductRepository.findAllByCartId(cartId)
-        if (items.isEmpty()) throw IllegalArgumentException("Cart is empty")
+        if (items.isEmpty()) throw ConflictException("Cart is empty")
 
         val now = System.currentTimeMillis()
         val order = orderRepository.save(

@@ -1,6 +1,9 @@
 package user.api
 
 import common.security.UserRole
+import common.exception.ConflictException
+import common.exception.ForbiddenException
+import common.exception.NotFoundException
 import user.config.SecurityConfig
 import user.dto.LoginCommand
 import user.dto.LoginUserRequest
@@ -67,7 +70,7 @@ class UserControllerTest {
     fun `POST signup - duplicate email returns 409 with error`() {
         val request = RegisterUserRequest("existing@example.com", "password123", null)
         given(userService.register(RegisterCommand(request.email, request.password, request.phone, request.role)))
-            .willThrow(IllegalStateException("Email already exists"))
+            .willThrow(ConflictException("Email already exists"))
 
         mockMvc.perform(
             post("/api/users/signup")
@@ -75,7 +78,7 @@ class UserControllerTest {
                 .content(objectMapper.writeValueAsString(request))
         )
             .andExpect(status().isConflict)
-            .andExpect(jsonPath("$.error").value("Email already exists"))
+            .andExpect(jsonPath("$.detail").value("Email already exists"))
     }
 
     @Test
@@ -105,14 +108,14 @@ class UserControllerTest {
                 .content(objectMapper.writeValueAsString(request))
         )
             .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("Invalid email or password"))
+            .andExpect(jsonPath("$.detail").value("Invalid email or password"))
     }
 
     @Test
     fun `POST signin - inactive account returns 409 with error`() {
         val request = LoginUserRequest("test@example.com", "password123")
         given(userService.login(LoginCommand(request.email, request.password)))
-            .willThrow(IllegalStateException("Account is not active"))
+            .willThrow(ConflictException("Account is not active"))
 
         mockMvc.perform(
             post("/api/users/signin")
@@ -120,7 +123,7 @@ class UserControllerTest {
                 .content(objectMapper.writeValueAsString(request))
         )
             .andExpect(status().isConflict)
-            .andExpect(jsonPath("$.error").value("Account is not active"))
+            .andExpect(jsonPath("$.detail").value("Account is not active"))
     }
 
     @Test
@@ -139,7 +142,7 @@ class UserControllerTest {
     @Test
     fun `PUT suspend - non-admin returns 409`() {
         val token = buildToken(1L, "test@example.com", UserRole.CUSTOMER)
-        willThrow(IllegalStateException("Forbidden")).given(userService).suspend(1L, UserRole.CUSTOMER)
+        willThrow(ForbiddenException("Forbidden")).given(userService).suspend(1L, UserRole.CUSTOMER)
 
         mockMvc.perform(
             put("/api/users/suspend")
@@ -147,14 +150,14 @@ class UserControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"id":1}""")
         )
-            .andExpect(status().isConflict)
-            .andExpect(jsonPath("$.error").value("Forbidden"))
+            .andExpect(status().isForbidden)
+            .andExpect(jsonPath("$.detail").value("Forbidden"))
     }
 
     @Test
     fun `PUT suspend - user not found returns 400`() {
         val token = buildToken(99L, "admin@example.com", UserRole.ADMIN)
-        willThrow(IllegalArgumentException("User not found")).given(userService).suspend(1L, UserRole.ADMIN)
+        willThrow(NotFoundException("User not found")).given(userService).suspend(1L, UserRole.ADMIN)
 
         mockMvc.perform(
             put("/api/users/suspend")
@@ -162,8 +165,8 @@ class UserControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"id":1}""")
         )
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("User not found"))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.detail").value("User not found"))
     }
 
     @Test
@@ -180,13 +183,13 @@ class UserControllerTest {
     @Test
     fun `PUT withdraw - already inactive returns 409`() {
         val token = buildToken(1L, "test@example.com", UserRole.CUSTOMER)
-        willThrow(IllegalStateException("User is not active")).given(userService).withdraw(1L)
+        willThrow(ConflictException("User is not active")).given(userService).withdraw(1L)
 
         mockMvc.perform(
             put("/api/users/me/withdraw")
                 .header("Authorization", "Bearer $token")
         )
             .andExpect(status().isConflict)
-            .andExpect(jsonPath("$.error").value("User is not active"))
+            .andExpect(jsonPath("$.detail").value("User is not active"))
     }
 }

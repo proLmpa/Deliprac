@@ -1,5 +1,7 @@
 package user.service
 
+import common.exception.ConflictException
+import common.exception.ForbiddenException
 import common.orThrow
 import common.security.UserRole
 import user.dto.LoginCommand
@@ -26,7 +28,7 @@ class UserService(
         if (!emailRegex.matches(command.email)) throw IllegalArgumentException("Invalid email format")
 
         if (userRepository.existsByEmail(command.email)) {
-            throw IllegalStateException("Email already exists")
+            throw ConflictException("Email already exists")
         }
 
         val role = runCatching { UserRole.valueOf(command.role) }
@@ -55,7 +57,7 @@ class UserService(
         }
 
         if (user.status != UserStatus.ACTIVE) {
-            throw IllegalStateException("Account is not active")
+            throw ConflictException("Account is not active")
         }
 
         return jwtProvider.generateToken(user.id, user.email, user.role.name)
@@ -63,10 +65,10 @@ class UserService(
 
     @Transactional
     fun suspend(targetUserId: Long, role: UserRole) {
-        if (role != UserRole.ADMIN) throw IllegalStateException("Forbidden")
+        if (role != UserRole.ADMIN) throw ForbiddenException("Forbidden")
 
         val user = userRepository.findById(targetUserId).orThrow("User not found")
-        if (user.status != UserStatus.ACTIVE) throw IllegalStateException("User is not active")
+        if (user.status != UserStatus.ACTIVE) throw ConflictException("User is not active")
 
         user.status = UserStatus.SUSPENDED
         user.updatedAt = System.currentTimeMillis()
@@ -75,7 +77,7 @@ class UserService(
     @Transactional
     fun withdraw(userId: Long) {
         val user = userRepository.findById(userId).orThrow("User not found")
-        if (user.status != UserStatus.ACTIVE) throw IllegalStateException("User is not active")
+        if (user.status != UserStatus.ACTIVE) throw ConflictException("User is not active")
 
         user.status = UserStatus.WITHDRAWN
         user.updatedAt = System.currentTimeMillis()

@@ -8,6 +8,8 @@ import order.entity.cart.CartProduct
 import order.entity.order.Order
 import order.entity.order.OrderStatus
 import common.security.UserRole
+import common.exception.ConflictException
+import common.exception.NotFoundException
 import order.service.cart.CartService
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
@@ -90,7 +92,7 @@ class CartControllerTest {
     @Test
     fun `POST carts - 400 when cart not found on add`() {
         given(cartService.addItem(addRequest, userId))
-            .willThrow(IllegalArgumentException("Cart not found"))
+            .willThrow(NotFoundException("Cart not found"))
 
         mockMvc.perform(
             post("/api/carts")
@@ -98,8 +100,8 @@ class CartControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(addRequest))
         )
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("Cart not found"))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.detail").value("Cart not found"))
     }
 
     @Test
@@ -117,14 +119,14 @@ class CartControllerTest {
     @Test
     fun `POST carts me - 400 when cart not found`() {
         given(cartService.getMyCart(userId))
-            .willThrow(IllegalArgumentException("Cart not found"))
+            .willThrow(NotFoundException("Cart not found"))
 
         mockMvc.perform(
             post("/api/carts/me")
                 .header("Authorization", bearerToken())
         )
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("Cart not found"))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.detail").value("Cart not found"))
     }
 
     @Test
@@ -167,7 +169,7 @@ class CartControllerTest {
     @Test
     fun `PUT checkout - 409 when already checked out`() {
         given(cartService.checkout(cartId, userId))
-            .willThrow(IllegalStateException("Cart already checked out"))
+            .willThrow(ConflictException("Cart already checked out"))
 
         mockMvc.perform(
             put("/api/carts/checkout")

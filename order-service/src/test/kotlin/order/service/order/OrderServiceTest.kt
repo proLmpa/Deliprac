@@ -1,6 +1,9 @@
 package order.service.order
 
 import common.security.UserRole
+import common.exception.ConflictException
+import common.exception.ForbiddenException
+import common.exception.NotFoundException
 import order.entity.cart.CartProduct
 import order.entity.order.Order
 import order.entity.order.OrderStatus
@@ -52,7 +55,7 @@ class OrderServiceTest {
     @Test
     fun `listByStore - non-OWNER throws IllegalStateException`() {
         assertThatThrownBy { orderService.listByStore(storeId, UserRole.CUSTOMER) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Only OWNER can view store orders")
     }
 
@@ -75,7 +78,7 @@ class OrderServiceTest {
         given(orderRepository.findById(orderId)).willReturn(Optional.empty())
 
         assertThatThrownBy { orderService.markSold(storeId, orderId, UserRole.OWNER) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("Order not found")
     }
 
@@ -84,7 +87,7 @@ class OrderServiceTest {
         given(orderRepository.findById(orderId)).willReturn(Optional.of(makeOrder(storeId = 999L)))
 
         assertThatThrownBy { orderService.markSold(storeId, orderId, UserRole.OWNER) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("Order not found in this store")
     }
 
@@ -93,7 +96,7 @@ class OrderServiceTest {
         given(orderRepository.findById(orderId)).willReturn(Optional.of(makeOrder(status = OrderStatus.CANCELED)))
 
         assertThatThrownBy { orderService.markSold(storeId, orderId, UserRole.OWNER) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ConflictException::class.java)
             .hasMessage("Order cannot be marked as sold")
     }
 
@@ -116,7 +119,7 @@ class OrderServiceTest {
         given(orderRepository.findById(orderId)).willReturn(Optional.of(makeOrder(status = OrderStatus.SOLD)))
 
         assertThatThrownBy { orderService.markCanceled(storeId, orderId, UserRole.OWNER) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ConflictException::class.java)
             .hasMessage("Order cannot be canceled")
     }
 
@@ -147,7 +150,7 @@ class OrderServiceTest {
         given(orderRepository.findById(orderId)).willReturn(Optional.empty())
 
         assertThatThrownBy { orderService.getById(orderId) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("Order not found")
     }
 }
@@ -175,7 +178,7 @@ class StatisticsServiceTest {
     @Test
     fun `getRevenue - non-OWNER throws IllegalStateException`() {
         assertThatThrownBy { statisticsService.getRevenue(storeId, 2026, 3, utc, UserRole.CUSTOMER) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Only OWNER can view revenue statistics")
     }
 

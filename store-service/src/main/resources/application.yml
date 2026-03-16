@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: store-service
+  mvc:
+    problemdetails:
+      enabled: true
   datasource:
     url: jdbc:postgresql://localhost:5434/storedb
     username: store_svc

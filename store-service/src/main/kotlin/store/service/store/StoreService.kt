@@ -1,5 +1,7 @@
 package store.service.store
 
+import common.exception.ConflictException
+import common.exception.ForbiddenException
 import common.orThrow
 import common.security.UserPrincipal
 import common.security.UserRole
@@ -23,10 +25,10 @@ class StoreService(
     @Transactional
     fun create(command: CreateStoreCommand, principal: UserPrincipal): StoreInfo {
         if (principal.role != UserRole.OWNER) {
-            throw IllegalStateException("Only OWNER can create a store")
+            throw ForbiddenException("Only OWNER can create a store")
         }
         if (storeRepository.existsByUserIdAndName(principal.id, command.name)) {
-            throw IllegalStateException("Store with that name already exists")
+            throw ConflictException("Store with that name already exists")
         }
 
         val now = System.currentTimeMillis()
@@ -75,7 +77,7 @@ class StoreService(
     @Transactional(readOnly = true)
     fun findMine(principal: UserPrincipal): List<StoreInfo> {
         if (principal.role != UserRole.OWNER) {
-            throw IllegalStateException("Only OWNER can access this")
+            throw ForbiddenException("Only OWNER can access this")
         }
 
         val stores = storeRepository.findByUserId(principal.id)
@@ -89,7 +91,7 @@ class StoreService(
     fun update(id: Long, command: UpdateStoreCommand, userId: Long): StoreInfo {
         val store = storeRepository.findById(id).orThrow("Store not found")
         if (store.userId != userId) {
-            throw IllegalStateException("Forbidden")
+            throw ForbiddenException("Forbidden")
         }
 
         store.name               = command.name
@@ -111,7 +113,7 @@ class StoreService(
     fun deactivate(id: Long, userId: Long) {
         val store = storeRepository.findById(id).orThrow("Store not found")
         if (store.userId != userId) {
-            throw IllegalStateException("Forbidden")
+            throw ForbiddenException("Forbidden")
         }
 
         store.status    = StoreStatus.INACTIVE

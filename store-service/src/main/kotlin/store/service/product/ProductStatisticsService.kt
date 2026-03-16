@@ -1,5 +1,6 @@
 package store.service.product
 
+import common.exception.ForbiddenException
 import common.orThrow
 import common.security.UserPrincipal
 import common.security.UserRole
@@ -17,10 +18,10 @@ class ProductStatisticsService(
 
     @Transactional(readOnly = true)
     fun getPopularProducts(storeId: Long, principal: UserPrincipal): List<ProductInfo> {
-        if (principal.role != UserRole.OWNER) throw IllegalStateException("Only OWNER can view store statistics")
+        if (principal.role != UserRole.OWNER) throw ForbiddenException("Only OWNER can view store statistics")
 
         val store = storeRepository.findById(storeId).orThrow("Store not found")
-        if (store.userId != principal.id) throw IllegalStateException("Forbidden")
+        if (store.userId != principal.id) throw ForbiddenException("Forbidden")
 
         return productRepository.findTopByStoreIdOrderByPopularityDesc(storeId, 5)
             .map { ProductInfo.of(it) }

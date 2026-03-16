@@ -1,4 +1,7 @@
 package order.service.cart
+import common.exception.ConflictException
+import common.exception.ForbiddenException
+import common.exception.NotFoundException
 
 import order.dto.cart.AddCartItemRequest
 import order.entity.cart.Cart
@@ -120,7 +123,7 @@ class CartServiceTest {
         given(cartRepository.findByUserIdAndIsOrderedFalse(userId)).willReturn(null)
 
         assertThatThrownBy { cartService.getMyCart(userId) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("Cart not found")
     }
 
@@ -140,7 +143,7 @@ class CartServiceTest {
         given(cartRepository.findById(cartId)).willReturn(Optional.of(makeCart()))
 
         assertThatThrownBy { cartService.removeItem(cartId, productId, 99L) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Forbidden")
     }
 
@@ -161,7 +164,7 @@ class CartServiceTest {
         given(cartRepository.findById(cartId)).willReturn(Optional.of(makeCart()))
 
         assertThatThrownBy { cartService.clearCart(cartId, 99L) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Forbidden")
     }
 
@@ -190,7 +193,7 @@ class CartServiceTest {
         given(cartRepository.findById(cartId)).willReturn(Optional.of(orderedCart))
 
         assertThatThrownBy { cartService.checkout(cartId, userId) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ConflictException::class.java)
             .hasMessage("Cart already checked out")
     }
 
@@ -200,7 +203,7 @@ class CartServiceTest {
         given(cartProductRepository.findAllByCartId(cartId)).willReturn(emptyList())
 
         assertThatThrownBy { cartService.checkout(cartId, userId) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(ConflictException::class.java)
             .hasMessage("Cart is empty")
     }
 
@@ -209,7 +212,7 @@ class CartServiceTest {
         given(cartRepository.findById(cartId)).willReturn(Optional.of(makeCart()))
 
         assertThatThrownBy { cartService.checkout(cartId, 99L) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Forbidden")
     }
 }

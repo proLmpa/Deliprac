@@ -2,6 +2,8 @@ package store.api.store
 
 import common.security.UserPrincipal
 import common.security.UserRole
+import common.exception.ConflictException
+import common.exception.NotFoundException
 import store.config.SecurityConfig
 import store.dto.store.CreateStoreCommand
 import store.dto.store.CreateStoreRequest
@@ -139,7 +141,7 @@ class StoreControllerTest {
     @Test
     fun `POST stores - 409 when duplicate name`() {
         given(storeService.create(createCommand, ownerPrincipal))
-            .willThrow(IllegalStateException("Store with that name already exists"))
+            .willThrow(ConflictException("Store with that name already exists"))
 
         mockMvc.perform(
             post("/api/stores")
@@ -148,7 +150,7 @@ class StoreControllerTest {
                 .content(objectMapper.writeValueAsString(createRequest))
         )
             .andExpect(status().isConflict)
-            .andExpect(jsonPath("$.error").value("Store with that name already exists"))
+            .andExpect(jsonPath("$.detail").value("Store with that name already exists"))
     }
 
     @Test
@@ -183,7 +185,7 @@ class StoreControllerTest {
     @Test
     fun `POST stores find - 400 when not found`() {
         given(storeService.findById(storeId))
-            .willThrow(IllegalArgumentException("Store not found"))
+            .willThrow(NotFoundException("Store not found"))
 
         mockMvc.perform(
             post("/api/stores/find")
@@ -191,8 +193,8 @@ class StoreControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"id":$storeId}""")
         )
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("Store not found"))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.detail").value("Store not found"))
     }
 
     @Test

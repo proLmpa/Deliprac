@@ -1,5 +1,8 @@
 package user.service
 
+import common.exception.ConflictException
+import common.exception.ForbiddenException
+import common.exception.NotFoundException
 import common.security.UserRole
 import user.dto.LoginCommand
 import user.dto.RegisterCommand
@@ -50,12 +53,12 @@ class UserServiceTest {
     }
 
     @Test
-    fun `register - duplicate email throws IllegalStateException`() {
+    fun `register - duplicate email throws ConflictException`() {
         val command = RegisterCommand("existing@example.com", "password123", null)
         given(userRepository.existsByEmail(command.email)).willReturn(true)
 
         assertThatThrownBy { userService.register(command) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ConflictException::class.java)
             .hasMessage("Email already exists")
     }
 
@@ -112,7 +115,7 @@ class UserServiceTest {
     }
 
     @Test
-    fun `login - suspended account throws IllegalStateException`() {
+    fun `login - suspended account throws ConflictException`() {
         val command = LoginCommand("test@example.com", "password123")
         val user = User(id = 1L, email = command.email, phone = "", passwordHash = "hashed", status = UserStatus.SUSPENDED, createdAt = 0L, updatedAt = 0L)
 
@@ -120,12 +123,12 @@ class UserServiceTest {
         given(passwordEncoder.matches(command.password, user.passwordHash)).willReturn(true)
 
         assertThatThrownBy { userService.login(command) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ConflictException::class.java)
             .hasMessage("Account is not active")
     }
 
     @Test
-    fun `login - withdrawn account throws IllegalStateException`() {
+    fun `login - withdrawn account throws ConflictException`() {
         val command = LoginCommand("test@example.com", "password123")
         val user = User(id = 1L, email = command.email, phone = "", passwordHash = "hashed", status = UserStatus.WITHDRAWN, createdAt = 0L, updatedAt = 0L)
 
@@ -133,7 +136,7 @@ class UserServiceTest {
         given(passwordEncoder.matches(command.password, user.passwordHash)).willReturn(true)
 
         assertThatThrownBy { userService.login(command) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ConflictException::class.java)
             .hasMessage("Account is not active")
     }
 
@@ -148,28 +151,28 @@ class UserServiceTest {
     }
 
     @Test
-    fun `suspend - non-admin throws IllegalStateException`() {
+    fun `suspend - non-admin throws ForbiddenException`() {
         assertThatThrownBy { userService.suspend(1L, UserRole.CUSTOMER) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Forbidden")
     }
 
     @Test
-    fun `suspend - user not found throws IllegalArgumentException`() {
+    fun `suspend - user not found throws NotFoundException`() {
         given(userRepository.findById(1L)).willReturn(Optional.empty())
 
         assertThatThrownBy { userService.suspend(1L, UserRole.ADMIN) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("User not found")
     }
 
     @Test
-    fun `suspend - already inactive throws IllegalStateException`() {
+    fun `suspend - already inactive throws ConflictException`() {
         val user = User(id = 1L, email = "test@example.com", phone = "", passwordHash = "hashed", status = UserStatus.SUSPENDED, createdAt = 0L, updatedAt = 0L)
         given(userRepository.findById(1L)).willReturn(Optional.of(user))
 
         assertThatThrownBy { userService.suspend(1L, UserRole.ADMIN) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ConflictException::class.java)
             .hasMessage("User is not active")
     }
 
@@ -184,12 +187,12 @@ class UserServiceTest {
     }
 
     @Test
-    fun `withdraw - already inactive throws IllegalStateException`() {
+    fun `withdraw - already inactive throws ConflictException`() {
         val user = User(id = 1L, email = "test@example.com", phone = "", passwordHash = "hashed", status = UserStatus.WITHDRAWN, createdAt = 0L, updatedAt = 0L)
         given(userRepository.findById(1L)).willReturn(Optional.of(user))
 
         assertThatThrownBy { userService.withdraw(1L) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ConflictException::class.java)
             .hasMessage("User is not active")
     }
 }

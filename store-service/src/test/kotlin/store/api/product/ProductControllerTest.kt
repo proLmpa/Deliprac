@@ -2,6 +2,8 @@ package store.api.product
 
 import common.security.UserPrincipal
 import common.security.UserRole
+import common.exception.ForbiddenException
+import common.exception.NotFoundException
 import store.config.SecurityConfig
 import store.dto.product.CreateProductRequest
 import store.dto.product.ProductInfo
@@ -91,7 +93,7 @@ class ProductControllerTest {
     @Test
     fun `POST products - 409 when wrong owner`() {
         given(productService.create(storeId, createRequest, ownerPrincipal))
-            .willThrow(IllegalStateException("Forbidden"))
+            .willThrow(ForbiddenException("Forbidden"))
 
         mockMvc.perform(
             post("/api/stores/products")
@@ -99,7 +101,7 @@ class ProductControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(createRequest))
         )
-            .andExpect(status().isConflict)
+            .andExpect(status().isForbidden)
     }
 
     @Test
@@ -135,7 +137,7 @@ class ProductControllerTest {
     @Test
     fun `POST products find - 400 when not found`() {
         given(productService.findById(storeId, productId))
-            .willThrow(IllegalArgumentException("Product not found"))
+            .willThrow(NotFoundException("Product not found"))
 
         mockMvc.perform(
             post("/api/stores/products/find")
@@ -143,8 +145,8 @@ class ProductControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"storeId":$storeId,"productId":$productId}""")
         )
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("Product not found"))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.detail").value("Product not found"))
     }
 
     @Test
@@ -166,7 +168,7 @@ class ProductControllerTest {
     @Test
     fun `PUT products - 409 when wrong owner`() {
         given(productService.update(storeId, productId, updateRequest, ownerId))
-            .willThrow(IllegalStateException("Forbidden"))
+            .willThrow(ForbiddenException("Forbidden"))
 
         mockMvc.perform(
             put("/api/stores/products")
@@ -174,7 +176,7 @@ class ProductControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(updateRequest))
         )
-            .andExpect(status().isConflict)
+            .andExpect(status().isForbidden)
     }
 
     @Test
@@ -202,7 +204,7 @@ class ProductControllerTest {
     @Test
     fun `PUT products popularity - 400 when product not found`() {
         given(productService.incrementPopularity(storeId, productId, 2L, ownerId))
-            .willThrow(IllegalArgumentException("Product not found"))
+            .willThrow(NotFoundException("Product not found"))
 
         mockMvc.perform(
             put("/api/stores/products/popularity")
@@ -210,8 +212,8 @@ class ProductControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"storeId":$storeId,"productId":$productId,"delta":2}""")
         )
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("Product not found"))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.detail").value("Product not found"))
     }
 }
 
@@ -267,7 +269,7 @@ class StoreStatisticsControllerTest {
     @Test
     fun `POST popular-products - 409 when wrong owner`() {
         given(productStatisticsService.getPopularProducts(storeId, ownerPrincipal))
-            .willThrow(IllegalStateException("Forbidden"))
+            .willThrow(ForbiddenException("Forbidden"))
 
         mockMvc.perform(
             post("/api/stores/statistics/popular-products")
@@ -275,6 +277,6 @@ class StoreStatisticsControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"storeId":$storeId}""")
         )
-            .andExpect(status().isConflict)
+            .andExpect(status().isForbidden)
     }
 }

@@ -1,5 +1,8 @@
 package store.service.review
 
+import common.exception.ConflictException
+import common.exception.ForbiddenException
+import common.exception.NotFoundException
 import common.orThrow
 import common.security.UserPrincipal
 import common.security.UserRole
@@ -19,7 +22,7 @@ class ReviewService(
 
     @Transactional
     fun create(storeId: Long, request: CreateReviewRequest, principal: UserPrincipal): ReviewInfo {
-        if (principal.role != UserRole.CUSTOMER) throw IllegalStateException("Only CUSTOMER can create reviews")
+        if (principal.role != UserRole.CUSTOMER) throw ForbiddenException("Only CUSTOMER can create reviews")
         if (request.rating !in 1 .. 5) throw IllegalArgumentException("Rating must be between 1 and 5")
 
         storeRepository.findById(storeId).orThrow("Store not found")
@@ -45,8 +48,8 @@ class ReviewService(
     @Transactional
     fun delete(storeId: Long, reviewId: Long, principal: UserPrincipal) {
         val review = reviewRepository.findById(reviewId).orThrow("Review not found")
-        if (review.storeId != storeId) throw IllegalArgumentException("Review not found in this store")
-        if ((review.userId != principal.id) and (principal.role != UserRole.ADMIN)) throw IllegalStateException("Forbidden")
+        if (review.storeId != storeId) throw NotFoundException("Review not found in this store")
+        if ((review.userId != principal.id) and (principal.role != UserRole.ADMIN)) throw ForbiddenException("Forbidden")
 
         reviewRepository.delete(review)
     }

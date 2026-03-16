@@ -1,5 +1,8 @@
 package order.service.order
 
+import common.exception.ConflictException
+import common.exception.ForbiddenException
+import common.exception.NotFoundException
 import common.orThrow
 import common.security.UserRole
 import order.entity.order.Order
@@ -18,18 +21,18 @@ class OrderService(
     @Transactional(readOnly = true)
     fun listByStore(storeId: Long, role: UserRole): List<Order> {
         if (role != UserRole.OWNER)
-            throw IllegalStateException("Only OWNER can view store orders")
+            throw ForbiddenException("Only OWNER can view store orders")
 
         return orderRepository.findAllByStoreId(storeId)
     }
 
     @Transactional
     fun markSold(storeId: Long, orderId: Long, role: UserRole): Order {
-        if (role != UserRole.OWNER) throw IllegalStateException("Only OWNER can update orders")
+        if (role != UserRole.OWNER) throw ForbiddenException("Only OWNER can update orders")
 
         val order = orderRepository.findById(orderId).orThrow("Order not found")
-        if (order.storeId != storeId) throw IllegalArgumentException("Order not found in this store")
-        if (order.status != OrderStatus.PENDING) throw IllegalStateException("Order cannot be marked as sold")
+        if (order.storeId != storeId) throw NotFoundException("Order not found in this store")
+        if (order.status != OrderStatus.PENDING) throw ConflictException("Order cannot be marked as sold")
 
         order.status    = OrderStatus.SOLD
         order.updatedAt = System.currentTimeMillis()
@@ -39,11 +42,11 @@ class OrderService(
 
     @Transactional
     fun markCanceled(storeId: Long, orderId: Long, role: UserRole): Order {
-        if (role != UserRole.OWNER) throw IllegalStateException("Only OWNER can update orders")
+        if (role != UserRole.OWNER) throw ForbiddenException("Only OWNER can update orders")
 
         val order = orderRepository.findById(orderId).orThrow("Order not found")
-        if (order.storeId != storeId) throw IllegalArgumentException("Order not found in this store")
-        if (order.status != OrderStatus.PENDING) throw IllegalStateException("Order cannot be canceled")
+        if (order.storeId != storeId) throw NotFoundException("Order not found in this store")
+        if (order.status != OrderStatus.PENDING) throw ConflictException("Order cannot be canceled")
 
         order.status    = OrderStatus.CANCELED
         order.updatedAt = System.currentTimeMillis()

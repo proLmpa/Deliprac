@@ -2,6 +2,8 @@ package store.api.review
 
 import common.security.UserPrincipal
 import common.security.UserRole
+import common.exception.ForbiddenException
+import common.exception.NotFoundException
 import store.config.SecurityConfig
 import store.dto.review.CreateReviewRequest
 import store.dto.review.ReviewInfo
@@ -81,7 +83,7 @@ class ReviewControllerTest {
     @Test
     fun `POST reviews - 409 when non-customer tries to create`() {
         given(reviewService.create(storeId, createRequest, customerPrincipal))
-            .willThrow(IllegalStateException("Only CUSTOMER can create reviews"))
+            .willThrow(ForbiddenException("Only CUSTOMER can create reviews"))
 
         mockMvc.perform(
             post("/api/stores/reviews")
@@ -89,13 +91,13 @@ class ReviewControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(createRequest))
         )
-            .andExpect(status().isConflict)
+            .andExpect(status().isForbidden)
     }
 
     @Test
     fun `POST reviews - 400 when store not found`() {
         given(reviewService.create(storeId, createRequest, customerPrincipal))
-            .willThrow(IllegalArgumentException("Store not found"))
+            .willThrow(NotFoundException("Store not found"))
 
         mockMvc.perform(
             post("/api/stores/reviews")
@@ -103,8 +105,8 @@ class ReviewControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(createRequest))
         )
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("Store not found"))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.detail").value("Store not found"))
     }
 
     @Test
@@ -136,7 +138,7 @@ class ReviewControllerTest {
     @Test
     fun `DELETE review - 409 when wrong user`() {
         given(reviewService.delete(storeId, reviewId, customerPrincipal))
-            .willThrow(IllegalStateException("Forbidden"))
+            .willThrow(ForbiddenException("Forbidden"))
 
         mockMvc.perform(
             delete("/api/stores/reviews")
@@ -144,13 +146,13 @@ class ReviewControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"storeId":$storeId,"reviewId":$reviewId}""")
         )
-            .andExpect(status().isConflict)
+            .andExpect(status().isForbidden)
     }
 
     @Test
     fun `DELETE review - 400 when review not found`() {
         given(reviewService.delete(storeId, reviewId, customerPrincipal))
-            .willThrow(IllegalArgumentException("Review not found"))
+            .willThrow(NotFoundException("Review not found"))
 
         mockMvc.perform(
             delete("/api/stores/reviews")
@@ -158,7 +160,7 @@ class ReviewControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"storeId":$storeId,"reviewId":$reviewId}""")
         )
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("Review not found"))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.detail").value("Review not found"))
     }
 }

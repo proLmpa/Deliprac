@@ -2,6 +2,8 @@ package store.service.product
 
 import common.security.UserPrincipal
 import common.security.UserRole
+import common.exception.ForbiddenException
+import common.exception.NotFoundException
 import store.dto.product.CreateProductRequest
 import store.dto.product.UpdateProductRequest
 import store.entity.product.Product
@@ -75,7 +77,7 @@ class ProductServiceTest {
     @Test
     fun `create - non-OWNER role throws IllegalStateException`() {
         assertThatThrownBy { productService.create(storeId, makeCreateRequest(), customerPrincipal) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Only OWNER can create products")
     }
 
@@ -84,7 +86,7 @@ class ProductServiceTest {
         given(storeRepository.findById(storeId)).willReturn(Optional.empty())
 
         assertThatThrownBy { productService.create(storeId, makeCreateRequest(), ownerPrincipal) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("Store not found")
     }
 
@@ -93,7 +95,7 @@ class ProductServiceTest {
         given(storeRepository.findById(storeId)).willReturn(Optional.of(makeStore(userId = 99L)))
 
         assertThatThrownBy { productService.create(storeId, makeCreateRequest(), ownerPrincipal) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Forbidden")
     }
 
@@ -124,7 +126,7 @@ class ProductServiceTest {
         given(productRepository.findById(productId)).willReturn(Optional.empty())
 
         assertThatThrownBy { productService.findById(storeId, productId) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("Product not found")
     }
 
@@ -133,7 +135,7 @@ class ProductServiceTest {
         given(productRepository.findById(productId)).willReturn(Optional.of(makeProduct(storeId = 999L)))
 
         assertThatThrownBy { productService.findById(storeId, productId) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("Product not found in this store")
     }
 
@@ -158,7 +160,7 @@ class ProductServiceTest {
         given(storeRepository.findById(storeId)).willReturn(Optional.empty())
 
         assertThatThrownBy { productService.update(storeId, productId, makeUpdateRequest(), ownerId) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("Store not found")
     }
 
@@ -167,7 +169,7 @@ class ProductServiceTest {
         given(storeRepository.findById(storeId)).willReturn(Optional.of(makeStore(userId = 99L)))
 
         assertThatThrownBy { productService.update(storeId, productId, makeUpdateRequest(), ownerId) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Forbidden")
     }
 
@@ -177,7 +179,7 @@ class ProductServiceTest {
         given(productRepository.findById(productId)).willReturn(Optional.empty())
 
         assertThatThrownBy { productService.update(storeId, productId, makeUpdateRequest(), ownerId) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("Product not found")
     }
 
@@ -201,7 +203,7 @@ class ProductServiceTest {
         given(storeRepository.findById(storeId)).willReturn(Optional.of(makeStore(userId = 99L)))
 
         assertThatThrownBy { productService.deactivate(storeId, productId, ownerId) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Forbidden")
     }
 
@@ -211,7 +213,7 @@ class ProductServiceTest {
         given(productRepository.findById(productId)).willReturn(Optional.empty())
 
         assertThatThrownBy { productService.deactivate(storeId, productId, ownerId) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("Product not found")
     }
 
@@ -272,14 +274,14 @@ class ProductStatisticsServiceTest {
         given(storeRepository.findById(storeId)).willReturn(Optional.empty())
 
         assertThatThrownBy { productStatisticsService.getPopularProducts(storeId, ownerPrincipal) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("Store not found")
     }
 
     @Test
     fun `getPopularProducts - non-OWNER role throws IllegalStateException`() {
         assertThatThrownBy { productStatisticsService.getPopularProducts(storeId, customerPrincipal) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Only OWNER can view store statistics")
     }
 
@@ -288,7 +290,7 @@ class ProductStatisticsServiceTest {
         given(storeRepository.findById(storeId)).willReturn(Optional.of(makeStore(userId = 99L)))
 
         assertThatThrownBy { productStatisticsService.getPopularProducts(storeId, ownerPrincipal) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Forbidden")
     }
 }

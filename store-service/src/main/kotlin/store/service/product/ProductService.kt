@@ -1,5 +1,8 @@
 package store.service.product
 
+import common.exception.ConflictException
+import common.exception.ForbiddenException
+import common.exception.NotFoundException
 import common.orThrow
 import common.security.UserPrincipal
 import common.security.UserRole
@@ -20,10 +23,10 @@ class ProductService(
 
     @Transactional
     fun create(storeId: Long, request: CreateProductRequest, principal: UserPrincipal): ProductInfo {
-        if (principal.role != UserRole.OWNER) throw IllegalStateException("Only OWNER can create products")
+        if (principal.role != UserRole.OWNER) throw ForbiddenException("Only OWNER can create products")
 
         val store = storeRepository.findById(storeId).orThrow("Store not found")
-        if (store.userId != principal.id) throw IllegalStateException("Forbidden")
+        if (store.userId != principal.id) throw ForbiddenException("Forbidden")
 
         val now = System.currentTimeMillis()
         val product = Product(
@@ -49,7 +52,7 @@ class ProductService(
     @Transactional(readOnly = true)
     fun findById(storeId: Long, productId: Long): ProductInfo {
         val product = productRepository.findById(productId).orThrow("Product not found")
-        if (product.storeId != storeId) throw IllegalArgumentException("Product not found in this store")
+        if (product.storeId != storeId) throw NotFoundException("Product not found in this store")
 
         return ProductInfo.of(product)
     }
@@ -57,10 +60,10 @@ class ProductService(
     @Transactional
     fun update(storeId: Long, productId: Long, request: UpdateProductRequest, userId: Long): ProductInfo {
         val store = storeRepository.findById(storeId).orThrow("Store not found")
-        if (store.userId != userId) throw IllegalStateException("Forbidden")
+        if (store.userId != userId) throw ForbiddenException("Forbidden")
 
         val product = productRepository.findById(productId).orThrow("Product not found")
-        if (product.storeId != storeId) throw IllegalArgumentException("Product not found in this store")
+        if (product.storeId != storeId) throw NotFoundException("Product not found in this store")
 
         product.name              = request.name
         product.description       = request.description
@@ -74,10 +77,10 @@ class ProductService(
     @Transactional
     fun deactivate(storeId: Long, productId: Long, userId: Long) {
         val store = storeRepository.findById(storeId).orThrow("Store not found")
-        if (store.userId != userId) throw IllegalStateException("Forbidden")
+        if (store.userId != userId) throw ForbiddenException("Forbidden")
 
         val product = productRepository.findById(productId).orThrow("Product not found")
-        if (product.storeId != storeId) throw IllegalArgumentException("Product not found in this store")
+        if (product.storeId != storeId) throw NotFoundException("Product not found in this store")
 
         product.status    = false
         product.updatedAt = System.currentTimeMillis()
@@ -94,10 +97,10 @@ class ProductService(
     @Transactional
     fun incrementPopularity(storeId: Long, productId: Long, delta: Long, userId: Long) {
         val store = storeRepository.findById(storeId).orThrow("Store not found")
-        if (store.userId != userId) throw IllegalStateException("Forbidden")
+        if (store.userId != userId) throw ForbiddenException("Forbidden")
 
         val product = productRepository.findById(productId).orThrow("Product not found")
-        if (product.storeId != storeId) throw IllegalArgumentException("Product not found in this store")
+        if (product.storeId != storeId) throw NotFoundException("Product not found in this store")
 
         product.popularity += delta
         product.updatedAt  = System.currentTimeMillis()

@@ -1,5 +1,8 @@
 package store.service.store
 
+import common.exception.ConflictException
+import common.exception.ForbiddenException
+import common.exception.NotFoundException
 import common.security.UserPrincipal
 import common.security.UserRole
 import store.dto.store.CreateStoreCommand
@@ -89,19 +92,19 @@ class StoreServiceTest {
     }
 
     @Test
-    fun `create - non-OWNER role throws IllegalStateException`() {
+    fun `create - non-OWNER role throws ForbiddenException`() {
         assertThatThrownBy { storeService.create(makeCreateCommand(), customerPrincipal) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Only OWNER can create a store")
     }
 
     @Test
-    fun `create - duplicate name throws IllegalStateException`() {
+    fun `create - duplicate name throws ConflictException`() {
         val command = makeCreateCommand()
         given(storeRepository.existsByUserIdAndName(ownerId, command.name)).willReturn(true)
 
         assertThatThrownBy { storeService.create(command, ownerPrincipal) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ConflictException::class.java)
             .hasMessage("Store with that name already exists")
     }
 
@@ -119,12 +122,12 @@ class StoreServiceTest {
     }
 
     @Test
-    fun `findById - not found throws IllegalArgumentException`() {
+    fun `findById - not found throws NotFoundException`() {
         val id = 99L
         given(storeRepository.findById(id)).willReturn(Optional.empty())
 
         assertThatThrownBy { storeService.findById(id) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("Store not found")
     }
 
@@ -152,9 +155,9 @@ class StoreServiceTest {
     }
 
     @Test
-    fun `findMine - non-OWNER role throws IllegalStateException`() {
+    fun `findMine - non-OWNER role throws ForbiddenException`() {
         assertThatThrownBy { storeService.findMine(customerPrincipal) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Only OWNER can access this")
     }
 
@@ -175,23 +178,23 @@ class StoreServiceTest {
     }
 
     @Test
-    fun `update - store not found throws IllegalArgumentException`() {
+    fun `update - store not found throws NotFoundException`() {
         val id = 99L
         given(storeRepository.findById(id)).willReturn(Optional.empty())
 
         assertThatThrownBy { storeService.update(id, makeUpdateCommand(), ownerId) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("Store not found")
     }
 
     @Test
-    fun `update - wrong owner throws IllegalStateException`() {
+    fun `update - wrong owner throws ForbiddenException`() {
         val storeId = 10L
         val store = makeStore(userId = 2L, id = storeId)
         given(storeRepository.findById(storeId)).willReturn(Optional.of(store))
 
         assertThatThrownBy { storeService.update(storeId, makeUpdateCommand(), ownerId) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Forbidden")
     }
 
@@ -211,23 +214,23 @@ class StoreServiceTest {
     }
 
     @Test
-    fun `deactivate - store not found throws IllegalArgumentException`() {
+    fun `deactivate - store not found throws NotFoundException`() {
         val id = 99L
         given(storeRepository.findById(id)).willReturn(Optional.empty())
 
         assertThatThrownBy { storeService.deactivate(id, ownerId) }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(NotFoundException::class.java)
             .hasMessage("Store not found")
     }
 
     @Test
-    fun `deactivate - wrong owner throws IllegalStateException`() {
+    fun `deactivate - wrong owner throws ForbiddenException`() {
         val storeId = 10L
         val store = makeStore(userId = 2L, id = storeId)
         given(storeRepository.findById(storeId)).willReturn(Optional.of(store))
 
         assertThatThrownBy { storeService.deactivate(storeId, ownerId) }
-            .isInstanceOf(IllegalStateException::class.java)
+            .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Forbidden")
     }
 }
