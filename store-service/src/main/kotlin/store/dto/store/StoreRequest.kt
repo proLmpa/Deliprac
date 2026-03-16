@@ -13,6 +13,7 @@ data class CreateStoreRequest(
 )
 
 data class UpdateStoreRequest(
+    val id: Long,
     val name: String,
     val address: String,
     val phone: String,
@@ -23,6 +24,8 @@ data class UpdateStoreRequest(
     val closedTime: Long,
     val closedDays: String
 )
+
+data class DeactivateStoreRequest(val id: Long)
 
 data class CreateStoreCommand(
     val name: String,

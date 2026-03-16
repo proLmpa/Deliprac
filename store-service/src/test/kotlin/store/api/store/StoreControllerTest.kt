@@ -97,6 +97,7 @@ class StoreControllerTest {
     )
 
     private val updateRequest = UpdateStoreRequest(
+        id                 = storeId,
         name               = "Updated Store",
         address            = "Seoul Mapo-gu",
         phone              = "02-9876-5432",
@@ -207,12 +208,12 @@ class StoreControllerTest {
     }
 
     @Test
-    fun `PUT stores by id - 200 with updated store`() {
+    fun `PUT stores - 200 with updated store`() {
         val updated = sampleInfo.copy(name = "Updated Store")
         given(storeService.update(storeId, updateCommand, ownerId)).willReturn(updated)
 
         mockMvc.perform(
-            put("/api/stores/{id}", storeId)
+            put("/api/stores")
                 .header("Authorization", bearerToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(updateRequest))
@@ -224,8 +225,10 @@ class StoreControllerTest {
     @Test
     fun `PUT stores deactivate - 204 no content`() {
         mockMvc.perform(
-            put("/api/stores/{id}/deactivate", storeId)
+            put("/api/stores/deactivate")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"id":$storeId}""")
         )
             .andExpect(status().isNoContent)
     }

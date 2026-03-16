@@ -15,3 +15,5 @@ data class LoginUserRequest(
 data class RegisterCommand(val email: String, val password: String, val phone: String?, val role: String = "CUSTOMER")
 
 data class LoginCommand(val email: String, val password: String)
+
+data class SuspendUserRequest(val id: Long)

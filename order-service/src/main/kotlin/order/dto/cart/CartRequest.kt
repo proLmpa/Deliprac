@@ -6,3 +6,7 @@ data class AddCartItemRequest(
     val unitPrice: Long,
     val quantity: Long
 )
+
+data class RemoveCartItemRequest(val cartId: Long, val productId: Long)
+data class ClearCartRequest(val cartId: Long)
+data class CheckoutRequest(val cartId: Long)

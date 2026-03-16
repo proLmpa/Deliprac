@@ -111,7 +111,7 @@ user-service/src/main/kotlin/user/
 ├── UserServiceApplication.kt
 ├── api/          ← UserController.kt
 ├── config/       ← SecurityConfig.kt
-├── dto/          ← UserRequest.kt  (RegisterUserRequest, LoginUserRequest, RegisterCommand, LoginCommand)
+├── dto/          ← UserRequest.kt  (RegisterUserRequest, LoginUserRequest, SuspendUserRequest, RegisterCommand, LoginCommand)
 │                   UserResponse.kt (TokenResponse)
 ├── entity/       ← User.kt (role: common.security.UserRole), UserStatus.kt
 ├── repository/   ← UserRepository.kt
@@ -129,14 +129,15 @@ store-service/src/main/kotlin/store/
 │   └── review/   ← ReviewController.kt
 ├── config/       ← SecurityConfig.kt, QueryDslConfig.kt
 ├── dto/
-│   ├── store/    ← StoreRequest.kt  (CreateStoreRequest, UpdateStoreRequest, CreateStoreCommand,
-│   │                                  UpdateStoreCommand, StoreSortBy, ListStoreRequest, FindStoreRequest)
+│   ├── store/    ← StoreRequest.kt  (CreateStoreRequest, UpdateStoreRequest, DeactivateStoreRequest,
+│   │                                  CreateStoreCommand, UpdateStoreCommand,
+│   │                                  StoreSortBy, ListStoreRequest, FindStoreRequest)
 │   │               StoreResponse.kt (StoreInfo, StoreResponse)
 │   ├── product/  ← ProductRequest.kt  (CreateProductRequest, UpdateProductRequest,
-│   │                                    ListProductRequest, FindProductRequest,
-│   │                                    PopularProductRequest)
+│   │                                    DeactivateProductRequest, IncrementPopularityRequest,
+│   │                                    ListProductRequest, FindProductRequest, PopularProductRequest)
 │   │               ProductResponse.kt (ProductInfo, ProductResponse)
-│   └── review/   ← ReviewRequest.kt  (CreateReviewRequest, ListReviewRequest)
+│   └── review/   ← ReviewRequest.kt  (CreateReviewRequest, DeleteReviewRequest, ListReviewRequest)
 │                   ReviewResponse.kt (ReviewInfo, ReviewResponse)
 ├── entity/
 │   ├── store/    ← Store.kt (userId: Long — no @ManyToOne), StoreStatus.kt
@@ -161,9 +162,9 @@ order-service/src/main/kotlin/order/
 │                  UserStatisticsController.kt
 ├── config/     ← SecurityConfig.kt, QueryDslConfig.kt
 ├── dto/
-│   ├── cart/   ← CartRequest.kt  (AddCartItemRequest)
+│   ├── cart/   ← CartRequest.kt  (AddCartItemRequest, RemoveCartItemRequest, ClearCartRequest, CheckoutRequest)
 │   │              CartResponse.kt (CartInfo, CartProductResponse, CartResponse)
-│   └── order/  ← OrderRequest.kt  (ListOrderRequest, RevenueRequest, SpendingRequest, FindOrderRequest)
+│   └── order/  ← OrderRequest.kt  (ListOrderRequest, RevenueRequest, SpendingRequest, FindOrderRequest, MarkOrderRequest)
 │                  OrderResponse.kt (OrderResponse, RevenueResponse, SpendingResponse)
 ├── entity/
 │   ├── cart/   ← Cart.kt, CartProduct.kt
@@ -212,7 +213,7 @@ fun jwtAuthFilterRegistration(jwtAuthFilter: JwtAuthenticationFilter): FilterReg
 ```
 POST /api/users/signup          → register (public) — returns {"id": Long}
 POST /api/users/signin          → login, returns JWT (public)
-PUT  /api/users/{id}/suspend    → suspend user (ADMIN) — sets status SUSPENDED
+PUT  /api/users/suspend         → suspend user; body: { id } (ADMIN) — sets status SUSPENDED
 PUT  /api/users/me/withdraw     → self-withdraw (any authenticated) — sets status WITHDRAWN
 ```
 
@@ -237,8 +238,8 @@ POST   /api/stores                      → create store (OWNER)
 POST   /api/stores/list                 → list all stores; body: { sortBy: "CREATED_AT"|"RATING" }
 POST   /api/stores/mine                 → owner's own stores (OWNER)
 POST   /api/stores/find                 → store detail; body: { id }
-PUT    /api/stores/{id}                 → update store (OWNER, must own)
-PUT    /api/stores/{id}/deactivate      → soft-delete store — sets status INACTIVE (OWNER, must own)
+PUT    /api/stores                      → update store; body: { id, ...fields } (OWNER, must own)
+PUT    /api/stores/deactivate           → soft-delete store; body: { id } — sets status INACTIVE (OWNER, must own)
 ```
 
 **Store business rules:**
@@ -254,12 +255,12 @@ PUT    /api/stores/{id}/deactivate      → soft-delete store — sets status IN
 
 **Product endpoints:**
 ```
-POST   /api/stores/{storeId}/products               → create product (OWNER, must own store)
+POST   /api/stores/products                         → create product; body: { storeId, ...fields } (OWNER, must own store)
 POST   /api/stores/products/list                    → list products; body: { storeId }
 POST   /api/stores/products/find                    → product detail; body: { storeId, productId }
-PUT    /api/stores/{storeId}/products/{productId}            → update product (OWNER, must own store)
-PUT    /api/stores/{storeId}/products/{productId}/deactivate → deactivate product (OWNER, must own store)
-PUT    /api/stores/{storeId}/products/{productId}/popularity?delta= → increment popularity (OWNER, must own store)
+PUT    /api/stores/products                         → update product; body: { storeId, productId, ...fields } (OWNER, must own store)
+PUT    /api/stores/products/deactivate              → deactivate product; body: { storeId, productId } (OWNER, must own store)
+PUT    /api/stores/products/popularity              → increment popularity; body: { storeId, productId, delta } (OWNER, must own store)
 POST   /api/stores/statistics/popular-products      → top products by popularity; body: { storeId } (OWNER)
 ```
 
@@ -274,9 +275,9 @@ POST   /api/stores/statistics/popular-products      → top products by populari
 
 **Review endpoints:**
 ```
-POST   /api/stores/{storeId}/reviews              → create review (CUSTOMER)
+POST   /api/stores/reviews                        → create review; body: { storeId, rating, content } (CUSTOMER)
 POST   /api/stores/reviews/list                   → list reviews; body: { storeId }
-DELETE /api/stores/{storeId}/reviews/{reviewId}   → delete review (CUSTOMER who wrote it, or ADMIN)
+DELETE /api/stores/reviews                        → delete review; body: { storeId, reviewId } (CUSTOMER who wrote it, or ADMIN)
 ```
 
 **Review business rules:**
@@ -296,9 +297,9 @@ DELETE /api/stores/{storeId}/reviews/{reviewId}   → delete review (CUSTOMER wh
 ```
 POST   /api/carts                               → add item; body: { productId, storeId, unitPrice, quantity } (CUSTOMER)
 POST   /api/carts/me                            → get caller's active cart (CUSTOMER)
-DELETE /api/carts/{cartId}/products/{productId} → remove one item (CUSTOMER, must own cart)
-DELETE /api/carts/{cartId}                      → clear all items (CUSTOMER, must own cart)
-PUT    /api/carts/{cartId}/checkout             → checkout → creates Order(PENDING) (CUSTOMER, must own cart)
+DELETE /api/carts/products                      → remove one item; body: { cartId, productId } (CUSTOMER, must own cart)
+DELETE /api/carts                               → clear all items; body: { cartId } (CUSTOMER, must own cart)
+PUT    /api/carts/checkout                      → checkout; body: { cartId } → creates Order(PENDING) (CUSTOMER, must own cart)
 ```
 
 **Cart business rules:**
@@ -310,8 +311,8 @@ PUT    /api/carts/{cartId}/checkout             → checkout → creates Order(P
 **Order endpoints:**
 ```
 POST   /api/stores/orders/list                      → list store's orders; body: { storeId } (OWNER)
-PUT    /api/stores/{storeId}/orders/{orderId}/sold   → mark SOLD (OWNER)
-PUT    /api/stores/{storeId}/orders/{orderId}/cancel → mark CANCELED (OWNER)
+PUT    /api/stores/orders/sold                      → mark SOLD; body: { storeId, orderId } (OWNER)
+PUT    /api/stores/orders/cancel                    → mark CANCELED; body: { storeId, orderId } (OWNER)
 POST   /api/users/me/orders                         → caller's order history (CUSTOMER)
 ```
 
@@ -366,18 +367,29 @@ The `-Xannotation-default-target=param-property` option makes Jakarta validation
 ## Shared Patterns
 
 ### HTTP method convention
-- **Mutation** (create/update/action): `POST` / `PUT` / `DELETE` — path includes the resource ID
-- **Query** (read): `POST` with a JSON request body containing filter/identity fields — no path variables on read-only endpoints
+- **All endpoints** use `POST` / `PUT` / `DELETE` with a JSON request body — **no path variables anywhere**
+- Resource IDs are always passed in the request body DTO, never in the URL path
 
 ```kotlin
-// Create: POST with path variable for parent resource
-@PostMapping("/api/stores/{storeId}/products")
-fun create(@PathVariable storeId: Long, @RequestBody request: CreateProductRequest): ProductResponse
+// Create: POST with body containing all fields including parent resource ID
+@PostMapping("/api/stores/products")
+fun create(@RequestBody request: CreateProductRequest): ProductResponse
+// CreateProductRequest(storeId: Long, name: String, ...)
 
 // Read: POST with body — no path variable
 @PostMapping("/api/stores/products/find")
 fun findById(@RequestBody request: FindProductRequest): ProductResponse
 // FindProductRequest(storeId: Long, productId: Long)
+
+// Update: PUT with body containing resource ID + fields
+@PutMapping("/api/stores/products")
+fun update(@RequestBody request: UpdateProductRequest): ProductResponse
+// UpdateProductRequest(storeId: Long, productId: Long, name: String, ...)
+
+// Delete: DELETE with body containing resource ID
+@DeleteMapping("/api/stores/reviews")
+fun delete(@RequestBody request: DeleteReviewRequest)
+// DeleteReviewRequest(storeId: Long, reviewId: Long)
 ```
 
 ### No @RequestMapping on controller class

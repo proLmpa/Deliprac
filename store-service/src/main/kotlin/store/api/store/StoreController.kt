@@ -3,6 +3,7 @@ package store.api.store
 import common.security.currentUser
 import store.dto.store.CreateStoreCommand
 import store.dto.store.CreateStoreRequest
+import store.dto.store.DeactivateStoreRequest
 import store.dto.store.FindStoreRequest
 import store.dto.store.ListStoreRequest
 import store.dto.store.StoreSortBy
@@ -11,7 +12,6 @@ import store.dto.store.UpdateStoreCommand
 import store.dto.store.UpdateStoreRequest
 import store.service.store.StoreService
 import org.springframework.http.HttpStatus
-import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -56,8 +56,8 @@ class StoreController(private val storeService: StoreService) {
         return StoreResponse.of(storeService.findById(request.id))
     }
 
-    @PutMapping("/api/stores/{id}")
-    fun update(@PathVariable id: Long, @RequestBody request: UpdateStoreRequest): StoreResponse {
+    @PutMapping("/api/stores")
+    fun update(@RequestBody request: UpdateStoreRequest): StoreResponse {
         val command = UpdateStoreCommand(
             request.name,
             request.address,
@@ -69,13 +69,13 @@ class StoreController(private val storeService: StoreService) {
             request.closedTime,
             request.closedDays
         )
-        val store = storeService.update(id, command, currentUser().id)
+        val store = storeService.update(request.id, command, currentUser().id)
         return StoreResponse.of(store)
     }
 
-    @PutMapping("/api/stores/{id}/deactivate")
+    @PutMapping("/api/stores/deactivate")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun deactivate(@PathVariable id: Long) {
-        storeService.deactivate(id, currentUser().id)
+    fun deactivate(@RequestBody request: DeactivateStoreRequest) {
+        storeService.deactivate(request.id, currentUser().id)
     }
 }

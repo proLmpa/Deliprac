@@ -5,10 +5,10 @@ import user.dto.LoginCommand
 import user.dto.LoginUserRequest
 import user.dto.RegisterCommand
 import user.dto.RegisterUserRequest
+import user.dto.SuspendUserRequest
 import user.dto.TokenResponse
 import user.service.UserService
 import org.springframework.http.HttpStatus
-import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -32,10 +32,10 @@ class UserController(
         return TokenResponse(accessToken = token)
     }
 
-    @PutMapping("/api/users/{id}/suspend")
+    @PutMapping("/api/users/suspend")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun suspend(@PathVariable id: Long) {
-        userService.suspend(id, currentUser().role)
+    fun suspend(@RequestBody request: SuspendUserRequest) {
+        userService.suspend(request.id, currentUser().role)
     }
 
     @PutMapping("/api/users/me/withdraw")

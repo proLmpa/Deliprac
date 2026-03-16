@@ -128,8 +128,10 @@ class UserControllerTest {
         val token = buildToken(99L, "admin@example.com", UserRole.ADMIN)
 
         mockMvc.perform(
-            put("/api/users/1/suspend")
+            put("/api/users/suspend")
                 .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"id":1}""")
         )
             .andExpect(status().isNoContent)
     }
@@ -140,8 +142,10 @@ class UserControllerTest {
         willThrow(IllegalStateException("Forbidden")).given(userService).suspend(1L, UserRole.CUSTOMER)
 
         mockMvc.perform(
-            put("/api/users/1/suspend")
+            put("/api/users/suspend")
                 .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"id":1}""")
         )
             .andExpect(status().isConflict)
             .andExpect(jsonPath("$.error").value("Forbidden"))
@@ -153,8 +157,10 @@ class UserControllerTest {
         willThrow(IllegalArgumentException("User not found")).given(userService).suspend(1L, UserRole.ADMIN)
 
         mockMvc.perform(
-            put("/api/users/1/suspend")
+            put("/api/users/suspend")
                 .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"id":1}""")
         )
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error").value("User not found"))

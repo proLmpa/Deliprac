@@ -130,8 +130,10 @@ class CartControllerTest {
     @Test
     fun `DELETE cart item - 204 no content`() {
         mockMvc.perform(
-            delete("/api/carts/{cartId}/products/{productId}", cartId, 100L)
+            delete("/api/carts/products")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"cartId":$cartId,"productId":100}""")
         )
             .andExpect(status().isNoContent)
     }
@@ -139,8 +141,10 @@ class CartControllerTest {
     @Test
     fun `DELETE cart - 204 no content`() {
         mockMvc.perform(
-            delete("/api/carts/{cartId}", cartId)
+            delete("/api/carts")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"cartId":$cartId}""")
         )
             .andExpect(status().isNoContent)
     }
@@ -150,8 +154,10 @@ class CartControllerTest {
         given(cartService.checkout(cartId, userId)).willReturn(sampleOrder)
 
         mockMvc.perform(
-            put("/api/carts/{cartId}/checkout", cartId)
+            put("/api/carts/checkout")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"cartId":$cartId}""")
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("PENDING"))
@@ -164,8 +170,10 @@ class CartControllerTest {
             .willThrow(IllegalStateException("Cart already checked out"))
 
         mockMvc.perform(
-            put("/api/carts/{cartId}/checkout", cartId)
+            put("/api/carts/checkout")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"cartId":$cartId}""")
         )
             .andExpect(status().isConflict)
     }

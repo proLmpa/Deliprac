@@ -2,9 +2,9 @@ package order.api.order
 
 import common.security.currentUser
 import order.dto.order.ListOrderRequest
+import order.dto.order.MarkOrderRequest
 import order.dto.order.OrderResponse
 import order.service.order.OrderService
-import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -18,21 +18,15 @@ class OrderController(private val orderService: OrderService) {
         return orderService.listByStore(request.storeId, currentUser().role).map { OrderResponse.of(it) }
     }
 
-    @PutMapping("/api/stores/{storeId}/orders/{orderId}/sold")
-    fun markSold(
-        @PathVariable storeId: Long,
-        @PathVariable orderId: Long
-    ): OrderResponse {
-        val order = orderService.markSold(storeId, orderId, currentUser().role)
+    @PutMapping("/api/stores/orders/sold")
+    fun markSold(@RequestBody request: MarkOrderRequest): OrderResponse {
+        val order = orderService.markSold(request.storeId, request.orderId, currentUser().role)
         return OrderResponse.of(order)
     }
 
-    @PutMapping("/api/stores/{storeId}/orders/{orderId}/cancel")
-    fun markCanceled(
-        @PathVariable storeId: Long,
-        @PathVariable orderId: Long
-    ): OrderResponse {
-        val order = orderService.markCanceled(storeId, orderId, currentUser().role)
+    @PutMapping("/api/stores/orders/cancel")
+    fun markCanceled(@RequestBody request: MarkOrderRequest): OrderResponse {
+        val order = orderService.markCanceled(request.storeId, request.orderId, currentUser().role)
         return OrderResponse.of(order)
     }
 }

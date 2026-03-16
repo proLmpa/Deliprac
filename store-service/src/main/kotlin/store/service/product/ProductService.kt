@@ -92,8 +92,12 @@ class ProductService(
     }
 
     @Transactional
-    fun incrementPopularity(productId: Long, delta: Long) {
+    fun incrementPopularity(storeId: Long, productId: Long, delta: Long, userId: Long) {
+        val store = storeRepository.findById(storeId).orThrow("Store not found")
+        if (store.userId != userId) throw IllegalStateException("Forbidden")
+
         val product = productRepository.findById(productId).orThrow("Product not found")
+        if (product.storeId != storeId) throw IllegalArgumentException("Product not found in this store")
 
         product.popularity += delta
         product.updatedAt  = System.currentTimeMillis()

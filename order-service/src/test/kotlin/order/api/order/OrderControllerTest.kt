@@ -86,8 +86,10 @@ class OrderControllerTest {
         given(orderService.markSold(storeId, orderId, UserRole.OWNER)).willReturn(makeOrder(OrderStatus.SOLD))
 
         mockMvc.perform(
-            put("/api/stores/{storeId}/orders/{orderId}/sold", storeId, orderId)
+            put("/api/stores/orders/sold")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId,"orderId":$orderId}""")
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("SOLD"))
@@ -99,8 +101,10 @@ class OrderControllerTest {
             .willThrow(IllegalStateException("Order cannot be marked as sold"))
 
         mockMvc.perform(
-            put("/api/stores/{storeId}/orders/{orderId}/sold", storeId, orderId)
+            put("/api/stores/orders/sold")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId,"orderId":$orderId}""")
         )
             .andExpect(status().isConflict)
     }
@@ -110,8 +114,10 @@ class OrderControllerTest {
         given(orderService.markCanceled(storeId, orderId, UserRole.OWNER)).willReturn(makeOrder(OrderStatus.CANCELED))
 
         mockMvc.perform(
-            put("/api/stores/{storeId}/orders/{orderId}/cancel", storeId, orderId)
+            put("/api/stores/orders/cancel")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId,"orderId":$orderId}""")
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("CANCELED"))

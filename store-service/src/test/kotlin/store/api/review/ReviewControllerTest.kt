@@ -60,14 +60,14 @@ class ReviewControllerTest {
         rating = 5, content = "Great food!", createdAt = 0L, updatedAt = 0L
     )
 
-    private val createRequest = CreateReviewRequest(rating = 5, content = "Great food!")
+    private val createRequest = CreateReviewRequest(storeId = storeId, rating = 5, content = "Great food!")
 
     @Test
     fun `POST reviews - 201 with review response`() {
         given(reviewService.create(storeId, createRequest, customerPrincipal)).willReturn(sampleInfo)
 
         mockMvc.perform(
-            post("/api/stores/{storeId}/reviews", storeId)
+            post("/api/stores/reviews")
                 .header("Authorization", bearerToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(createRequest))
@@ -84,7 +84,7 @@ class ReviewControllerTest {
             .willThrow(IllegalStateException("Only CUSTOMER can create reviews"))
 
         mockMvc.perform(
-            post("/api/stores/{storeId}/reviews", storeId)
+            post("/api/stores/reviews")
                 .header("Authorization", bearerToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(createRequest))
@@ -98,7 +98,7 @@ class ReviewControllerTest {
             .willThrow(IllegalArgumentException("Store not found"))
 
         mockMvc.perform(
-            post("/api/stores/{storeId}/reviews", storeId)
+            post("/api/stores/reviews")
                 .header("Authorization", bearerToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(createRequest))
@@ -125,8 +125,10 @@ class ReviewControllerTest {
     @Test
     fun `DELETE review - 204 no content`() {
         mockMvc.perform(
-            delete("/api/stores/{storeId}/reviews/{reviewId}", storeId, reviewId)
+            delete("/api/stores/reviews")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId,"reviewId":$reviewId}""")
         )
             .andExpect(status().isNoContent)
     }
@@ -137,8 +139,10 @@ class ReviewControllerTest {
             .willThrow(IllegalStateException("Forbidden"))
 
         mockMvc.perform(
-            delete("/api/stores/{storeId}/reviews/{reviewId}", storeId, reviewId)
+            delete("/api/stores/reviews")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId,"reviewId":$reviewId}""")
         )
             .andExpect(status().isConflict)
     }
@@ -149,8 +153,10 @@ class ReviewControllerTest {
             .willThrow(IllegalArgumentException("Review not found"))
 
         mockMvc.perform(
-            delete("/api/stores/{storeId}/reviews/{reviewId}", storeId, reviewId)
+            delete("/api/stores/reviews")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId,"reviewId":$reviewId}""")
         )
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error").value("Review not found"))

@@ -45,7 +45,7 @@ class ReviewServiceTest {
         rating = 5, content = "Great food!", createdAt = 0L, updatedAt = 0L
     )
 
-    private fun makeCreateRequest() = CreateReviewRequest(rating = 5, content = "Great food!")
+    private fun makeCreateRequest() = CreateReviewRequest(storeId = storeId, rating = 5, content = "Great food!")
 
     // --- create ---
 
@@ -71,7 +71,7 @@ class ReviewServiceTest {
 
     @Test
     fun `create - invalid rating throws IllegalArgumentException`() {
-        val badRequest = CreateReviewRequest(rating = 6, content = "Too good")
+        val badRequest = CreateReviewRequest(storeId = storeId, rating = 6, content = "Too good")
 
         assertThatThrownBy { reviewService.create(storeId, badRequest, customerPrincipal) }
             .isInstanceOf(IllegalArgumentException::class.java)

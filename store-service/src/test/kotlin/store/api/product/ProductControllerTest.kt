@@ -64,10 +64,11 @@ class ProductControllerTest {
     )
 
     private val createRequest = CreateProductRequest(
-        name = "Burger", description = "Tasty burger", price = 8000L, productPictureUrl = null
+        storeId = storeId, name = "Burger", description = "Tasty burger", price = 8000L, productPictureUrl = null
     )
 
     private val updateRequest = UpdateProductRequest(
+        storeId = storeId, productId = productId,
         name = "Updated Burger", description = "Even tastier", price = 9000L, productPictureUrl = null
     )
 
@@ -76,7 +77,7 @@ class ProductControllerTest {
         given(productService.create(storeId, createRequest, ownerPrincipal)).willReturn(sampleInfo)
 
         mockMvc.perform(
-            post("/api/stores/{storeId}/products", storeId)
+            post("/api/stores/products")
                 .header("Authorization", bearerToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(createRequest))
@@ -93,7 +94,7 @@ class ProductControllerTest {
             .willThrow(IllegalStateException("Forbidden"))
 
         mockMvc.perform(
-            post("/api/stores/{storeId}/products", storeId)
+            post("/api/stores/products")
                 .header("Authorization", bearerToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(createRequest))
@@ -152,7 +153,7 @@ class ProductControllerTest {
         given(productService.update(storeId, productId, updateRequest, ownerId)).willReturn(updated)
 
         mockMvc.perform(
-            put("/api/stores/{storeId}/products/{productId}", storeId, productId)
+            put("/api/stores/products")
                 .header("Authorization", bearerToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(updateRequest))
@@ -168,7 +169,7 @@ class ProductControllerTest {
             .willThrow(IllegalStateException("Forbidden"))
 
         mockMvc.perform(
-            put("/api/stores/{storeId}/products/{productId}", storeId, productId)
+            put("/api/stores/products")
                 .header("Authorization", bearerToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(updateRequest))
@@ -179,8 +180,10 @@ class ProductControllerTest {
     @Test
     fun `PUT products deactivate - 204 no content`() {
         mockMvc.perform(
-            put("/api/stores/{storeId}/products/{productId}/deactivate", storeId, productId)
+            put("/api/stores/products/deactivate")
                 .header("Authorization", bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId,"productId":$productId}""")
         )
             .andExpect(status().isNoContent)
     }
@@ -188,22 +191,24 @@ class ProductControllerTest {
     @Test
     fun `PUT products popularity - 204 no content`() {
         mockMvc.perform(
-            put("/api/stores/{storeId}/products/{productId}/popularity", storeId, productId)
+            put("/api/stores/products/popularity")
                 .header("Authorization", bearerToken())
-                .param("delta", "2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId,"productId":$productId,"delta":2}""")
         )
             .andExpect(status().isNoContent)
     }
 
     @Test
     fun `PUT products popularity - 400 when product not found`() {
-        given(productService.incrementPopularity(productId, 2L))
+        given(productService.incrementPopularity(storeId, productId, 2L, ownerId))
             .willThrow(IllegalArgumentException("Product not found"))
 
         mockMvc.perform(
-            put("/api/stores/{storeId}/products/{productId}/popularity", storeId, productId)
+            put("/api/stores/products/popularity")
                 .header("Authorization", bearerToken())
-                .param("delta", "2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":$storeId,"productId":$productId,"delta":2}""")
         )
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error").value("Product not found"))

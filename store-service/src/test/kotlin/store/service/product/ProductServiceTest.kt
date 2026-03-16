@@ -48,10 +48,11 @@ class ProductServiceTest {
     )
 
     private fun makeCreateRequest() = CreateProductRequest(
-        name = "Burger", description = "Tasty burger", price = 8000L, productPictureUrl = null
+        storeId = storeId, name = "Burger", description = "Tasty burger", price = 8000L, productPictureUrl = null
     )
 
     private fun makeUpdateRequest() = UpdateProductRequest(
+        storeId = storeId, productId = productId,
         name = "Updated Burger", description = "Even tastier", price = 9000L, productPictureUrl = null
     )
 
@@ -219,10 +220,11 @@ class ProductServiceTest {
     @Test
     fun `incrementPopularity - increases popularity by delta`() {
         val product = makeProduct(popularity = 3L)
+        given(storeRepository.findById(storeId)).willReturn(Optional.of(makeStore()))
         given(productRepository.findById(productId)).willReturn(Optional.of(product))
         given(productRepository.save(any(Product::class.java))).willReturn(product)
 
-        productService.incrementPopularity(productId, 5)
+        productService.incrementPopularity(storeId, productId, 5, ownerId)
 
         assertThat(product.popularity).isEqualTo(8L)
     }
