@@ -23,27 +23,12 @@ class CartService(
     @Transactional
     fun addItem(request: AddCartItemRequest, userId: Long): CartInfo {
         val now = System.currentTimeMillis()
-        val existingCart = cartRepository.findByUserId(userId)
+        val activeCart = cartRepository.findByUserIdAndIsOrderedFalse(userId)
 
         val cart: Cart = when {
-            existingCart == null -> {
-                cartRepository.save(Cart(0L, userId, request.storeId, false, now, now))
-            }
-            existingCart.isOrdered -> {
-                // Already checked out — the old cartId is permanently bound to an existing order.
-                // Reusing it would violate orders_cart_id_key, so delete and create a fresh cart.
-                cartProductRepository.deleteByCartId(existingCart.id)
-                cartRepository.delete(existingCart)
-                cartRepository.save(Cart(0L, userId, request.storeId, false, now, now))
-            }
-            existingCart.storeId != request.storeId -> {
-                // Different store — clear items and reset in-place (no existing order, cartId is safe to reuse)
-                cartProductRepository.deleteByCartId(existingCart.id)
-                existingCart.storeId   = request.storeId
-                existingCart.updatedAt = now
-                cartRepository.save(existingCart)
-            }
-            else -> existingCart
+            activeCart == null                    -> createCart(userId, request.storeId, now)
+            activeCart.storeId != request.storeId -> resetCart(activeCart, request.storeId, now)
+            else                                  -> activeCart
         }
 
         val existing = cartProductRepository.findByCartIdAndProductId(cart.id, request.productId)
@@ -59,7 +44,7 @@ class CartService(
 
     @Transactional(readOnly = true)
     fun getMyCart(userId: Long): CartInfo {
-        val cart = cartRepository.findByUserId(userId)
+        val cart = cartRepository.findByUserIdAndIsOrderedFalse(userId)
             ?: throw IllegalArgumentException("Cart not found")
 
         return CartInfo(cart, cartProductRepository.findAllByCartId(cart.id))
@@ -96,16 +81,7 @@ class CartService(
 
         val now = System.currentTimeMillis()
         val order = orderRepository.save(
-            Order(
-                id         = 0L,
-                cartId     = cartId,
-                userId     = userId,
-                storeId    = cart.storeId,
-                totalPrice = items.sumOf { it.unitPrice * it.quantity },
-                status     = OrderStatus.PENDING,
-                createdAt  = now,
-                updatedAt  = now
-            )
+            Order(0L, cartId, userId, cart.storeId, items.sumOf { it.unitPrice * it.quantity }, OrderStatus.PENDING, now, now)
         )
 
         cart.isOrdered = true
@@ -113,5 +89,15 @@ class CartService(
         cartRepository.save(cart)
 
         return order
+    }
+
+    private fun createCart(userId: Long, storeId: Long, now: Long): Cart =
+        cartRepository.save(Cart(0L, userId, storeId, false, now, now))
+
+    private fun resetCart(cart: Cart, newStoreId: Long, now: Long): Cart {
+        cartProductRepository.deleteByCartId(cart.id)
+        cart.storeId   = newStoreId
+        cart.updatedAt = now
+        return cartRepository.save(cart)
     }
 }

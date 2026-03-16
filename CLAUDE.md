@@ -125,7 +125,7 @@ store-service/src/main/kotlin/store/
 ├── StoreServiceApplication.kt
 ├── api/
 │   ├── store/    ← StoreController.kt
-│   ├── product/  ← ProductController.kt, InternalProductController.kt, StoreStatisticsController.kt
+│   ├── product/  ← ProductController.kt, StoreStatisticsController.kt
 │   └── review/   ← ReviewController.kt
 ├── config/       ← SecurityConfig.kt, QueryDslConfig.kt
 ├── dto/
@@ -134,7 +134,7 @@ store-service/src/main/kotlin/store/
 │   │               StoreResponse.kt (StoreInfo, StoreResponse)
 │   ├── product/  ← ProductRequest.kt  (CreateProductRequest, UpdateProductRequest,
 │   │                                    ListProductRequest, FindProductRequest,
-│   │                                    PopularProductRequest, FindInternalProductRequest)
+│   │                                    PopularProductRequest)
 │   │               ProductResponse.kt (ProductInfo, ProductResponse)
 │   └── review/   ← ReviewRequest.kt  (CreateReviewRequest, ListReviewRequest)
 │                   ReviewResponse.kt (ReviewInfo, ReviewResponse)
@@ -158,8 +158,7 @@ order-service/src/main/kotlin/order/
 ├── api/
 │   ├── cart/   ← CartController.kt
 │   └── order/  ← OrderController.kt, UserOrderController.kt, StatisticsController.kt,
-│                  UserStatisticsController.kt, InternalOrderController.kt
-├── client/     ← StoreServiceClient.kt (RestClient wrapper for /internal/** calls)
+│                  UserStatisticsController.kt
 ├── config/     ← SecurityConfig.kt, QueryDslConfig.kt
 ├── dto/
 │   ├── cart/   ← CartRequest.kt  (AddCartItemRequest)
@@ -260,13 +259,12 @@ POST   /api/stores/products/list                    → list products; body: { s
 POST   /api/stores/products/find                    → product detail; body: { storeId, productId }
 PUT    /api/stores/{storeId}/products/{productId}            → update product (OWNER, must own store)
 PUT    /api/stores/{storeId}/products/{productId}/deactivate → deactivate product (OWNER, must own store)
+PUT    /api/stores/{storeId}/products/{productId}/popularity?delta= → increment popularity (OWNER, must own store)
 POST   /api/stores/statistics/popular-products      → top products by popularity; body: { storeId } (OWNER)
-POST   /internal/products/find                      → product info; body: { productId } (internal, no auth)
-PUT    /internal/products/{productId}/popularity?delta= → increment popularity (internal, no auth)
 ```
 
 **Product business rules:**
-- `popularity: Long` starts at 0; incremented by order-service via `/internal` endpoint when an order is marked `SOLD`
+- `popularity: Long` starts at 0; incremented by client calling the popularity endpoint after marking an order `SOLD`
 - Deactivate: sets `status = false`; no row deleted
 - Popular products query uses QueryDSL (`ORDER BY popularity DESC`)
 
@@ -296,7 +294,7 @@ DELETE /api/stores/{storeId}/reviews/{reviewId}   → delete review (CUSTOMER wh
 
 **Cart endpoints:**
 ```
-POST   /api/carts                               → add item; body: { productId, quantity } (CUSTOMER)
+POST   /api/carts                               → add item; body: { productId, storeId, unitPrice, quantity } (CUSTOMER)
 POST   /api/carts/me                            → get caller's active cart (CUSTOMER)
 DELETE /api/carts/{cartId}/products/{productId} → remove one item (CUSTOMER, must own cart)
 DELETE /api/carts/{cartId}                      → clear all items (CUSTOMER, must own cart)
@@ -304,16 +302,17 @@ PUT    /api/carts/{cartId}/checkout             → checkout → creates Order(P
 ```
 
 **Cart business rules:**
-- `carts.user_id` is UNIQUE. Replacing store: cart is reset in-place (items cleared, `store_id` updated, `is_ordered = false`)
-- Snapshot: `unit_price` is copied from product at add-time via `/internal/products/find`
+- A user can have multiple carts; only one is active (`is_ordered = false`). Queried via `findByUserIdAndIsOrderedFalse`.
+- Ordered carts (`is_ordered = true`) are preserved as history, permanently linked to their order via `orders.cart_id`.
+- Replacing store: active cart is reset in-place (items cleared, `store_id` updated).
+- Snapshot: `unit_price` is provided by the client at add-time (already known from the product page).
 
 **Order endpoints:**
 ```
 POST   /api/stores/orders/list                      → list store's orders; body: { storeId } (OWNER)
-PUT    /api/stores/{storeId}/orders/{orderId}/sold   → mark SOLD; increments product popularity (OWNER)
+PUT    /api/stores/{storeId}/orders/{orderId}/sold   → mark SOLD (OWNER)
 PUT    /api/stores/{storeId}/orders/{orderId}/cancel → mark CANCELED (OWNER)
 POST   /api/users/me/orders                         → caller's order history (CUSTOMER)
-POST   /internal/orders/find                        → order detail; body: { orderId } (internal, no auth)
 ```
 
 **Order status flow:** `PENDING → SOLD | CANCELED` (only PENDING can transition)
@@ -324,11 +323,7 @@ POST   /api/stores/statistics/revenue         → monthly revenue; body: { store
 POST   /api/users/me/statistics/spending      → monthly spending; body: { year, month, timezone? } (CUSTOMER)
 ```
 
-**Cross-service calls (RestClient → store-service):**
-- `POST /internal/products/find` `{ productId }` — validate product active + snapshot price at cart-add time
-- `PUT  /internal/products/{id}/popularity?delta=N` — on order marked SOLD
-
-**Schema:** `carts` (`quantity BIGINT`, `unit_price BIGINT`), `cart_products`, `orders` (`total_price BIGINT`) tables
+**Schema:** `carts` (`user_id BIGINT NOT NULL` — non-unique, indexed), `cart_products`, `orders` (`total_price BIGINT`) tables
 
 ---
 

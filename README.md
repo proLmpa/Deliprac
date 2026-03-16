@@ -20,10 +20,9 @@ Built with **Kotlin 2.x + Spring Boot 4** as a hands-on microservices architectu
 │  - JWT issue  │  │  - Products   │  │  - Orders       │
 │               │  │  - Reviews    │  │  - Statistics   │
 │               │  │  - Statistics │  │                 │
-└───────────────┘  └───────────────┘  └────────┬────────┘
-        │                  ▲                    │
-        │    JWT secret     │  /internal/        │
-        │   (shared key)    └────────────────────┘
+└───────────────┘  └───────────────┘  └─────────────────┘
+        │
+        │    JWT secret (shared key)
         │
 ┌───────▼───────┐  ┌───────────────┐  ┌─────────────────┐
 │  userdb :5433 │  │ storedb :5434 │  │  orderdb :5435  │
@@ -37,7 +36,7 @@ Built with **Kotlin 2.x + Spring Boot 4** as a hands-on microservices architectu
 └─────────────────────────────────────────────────────────┘
 ```
 
-Each service owns its own PostgreSQL database. Cross-service calls (order-service → store-service) use HTTP via `RestClient` against `/internal/**` endpoints — no shared DB, no ORM join across boundaries.
+Each service owns its own PostgreSQL database. All requests originate from the client — no service-to-service calls. Foreign-key-like references across services (e.g. `store_id` in `orders`) are plain `BIGINT` columns — no ORM join, no FK constraint across DB boundaries.
 
 ---
 
@@ -129,13 +128,12 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 | `POST`   | `/api/stores/reviews/list` | Any | `{ storeId }` → `List<ReviewResponse>` |
 | `DELETE` | `/api/stores/{storeId}/reviews/{reviewId}` | CUSTOMER (own) / ADMIN | — |
 
-#### Statistics & Internal
+#### Statistics
 
 | Method | Path | Auth | Body / Notes |
 |--------|------|------|--------------|
 | `POST` | `/api/stores/statistics/popular-products` | OWNER | `{ storeId }` → `List<ProductResponse>` ordered by popularity |
-| `POST` | `/internal/products/find` | Internal | `{ productId }` → `ProductResponse` |
-| `PUT`  | `/internal/products/{productId}/popularity` | Internal | `?delta=N` — increment popularity |
+| `PUT`  | `/api/stores/{storeId}/products/{productId}/popularity` | OWNER | `?delta=N` — increment popularity |
 
 ---
 
@@ -145,7 +143,7 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 
 | Method | Path | Auth | Body / Notes |
 |--------|------|------|--------------|
-| `POST`   | `/api/carts` | CUSTOMER | `{ productId, quantity }` — creates cart if none; resets if different store |
+| `POST`   | `/api/carts` | CUSTOMER | `{ productId, storeId, unitPrice, quantity }` — creates cart if none; resets if different store |
 | `POST`   | `/api/carts/me` | CUSTOMER | *(no body)* → current cart |
 | `DELETE` | `/api/carts/{cartId}/products/{productId}` | CUSTOMER | Remove one item |
 | `DELETE` | `/api/carts/{cartId}` | CUSTOMER | Clear all items |
@@ -156,10 +154,9 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 | Method | Path | Auth | Body / Notes |
 |--------|------|------|--------------|
 | `POST` | `/api/stores/orders/list` | OWNER | `{ storeId }` → `List<OrderResponse>` |
-| `PUT`  | `/api/stores/{storeId}/orders/{orderId}/sold` | OWNER | PENDING → SOLD; increments product popularity |
+| `PUT`  | `/api/stores/{storeId}/orders/{orderId}/sold` | OWNER | PENDING → SOLD |
 | `PUT`  | `/api/stores/{storeId}/orders/{orderId}/cancel` | OWNER | PENDING → CANCELED |
 | `POST` | `/api/users/me/orders` | CUSTOMER | *(no body)* → `List<OrderResponse>` |
-| `POST` | `/internal/orders/find` | Internal | `{ orderId }` → `OrderResponse` |
 
 #### Statistics
 
@@ -181,8 +178,8 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 3. POST /api/stores/list           → browse stores  { sortBy: "RATING" }
 4. POST /api/stores/products/list  → view products  { storeId: 5 }
 
-5. POST /api/carts                 → add item       { productId: 12, quantity: 2 }
-   (price snapshot copied from store-service at this point)
+5. POST /api/stores/products/find  → get price      { storeId: 5, productId: 12 }
+   POST /api/carts                 → add item       { productId: 12, storeId: 5, unitPrice: 9000, quantity: 2 }
 
 6. PUT  /api/carts/{cartId}/checkout → Order(PENDING) created
 
@@ -198,25 +195,11 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 
 3. PUT  /api/stores/5/orders/{orderId}/sold
    → status: PENDING → SOLD
-   → order-service calls store-service: PUT /internal/products/{id}/popularity?delta=2
 
-4. POST /api/stores/statistics/revenue → check monthly revenue { storeId: 5, year: 2026, month: 3 }
-```
+4. PUT  /api/stores/5/products/{productId}/popularity?delta=2
+   → increment popularity for each sold item
 
-### Cross-service call: add item to cart
-
-```
-POST /api/carts  { productId: 12, quantity: 2 }
-  │
-  ▼ order-service
-  CartService.addItem()
-  │
-  ├─► POST store-service /internal/products/find  { productId: 12 }
-  │       → { storeId, price, status }
-  │       validates: status == true
-  │       snapshots: unit_price = price
-  │
-  └─► saves Cart + CartProduct to orderdb
+5. POST /api/stores/statistics/revenue → check monthly revenue { storeId: 5, year: 2026, month: 3 }
 ```
 
 ---
@@ -226,18 +209,18 @@ POST /api/carts  { productId: 12, quantity: 2 }
 ### All reads use POST + JSON body
 Path variables and query params for read operations are moved into the request body. This eliminates resource IDs from URLs on query-only endpoints (e.g. `POST /api/stores/find` with `{ "id": 5 }` instead of `GET /api/stores/5`).
 
-### One cart per user, replace on conflict
-`carts.user_id` is UNIQUE. When a customer adds a product from a different store (or re-adds after checkout), the cart is reset **in-place** — items cleared, `store_id` updated, `is_ordered` reset — rather than deleted, because `orders.cart_id` holds an FK reference.
+### Multiple carts per user, one active at a time
+`carts.user_id` is non-unique. A user accumulates carts over time; only the one with `is_ordered = false` is the active cart (queried via `findByUserIdAndIsOrderedFalse`). Ordered carts are preserved as history, permanently linked to their order. When a customer adds a product from a different store, the active cart is reset in-place — items cleared, `store_id` updated.
 
 ### Order status flow
 ```
 PENDING ──► SOLD
         └─► CANCELED
 ```
-Only `PENDING` orders can transition. `markSold` also calls store-service to increment each product's popularity score.
+Only `PENDING` orders can transition.
 
 ### Popularity tracking
-`products.popularity` is a `BIGINT` incremented via an internal HTTP `PUT` from order-service whenever an order is marked `SOLD`. Queried via QueryDSL (`ORDER BY popularity DESC`) to surface popular items.
+`products.popularity` is a `BIGINT` incremented by the client calling `PUT /api/stores/{storeId}/products/{productId}/popularity?delta=N` after marking an order `SOLD`. Queried via QueryDSL (`ORDER BY popularity DESC`) to surface popular items.
 
 ### No shared database
 Each service has its own PostgreSQL instance. Foreign-key-like references across services (e.g. `store_id` in `orders`) are plain `BIGINT` columns — no ORM join, no FK constraint across DB boundaries.
@@ -294,7 +277,8 @@ order-service DB (port 5435)
 │ is_ordered BOOL  │    │ unit_price BIGINT        │    │ store_id* BIGINT    │
 │ created_at BIGINT│    └─────────────────────────┘    │ total_price BIGINT  │
 └──────────────────┘                                   │ status   VARCHAR    │
-                                                       └─────────────────────┘
+  user_id indexed,                                     └─────────────────────┘
+  non-unique (1:N)
 * cross-service reference — plain BIGINT, no FK constraint
 ```
 

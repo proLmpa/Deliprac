@@ -14,7 +14,7 @@ open class Cart(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long,
 
-    @Column(name = "user_id", nullable = false, unique = true)
+    @Column(name = "user_id", nullable = false)
     val userId: Long,
 
     @Column(name = "store_id", nullable = false)
