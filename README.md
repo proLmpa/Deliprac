@@ -66,8 +66,11 @@ Baemin/
 │   │   ├── UserRole.kt               # enum: CUSTOMER | OWNER | ADMIN
 │   │   └── JwtAuthenticationFilter.kt
 │   ├── exception/
-│   │   └── GlobalExceptionHandler.kt # IllegalArgumentException→400, IllegalStateException→409
-│   └── Extensions.kt                 # Optional.orThrow(msg)
+│   │   ├── GlobalExceptionHandler.kt # RFC 7807 ProblemDetail responses
+│   │   ├── NotFoundException.kt      # → 404
+│   │   ├── ForbiddenException.kt     # → 403
+│   │   └── ConflictException.kt      # → 409
+│   └── Extensions.kt                 # Optional.orThrow(msg) → NotFoundException
 │
 ├── user-service/         # Port 8081 — auth & user management
 ├── store-service/        # Port 8082 — stores, products, reviews
@@ -92,7 +95,7 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 |--------|------|------|--------------|
 | `POST` | `/api/users/signup` | Public | `{ email, password, phone?, role? }` → `{ id }` |
 | `POST` | `/api/users/signin` | Public | `{ email, password }` → `{ accessToken, tokenType }` |
-| `PUT`  | `/api/users/{id}/suspend` | ADMIN | Suspend user (sets status `SUSPENDED`) |
+| `PUT`  | `/api/users/suspend` | ADMIN | `{ id }` — suspend user (sets status `SUSPENDED`) |
 | `PUT`  | `/api/users/me/withdraw` | Any | Self-withdraw (sets status `WITHDRAWN`) |
 
 ---
@@ -107,33 +110,33 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 | `POST` | `/api/stores/list` | Any | `{ sortBy: "CREATED_AT"\|"RATING" }` → `List<StoreResponse>` |
 | `POST` | `/api/stores/mine` | OWNER | *(no body)* → `List<StoreResponse>` |
 | `POST` | `/api/stores/find` | Any | `{ id }` → `StoreResponse` |
-| `PUT`  | `/api/stores/{id}` | OWNER | `{ name, address, phone, ... }` |
-| `PUT`  | `/api/stores/{id}/deactivate` | OWNER | Soft-delete (sets status `INACTIVE`) |
+| `PUT`  | `/api/stores` | OWNER | `{ id, name, address, phone, ... }` |
+| `PUT`  | `/api/stores/deactivate` | OWNER | `{ id }` — soft-delete (sets status `INACTIVE`) |
 
 #### Products
 
 | Method | Path | Auth | Body / Notes |
 |--------|------|------|--------------|
-| `POST` | `/api/stores/{storeId}/products` | OWNER | `{ name, description, price, productPictureUrl? }` |
+| `POST` | `/api/stores/products` | OWNER | `{ storeId, name, description, price, productPictureUrl? }` |
 | `POST` | `/api/stores/products/list` | Any | `{ storeId }` → `List<ProductResponse>` |
 | `POST` | `/api/stores/products/find` | Any | `{ storeId, productId }` → `ProductResponse` |
-| `PUT`  | `/api/stores/{storeId}/products/{productId}` | OWNER | `{ name, description, price, productPictureUrl? }` |
-| `PUT`  | `/api/stores/{storeId}/products/{productId}/deactivate` | OWNER | Deactivate product |
+| `PUT`  | `/api/stores/products` | OWNER | `{ storeId, productId, name, description, price, productPictureUrl? }` |
+| `PUT`  | `/api/stores/products/deactivate` | OWNER | `{ storeId, productId }` |
 
 #### Reviews
 
 | Method | Path | Auth | Body / Notes |
 |--------|------|------|--------------|
-| `POST`   | `/api/stores/{storeId}/reviews` | CUSTOMER | `{ rating, content }` |
+| `POST`   | `/api/stores/reviews` | CUSTOMER | `{ storeId, rating, content }` |
 | `POST`   | `/api/stores/reviews/list` | Any | `{ storeId }` → `List<ReviewResponse>` |
-| `DELETE` | `/api/stores/{storeId}/reviews/{reviewId}` | CUSTOMER (own) / ADMIN | — |
+| `DELETE` | `/api/stores/reviews` | CUSTOMER (own) / ADMIN | `{ storeId, reviewId }` |
 
 #### Statistics
 
 | Method | Path | Auth | Body / Notes |
 |--------|------|------|--------------|
 | `POST` | `/api/stores/statistics/popular-products` | OWNER | `{ storeId }` → `List<ProductResponse>` ordered by popularity |
-| `PUT`  | `/api/stores/{storeId}/products/{productId}/popularity` | OWNER | `?delta=N` — increment popularity |
+| `PUT`  | `/api/stores/products/popularity` | OWNER | `{ storeId, productId, delta }` — increment popularity |
 
 ---
 
@@ -145,17 +148,17 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 |--------|------|------|--------------|
 | `POST`   | `/api/carts` | CUSTOMER | `{ productId, storeId, unitPrice, quantity }` — creates cart if none; resets if different store |
 | `POST`   | `/api/carts/me` | CUSTOMER | *(no body)* → current cart |
-| `DELETE` | `/api/carts/{cartId}/products/{productId}` | CUSTOMER | Remove one item |
-| `DELETE` | `/api/carts/{cartId}` | CUSTOMER | Clear all items |
-| `PUT`    | `/api/carts/{cartId}/checkout` | CUSTOMER | Creates `Order(PENDING)` |
+| `DELETE` | `/api/carts/products` | CUSTOMER | `{ cartId, productId }` — remove one item |
+| `DELETE` | `/api/carts` | CUSTOMER | `{ cartId }` — clear all items |
+| `PUT`    | `/api/carts/checkout` | CUSTOMER | `{ cartId }` — creates `Order(PENDING)` |
 
 #### Orders
 
 | Method | Path | Auth | Body / Notes |
 |--------|------|------|--------------|
 | `POST` | `/api/stores/orders/list` | OWNER | `{ storeId }` → `List<OrderResponse>` |
-| `PUT`  | `/api/stores/{storeId}/orders/{orderId}/sold` | OWNER | PENDING → SOLD |
-| `PUT`  | `/api/stores/{storeId}/orders/{orderId}/cancel` | OWNER | PENDING → CANCELED |
+| `PUT`  | `/api/stores/orders/sold` | OWNER | `{ storeId, orderId }` — PENDING → SOLD |
+| `PUT`  | `/api/stores/orders/cancel` | OWNER | `{ storeId, orderId }` — PENDING → CANCELED |
 | `POST` | `/api/users/me/orders` | CUSTOMER | *(no body)* → `List<OrderResponse>` |
 
 #### Statistics
@@ -181,7 +184,7 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 5. POST /api/stores/products/find  → get price      { storeId: 5, productId: 12 }
    POST /api/carts                 → add item       { productId: 12, storeId: 5, unitPrice: 9000, quantity: 2 }
 
-6. PUT  /api/carts/{cartId}/checkout → Order(PENDING) created
+6. PUT  /api/carts/checkout          → Order(PENDING) created  { cartId }
 
 7. POST /api/users/me/orders       → confirm order in history
 ```
@@ -191,13 +194,13 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 ```
 1. POST /api/users/signin          → receive JWT (role: OWNER)
 
-2. POST /api/stores/orders/list    → see incoming orders  { storeId: 5 }
+2. POST /api/stores/orders/list       → see incoming orders  { storeId: 5 }
 
-3. PUT  /api/stores/5/orders/{orderId}/sold
-   → status: PENDING → SOLD
+3. PUT  /api/stores/orders/sold
+   → status: PENDING → SOLD           { storeId: 5, orderId }
 
-4. PUT  /api/stores/5/products/{productId}/popularity?delta=2
-   → increment popularity for each sold item
+4. PUT  /api/stores/products/popularity
+   → increment popularity              { storeId: 5, productId, delta: 1 }
 
 5. POST /api/stores/statistics/revenue → check monthly revenue { storeId: 5, year: 2026, month: 3 }
 ```
@@ -220,7 +223,7 @@ PENDING ──► SOLD
 Only `PENDING` orders can transition.
 
 ### Popularity tracking
-`products.popularity` is a `BIGINT` incremented by the client calling `PUT /api/stores/{storeId}/products/{productId}/popularity?delta=N` after marking an order `SOLD`. Queried via QueryDSL (`ORDER BY popularity DESC`) to surface popular items.
+`products.popularity` is a `BIGINT` incremented by the client calling `PUT /api/stores/products/popularity` with `{ storeId, productId, delta }` after marking an order `SOLD`. Queried via QueryDSL (`ORDER BY popularity DESC`) to surface popular items.
 
 ### No shared database
 Each service has its own PostgreSQL instance. Foreign-key-like references across services (e.g. `store_id` in `orders`) are plain `BIGINT` columns — no ORM join, no FK constraint across DB boundaries.

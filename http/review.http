@@ -3,19 +3,31 @@
 @reviewId = 1
 
 ### List reviews by store (authenticated)
-GET {{baseUrl}}/api/stores/{{storeId}}/reviews
-Authorization: {{customerToken}}
-
-### Create review (CUSTOMER)
-POST {{baseUrl}}/api/stores/{{storeId}}/reviews
+POST {{baseUrl}}/api/stores/reviews/list
 Authorization: {{customerToken}}
 Content-Type: application/json
 
 {
+  "storeId": {{storeId}}
+}
+
+### Create review (CUSTOMER)
+POST {{baseUrl}}/api/stores/reviews
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "storeId": {{storeId}},
   "rating": 5,
   "content": "치킨이 정말 맛있었어요! 바삭하고 양도 많아서 만족합니다."
 }
 
 ### Delete review (CUSTOMER or ADMIN)
-DELETE {{baseUrl}}/api/stores/{{storeId}}/reviews/{{reviewId}}
+DELETE {{baseUrl}}/api/stores/reviews
 Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "storeId": {{storeId}},
+  "reviewId": {{reviewId}}
+}

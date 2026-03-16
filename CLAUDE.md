@@ -76,12 +76,18 @@ data class UserPrincipal(val id: Long, val role: UserRole)
 ```
 
 **`GlobalExceptionHandler`** (`common/src/main/kotlin/common/exception/GlobalExceptionHandler.kt`)
-- `IllegalArgumentException` → 400 Bad Request
-- `IllegalStateException` → 409 Conflict
+
+Returns RFC 7807 `ProblemDetail` responses (`spring.mvc.problemdetails.enabled: true`):
+- `NotFoundException` → 404 Not Found
+- `ForbiddenException` → 403 Forbidden
+- `ConflictException` → 409 Conflict
+- `IllegalArgumentException` → 400 Bad Request (validation / invalid input)
+
+Each response includes `type` (`https://baemin.com/problems/{slug}`), `instance` (request URI), `status`, `detail`.
 
 **`Extensions.kt`** (`common/src/main/kotlin/common/Extensions.kt`)
 ```kotlin
-fun <T> Optional<T>.orThrow(msg: String): T = orElseThrow { IllegalArgumentException(msg) }
+fun <T> Optional<T>.orThrow(msg: String): T = orElseThrow { NotFoundException(msg) }
 ```
 
 ---
@@ -401,7 +407,7 @@ class StoreController {
     @PostMapping("/api/stores")        fun create(): ...
     @PostMapping("/api/stores/list")   fun listAll(): ...
     @PostMapping("/api/stores/find")   fun findById(): ...
-    @PutMapping("/api/stores/{id}")    fun update(): ...
+    @PutMapping("/api/stores")         fun update(): ...
 }
 
 // WRONG — do not do this
@@ -415,7 +421,7 @@ class StoreController { ... }
 
 ### Ownership check (store-service — plain userId column)
 ```kotlin
-if (store.userId != currentUser().id) throw IllegalStateException("Forbidden")
+if (store.userId != currentUser().id) throw ForbiddenException("Forbidden")
 ```
 
 ### Response DTO factory
@@ -444,9 +450,9 @@ Each domain has exactly two DTO files:
 
 ### Test checklist per domain
 - [ ] Service: happy path
-- [ ] Service: entity not found → `IllegalArgumentException`
-- [ ] Service: wrong owner → `IllegalStateException`
-- [ ] Service: invalid state transition
+- [ ] Service: entity not found → `NotFoundException` (404)
+- [ ] Service: wrong owner → `ForbiddenException` (403)
+- [ ] Service: invalid state transition → `ConflictException` (409)
 - [ ] Controller: 2xx with correct response body
 - [ ] Controller: 4xx on bad input
 - [ ] Controller: 4xx delegated from service mock

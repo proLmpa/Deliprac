@@ -3,43 +3,44 @@
 @productId = 1
 
 ### List products by store (public)
-GET {{baseUrl}}/api/stores/{{storeId}}/products
+POST {{baseUrl}}/api/stores/products/list
 Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "storeId": {{storeId}}
+}
 
 ### Get product by ID (public)
-GET {{baseUrl}}/api/stores/{{storeId}}/products/{{productId}}
+POST {{baseUrl}}/api/stores/products/find
 Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "storeId": {{storeId}},
+  "productId": {{productId}}
+}
 
 ### Create product - 후라이드 치킨 (OWNER)
-POST {{baseUrl}}/api/stores/{{storeId}}/products
+POST {{baseUrl}}/api/stores/products
 Authorization: {{ownerToken}}
 Content-Type: application/json
 
 {
+  "storeId": {{storeId}},
   "name": "후라이드 치킨",
   "description": "바삭바삭한 정통 후라이드 치킨입니다.",
   "price": 18000,
   "productPictureUrl": null
 }
 
-### Create product - 프라이드 치킨 (OWNER)
-POST {{baseUrl}}/api/stores/{{storeId}}/products
-Authorization: {{ownerToken}}
-Content-Type: application/json
-
-{
-  "name": "프라이드 치킨",
-  "description": "바삭바삭한 정통 후라이드 치킨입니다.",
-  "price": 18000,
-  "productPictureUrl": null
-}
-
 ### Create product - 양념 치킨 (OWNER)
-POST {{baseUrl}}/api/stores/{{storeId}}/products
+POST {{baseUrl}}/api/stores/products
 Authorization: {{ownerToken}}
 Content-Type: application/json
 
 {
+  "storeId": {{storeId}},
   "name": "양념 치킨",
   "description": "달콤하고 매콤한 양념 치킨입니다.",
   "price": 19000,
@@ -47,27 +48,45 @@ Content-Type: application/json
 }
 
 ### Update product (OWNER)
-PUT {{baseUrl}}/api/stores/{{storeId}}/products/{{productId}}
+PUT {{baseUrl}}/api/stores/products
 Authorization: {{ownerToken}}
 Content-Type: application/json
 
 {
-  "name": "프라이드 치킨 (특대)",
+  "storeId": {{storeId}},
+  "productId": {{productId}},
+  "name": "후라이드 치킨 (특대)",
   "description": "바삭바삭한 정통 후라이드 치킨 특대 사이즈입니다.",
   "price": 21000,
   "productPictureUrl": "https://example.com/chicken.jpg"
 }
 
 ### Deactivate product (OWNER)
-// PUT {{baseUrl}}/api/stores/{{storeId}}/products/{{productId}}/deactivate
-// Authorization: {{ownerToken}}
+PUT {{baseUrl}}/api/stores/products/deactivate
+Authorization: {{ownerToken}}
+Content-Type: application/json
+
+{
+  "storeId": {{storeId}},
+  "productId": {{productId}}
+}
 
 ### Get popular products for store (OWNER)
-GET {{baseUrl}}/api/stores/{{storeId}}/statistics/popular-products
+POST {{baseUrl}}/api/stores/statistics/popular-products
 Authorization: {{ownerToken}}
+Content-Type: application/json
 
-### Get product by ID (internal)
-GET {{baseUrl}}/internal/products/{{productId}}
+{
+  "storeId": {{storeId}}
+}
 
-### Increment product popularity (internal)
-PUT {{baseUrl}}/internal/products/{{productId}}/popularity?delta=1
+### Increment product popularity (OWNER)
+PUT {{baseUrl}}/api/stores/products/popularity
+Authorization: {{ownerToken}}
+Content-Type: application/json
+
+{
+  "storeId": {{storeId}},
+  "productId": {{productId}},
+  "delta": 1
+}

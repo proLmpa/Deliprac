@@ -2,39 +2,37 @@
 @storeId = 1
 
 ### List all stores — newest first (public)
-GET {{baseUrl}}/api/stores
+POST {{baseUrl}}/api/stores/list
 Authorization: {{customerToken}}
-
-### List all stores — highest rated first (public)
-GET {{baseUrl}}/api/stores?sortBy=RATING
-Authorization: {{customerToken}}
-
-### Get store by ID (public)
-GET {{baseUrl}}/api/stores/{{storeId}}
-Authorization: {{customerToken}}
-
-### Get my stores (OWNER)
-GET {{baseUrl}}/api/stores/mine
-Authorization: {{ownerToken}}
-
-### Create store - duplicate name → 409 (OWNER)
-POST {{baseUrl}}/api/stores
-Authorization: {{ownerToken}}
 Content-Type: application/json
 
 {
-  "name": "맛있는 치킨집",
-  "address": "서울특별시 강남구 테헤란로 123",
-  "phone": "02-1234-5678",
-  "content": "바삭한 치킨 전문점입니다.",
-  "storePictureUrl": null,
-  "productCreatedTime": 32400000,
-  "openedTime": 36000000,
-  "closedTime": 79200000,
-  "closedDays": "MONDAY"
+  "sortBy": "CREATED_AT"
 }
 
-### Create store - 치킨집 (OWNER)
+### List all stores — highest rated first (public)
+POST {{baseUrl}}/api/stores/list
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "sortBy": "RATING"
+}
+
+### Get store by ID (public)
+POST {{baseUrl}}/api/stores/find
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "id": {{storeId}}
+}
+
+### Get my stores (OWNER)
+POST {{baseUrl}}/api/stores/mine
+Authorization: {{ownerToken}}
+
+### Create store - 치킨집 (OWNER). If duplicate name → 409 (OWNER)
 POST {{baseUrl}}/api/stores
 Authorization: {{ownerToken}}
 Content-Type: application/json
@@ -85,12 +83,13 @@ Content-Type: application/json
   "closedDays": "SUNDAY"
 }
 
-### Update store (OWNER)
-PUT {{baseUrl}}/api/stores/{{storeId}}
+### Update store (OWNER) — id must match an existing store you own
+PUT {{baseUrl}}/api/stores
 Authorization: {{ownerToken}}
 Content-Type: application/json
 
 {
+  "id": {{storeId}},
   "name": "맛있는 치킨집 (리뉴얼)",
   "address": "서울특별시 강남구 테헤란로 123",
   "phone": "02-1234-5678",
@@ -103,5 +102,10 @@ Content-Type: application/json
 }
 
 ### Deactivate store (OWNER)
-// PUT {{baseUrl}}/api/stores/{{storeId}}/deactivate
-// Authorization: {{ownerToken}}
+#PUT {{baseUrl}}/api/stores/deactivate
+#Authorization: {{ownerToken}}
+#Content-Type: application/json
+#
+#{
+#  "id": {{storeId}}
+#}

@@ -69,10 +69,15 @@ Content-Type: application/json
 client.global.set("adminToken", "Bearer " + response.body.accessToken);
 %}
 
-### Suspend user (ADMIN only) — replace {userId}
-// PUT http://localhost:8081/api/users/1/suspend
-// Authorization: {{adminToken}}
+### Suspend user (ADMIN only) — replace id with actual user ID
+#PUT http://localhost:8081/api/users/suspend
+#Authorization: {{adminToken}}
+#Content-Type: application/json
+#
+#{
+#  "id": 1
+#}
 
 ### Withdraw (self)
-// PUT http://localhost:8081/api/users/me/withdraw
-// Authorization: {{customerToken}}
+#PUT http://localhost:8081/api/users/me/withdraw
+#Authorization: {{customerToken}}

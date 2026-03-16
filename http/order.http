@@ -1,23 +1,22 @@
 @baseUrl = http://localhost:8083
-@storeId = 1
+@storeId = 2
 @cartId = 2
-@orderId = 1
+@orderId = 2
 
-# =============================================================================
-# CART (CUSTOMER)
-# =============================================================================
+### CART (CUSTOMER)
 
-### Add item to cart (creates cart if none exists, or adds to existing)
+# Add item to cart (creates cart if none exists, or adds to existing)
+# storeId and unitPrice must match the product — snapshot is taken at add time
 POST {{baseUrl}}/api/carts
 Authorization: {{customerToken}}
 Content-Type: application/json
 
 {
-  "productId": 1,
+  "productId": 6,
+  "storeId": {{storeId}},
+  "unitPrice": 18000,
   "quantity": 2
 }
-
-###
 
 ### Add another item to cart
 POST {{baseUrl}}/api/carts
@@ -26,90 +25,118 @@ Content-Type: application/json
 
 {
   "productId": 2,
+  "storeId": {{storeId}},
+  "unitPrice": 19000,
   "quantity": 1
 }
 
-###
-
 ### Get my cart
-GET {{baseUrl}}/api/carts
+POST {{baseUrl}}/api/carts/me
 Authorization: {{customerToken}}
-
-###
 
 ### Remove single item from cart
-DELETE {{baseUrl}}/api/carts/{{cartId}}/products/123
+DELETE {{baseUrl}}/api/carts/products
 Authorization: {{customerToken}}
+Content-Type: application/json
 
-###
+{
+  "cartId": {{cartId}},
+  "productId": 1
+}
 
 ### Clear cart (remove all items)
-DELETE {{baseUrl}}/api/carts/{{cartId}}
+DELETE {{baseUrl}}/api/carts
 Authorization: {{customerToken}}
+Content-Type: application/json
 
-###
+{
+  "cartId": {{cartId}}
+}
 
 ### Checkout — converts cart to order
-PUT {{baseUrl}}/api/carts/{{cartId}}/checkout
+PUT {{baseUrl}}/api/carts/checkout
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "cartId": {{cartId}}
+}
+
+### ORDER — customer view, list my orders
+POST {{baseUrl}}/api/users/me/orders
 Authorization: {{customerToken}}
 
-# =============================================================================
-# ORDER — customer view
-# =============================================================================
-
-### List my orders
-GET {{baseUrl}}/api/users/me/orders
-Authorization: {{customerToken}}
-
-# =============================================================================
-# ORDER — owner view
-# =============================================================================
-
-### List orders for store
-GET {{baseUrl}}/api/stores/{{storeId}}/orders
+### ORDER — owner view, list orders for store
+POST {{baseUrl}}/api/stores/orders/list
 Authorization: {{ownerToken}}
+Content-Type: application/json
 
-###
+{
+  "storeId": {{storeId}}
+}
 
 ### Mark order as sold (OWNER)
-PUT {{baseUrl}}/api/stores/{{storeId}}/orders/{{orderId}}/sold
+PUT {{baseUrl}}/api/stores/orders/sold
 Authorization: {{ownerToken}}
+Content-Type: application/json
 
-###
+{
+  "storeId": {{storeId}},
+  "orderId": {{orderId}}
+}
 
 ### Cancel order (OWNER)
-PUT {{baseUrl}}/api/stores/{{storeId}}/orders/{{orderId}}/cancel
+PUT {{baseUrl}}/api/stores/orders/cancel
 Authorization: {{ownerToken}}
+Content-Type: application/json
 
-# =============================================================================
-# STATISTICS
-# =============================================================================
+{
+  "storeId": {{storeId}},
+  "orderId": {{orderId}}
+}
+
+### STATISTICS
 
 ### Revenue for store by month — UTC (OWNER)
-GET {{baseUrl}}/api/stores/{{storeId}}/statistics/revenue?year=2026&month=3
+POST {{baseUrl}}/api/stores/statistics/revenue
 Authorization: {{ownerToken}}
+Content-Type: application/json
 
-###
+{
+  "storeId": {{storeId}},
+  "year": 2026,
+  "month": 3
+}
 
 ### Revenue for store by month — Seoul time (OWNER)
-GET {{baseUrl}}/api/stores/{{storeId}}/statistics/revenue?year=2026&month=3&timezone=Asia/Seoul
+POST {{baseUrl}}/api/stores/statistics/revenue
 Authorization: {{ownerToken}}
+Content-Type: application/json
 
-###
+{
+  "storeId": {{storeId}},
+  "year": 2026,
+  "month": 3,
+  "timezone": "Asia/Seoul"
+}
 
 ### My spending by month — UTC (CUSTOMER)
-GET {{baseUrl}}/api/users/me/statistics/spending?year=2026&month=3
+POST {{baseUrl}}/api/users/me/statistics/spending
 Authorization: {{customerToken}}
+Content-Type: application/json
 
-###
+{
+  "year": 2026,
+  "month": 3
+}
 
 ### My spending by month — New York time (CUSTOMER)
-GET {{baseUrl}}/api/users/me/statistics/spending?year=2026&month=3&timezone=America/New_York
+POST {{baseUrl}}/api/users/me/statistics/spending
 Authorization: {{customerToken}}
+Content-Type: application/json
 
-# =============================================================================
-# INTERNAL (service-to-service — no auth)
-# =============================================================================
-
-### Get order by ID (internal)
-GET {{baseUrl}}/internal/orders/{{orderId}}
+{
+  "year": 2026,
+  "month": 3,
+  "timezone": "America/New_York"
+}
