@@ -7,36 +7,46 @@ Built with **Kotlin 2.x + Spring Boot 4** as a hands-on microservices architectu
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                        Client                           │
-└────────────┬───────────────┬────────────────┬───────────┘
-             │               │                │
-     :8081   │       :8082   │        :8083   │
-┌────────────▼──┐  ┌─────────▼─────┐  ┌──────▼──────────┐
-│  user-service │  │ store-service │  │  order-service  │
-│               │  │               │  │                 │
-│  - Auth       │  │  - Stores     │  │  - Cart         │
-│  - JWT issue  │  │  - Products   │  │  - Orders       │
-│               │  │  - Reviews    │  │  - Statistics   │
-│               │  │  - Statistics │  │                 │
-└───────────────┘  └───────────────┘  └─────────────────┘
-        │
-        │    JWT secret (shared key)
-        │
-┌───────▼───────┐  ┌───────────────┐  ┌─────────────────┐
-│  userdb :5433 │  │ storedb :5434 │  │  orderdb :5435  │
-│  (PostgreSQL) │  │ (PostgreSQL)  │  │  (PostgreSQL)   │
-└───────────────┘  └───────────────┘  └─────────────────┘
+```mermaid
+flowchart TB
+    C["Client\n(front-service)"]
 
-┌─────────────────────────────────────────────────────────┐
-│                    common (library)                     │
-│  UserPrincipal · UserRole · JwtAuthenticationFilter     │
-│  GlobalExceptionHandler · Extensions                    │
-└─────────────────────────────────────────────────────────┘
+    subgraph bff ["BFF Layer :8080"]
+        BFF["BFF Server"]
+    end
+
+    subgraph svc ["Backend Services"]
+        US["user-service :8081\nAuth · JWT issue"]
+        SS["store-service :8082\nStores · Products · Reviews · Statistics"]
+        OS["order-service :8083\nCart · Orders · Statistics"]
+    end
+
+    subgraph db ["PostgreSQL Databases"]
+        UD[("userdb\n:5433")]
+        SD[("storedb\n:5434")]
+        OD[("orderdb\n:5435")]
+    end
+
+    C --> BFF
+    BFF --> US & SS & OS
+
+    US --> UD
+    SS --> SD
+    OS --> OD
 ```
 
-Each service owns its own PostgreSQL database. All requests originate from the client — no service-to-service calls. Foreign-key-like references across services (e.g. `store_id` in `orders`) are plain `BIGINT` columns — no ORM join, no FK constraint across DB boundaries.
+All client requests flow through the BFF, which aggregates cross-service calls and forwards them to the appropriate backend service. There are no direct service-to-service calls between backend services. Each service owns its own PostgreSQL database. Foreign-key-like references across services (e.g. `store_id` in `orders`) are plain `BIGINT` columns — no ORM join, no FK constraint across DB boundaries.
+
+The JWT secret is shared across all services via configuration — user-service issues tokens, and store-service and order-service validate them independently using the same secret. No runtime call is made between services for authentication.
+
+### BFF Layer
+
+The BFF (Backend for Frontend) sits between the client and the three backend services. Its responsibilities:
+
+- **Routing** — forwards requests to the correct backend service
+- **Aggregation** — combines data from multiple services into a single response (e.g. order list enriched with store/product names)
+- **Auth delegation** — attaches the JWT from the client and forwards it; each backend service validates independently
+- **Cross-service data hand-off** — handles flows where data from one service is needed as input to another (e.g. fetching `unitPrice` from store-service before calling order-service to add a cart item)
 
 ---
 
@@ -56,37 +66,6 @@ Each service owns its own PostgreSQL database. All requests originate from the c
 
 ---
 
-## Module Structure
-
-```
-Baemin/
-├── common/               # Shared library (not a Spring Boot app)
-│   ├── security/
-│   │   ├── UserPrincipal.kt          # data class(id, email, role)
-│   │   ├── UserRole.kt               # enum: CUSTOMER | OWNER | ADMIN
-│   │   └── JwtAuthenticationFilter.kt
-│   ├── exception/
-│   │   ├── GlobalExceptionHandler.kt # RFC 7807 ProblemDetail responses
-│   │   ├── NotFoundException.kt      # → 404
-│   │   ├── ForbiddenException.kt     # → 403
-│   │   └── ConflictException.kt      # → 409
-│   ├── entity/
-│   │   └── BaseEntity.kt             # @MappedSuperclass — createdAt/updatedAt (JPA Auditing)
-│   └── Extensions.kt                 # Optional.orThrow(msg) → NotFoundException
-│
-├── user-service/         # Port 8081 — auth & user management
-├── store-service/        # Port 8082 — stores, products, reviews
-├── order-service/        # Port 8083 — cart, orders, statistics
-│
-├── docker-compose.yml    # Three PostgreSQL instances
-└── http/                 # IntelliJ HTTP client request files
-```
-
-Package roots: `user.*`, `store.*`, `order.*`, `common.*`
-Layout per service: `{root}.{layer}.{subdomain}` (e.g. `store.service.product`, `order.api.cart`)
-
----
-
 ## API Reference
 
 All read operations use `POST` with a JSON request body. Mutation operations use `POST` (create), `PUT` (update/action), or `DELETE`.
@@ -95,7 +74,7 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 
 | Method | Path | Auth | Body / Notes |
 |--------|------|------|--------------|
-| `POST` | `/api/users/signup` | Public | `{ email, password, phone?, role? }` → `{ id }` |
+| `POST` | `/api/users/signup` | Public | `{ email, password, phone?, role? }` → `201 Created` |
 | `POST` | `/api/users/signin` | Public | `{ email, password }` → `{ accessToken, tokenType }` |
 | `PUT`  | `/api/users/suspend` | ADMIN | `{ id }` — suspend user (sets status `SUSPENDED`) |
 | `PUT`  | `/api/users/me/withdraw` | Any | Self-withdraw (sets status `WITHDRAWN`) |
@@ -124,6 +103,7 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 | `POST` | `/api/stores/products/find` | Any | `{ storeId, productId }` → `ProductResponse` |
 | `PUT`  | `/api/stores/products` | OWNER | `{ storeId, productId, name, description, price, productPictureUrl? }` |
 | `PUT`  | `/api/stores/products/deactivate` | OWNER | `{ storeId, productId }` |
+| `PUT`  | `/api/stores/products/popularity` | OWNER | `{ storeId, productId, delta }` — increment popularity |
 
 #### Reviews
 
@@ -138,7 +118,6 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 | Method | Path | Auth | Body / Notes |
 |--------|------|------|--------------|
 | `POST` | `/api/stores/statistics/popular-products` | OWNER | `{ storeId }` → `List<ProductResponse>` ordered by popularity |
-| `PUT`  | `/api/stores/products/popularity` | OWNER | `{ storeId, productId, delta }` — increment popularity |
 
 ---
 
@@ -176,35 +155,62 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 
 ### New customer places an order
 
-```
-1. POST /api/users/signup          → register account
-2. POST /api/users/signin          → receive JWT
+```mermaid
+sequenceDiagram
+    actor Cu as Customer
+    participant US as user-service :8081
+    participant SS as store-service :8082
+    participant OS as order-service :8083
 
-3. POST /api/stores/list           → browse stores  { sortBy: "RATING" }
-4. POST /api/stores/products/list  → view products  { storeId: 5 }
+    Cu->>US: POST /api/users/signup
+    US-->>Cu: 201 Created
+    Cu->>US: POST /api/users/signin
+    US-->>Cu: { accessToken }
 
-5. POST /api/stores/products/find  → get price      { storeId: 5, productId: 12 }
-   POST /api/carts                 → add item       { productId: 12, storeId: 5, unitPrice: 9000, quantity: 2 }
+    Note over Cu,SS: Browse — data extracted from store-service
+    Cu->>SS: POST /api/stores/list { sortBy: "RATING" }
+    SS-->>Cu: List[StoreResponse]
+    Cu->>SS: POST /api/stores/products/list { storeId }
+    SS-->>Cu: List[ProductResponse]
 
-6. PUT  /api/carts/checkout          → Order(PENDING) created  { cartId }
+    Note over Cu,OS: ⚠ Cross-service: unitPrice extracted from SS, passed to OS → BFF candidate
+    Cu->>SS: POST /api/stores/products/find { storeId, productId }
+    SS-->>Cu: ProductResponse (unitPrice)
+    Cu->>OS: POST /api/carts { productId, storeId, unitPrice, quantity }
+    OS-->>Cu: CartResponse
 
-7. POST /api/users/me/orders       → confirm order in history
+    Cu->>OS: PUT /api/carts/checkout { cartId }
+    OS-->>Cu: OrderResponse (PENDING)
+
+    Note over Cu,OS: Confirm — data extracted from order-service
+    Cu->>OS: POST /api/users/me/orders
+    OS-->>Cu: List[OrderResponse]
 ```
 
 ### Owner manages a store order
 
-```
-1. POST /api/users/signin          → receive JWT (role: OWNER)
+```mermaid
+sequenceDiagram
+    actor Ow as Owner
+    participant US as user-service :8081
+    participant SS as store-service :8082
+    participant OS as order-service :8083
 
-2. POST /api/stores/orders/list       → see incoming orders  { storeId: 5 }
+    Ow->>US: POST /api/users/signin
+    US-->>Ow: { accessToken }
 
-3. PUT  /api/stores/orders/sold
-   → status: PENDING → SOLD           { storeId: 5, orderId }
+    Note over Ow,OS: ⚠ Cross-service: orders in OS, product data in SS → BFF candidate
+    Ow->>OS: POST /api/stores/orders/list { storeId }
+    OS-->>Ow: List[OrderResponse]
+    Ow->>OS: PUT /api/stores/orders/sold { storeId, orderId }
+    OS-->>Ow: OrderResponse (SOLD)
 
-4. PUT  /api/stores/products/popularity
-   → increment popularity              { storeId: 5, productId, delta: 1 }
+    Ow->>SS: PUT /api/stores/products/popularity { storeId, productId, delta: 1 }
+    SS-->>Ow: ProductResponse
 
-5. POST /api/stores/statistics/revenue → check monthly revenue { storeId: 5, year: 2026, month: 3 }
+    Note over Ow,SS: Statistics — data extracted from store-service
+    Ow->>SS: POST /api/stores/statistics/revenue { storeId, year, month }
+    SS-->>Ow: RevenueResponse
 ```
 
 ---
@@ -218,10 +224,14 @@ Path variables and query params for read operations are moved into the request b
 `carts.user_id` is non-unique. A user accumulates carts over time; only the one with `is_ordered = false` is the active cart (queried via `findByUserIdAndIsOrderedFalse`). Ordered carts are preserved as history, permanently linked to their order. When a customer adds a product from a different store, the active cart is reset in-place — items cleared, `store_id` updated.
 
 ### Order status flow
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING : PUT /carts/checkout
+    PENDING --> SOLD      : PUT /stores/orders/sold
+    PENDING --> CANCELED  : PUT /stores/orders/cancel
 ```
-PENDING ──► SOLD
-        └─► CANCELED
-```
+
 Only `PENDING` orders can transition.
 
 ### Popularity tracking
@@ -243,48 +253,85 @@ ZonedDateTime.of(year, month, 1, 0, 0, 0, 0, zoneId).toInstant().toEpochMilli()
 
 ## Database Schema
 
-```
-user-service DB (port 5433)
-┌────────────────────┐
-│       users        │
-│────────────────────│
-│ id       BIGSERIAL │
-│ email    VARCHAR   │
-│ password VARCHAR   │
-│ phone    VARCHAR   │
-│ role     VARCHAR   │  ← CUSTOMER | OWNER | ADMIN
-│ status   VARCHAR   │  ← ACTIVE | SUSPENDED | WITHDRAWN
-│ created_at BIGINT  │
-│ updated_at BIGINT  │
-└────────────────────┘
+```mermaid
+erDiagram
+    %% ── userdb :5433 (user-service) ────────────────────────
+    users {
+        bigserial id PK
+        varchar   email
+        varchar   password
+        varchar   phone
+        varchar   role        "CUSTOMER | OWNER | ADMIN"
+        varchar   status      "ACTIVE | SUSPENDED | WITHDRAWN"
+        bigint    created_at
+        bigint    updated_at
+    }
 
-store-service DB (port 5434)
-┌────────────────────┐    ┌──────────────────────┐    ┌─────────────────────┐
-│       stores       │    │       products       │    │       reviews       │
-│────────────────────│    │──────────────────────│    │─────────────────────│
-│ id       BIGSERIAL │◄───│ store_id   BIGINT FK │    │ id        BIGSERIAL │
-│ user_id* BIGINT    │    │ id         BIGSERIAL │    │ store_id* BIGINT FK │
-│ name     VARCHAR   │    │ name       VARCHAR   │    │ user_id*  BIGINT    │
-│ address  VARCHAR   │    │ description TEXT     │    │ rating    INT       │
-│ status   VARCHAR   │    │ price      BIGINT    │    │ content   TEXT      │
-│ ...      ...       │    │ popularity BIGINT    │    │ created_at BIGINT   │
-└────────────────────┘    │ status     BOOLEAN  │    └─────────────────────┘
-                          │ ...        ...      │
-                          └──────────────────────┘
+    %% ── storedb :5434 (store-service) ──────────────────────
+    stores {
+        bigserial id PK
+        bigint    user_id     "* cross-service ref — no FK"
+        varchar   name
+        varchar   address
+        varchar   status      "ACTIVE | INACTIVE"
+        bigint    created_at
+        bigint    updated_at
+    }
+    products {
+        bigserial id PK
+        bigint    store_id FK
+        varchar   name
+        text      description
+        bigint    price
+        bigint    popularity
+        boolean   status
+        bigint    created_at
+        bigint    updated_at
+    }
+    reviews {
+        bigserial id PK
+        bigint    store_id FK
+        bigint    user_id     "* cross-service ref — no FK"
+        int       rating
+        text      content
+        bigint    created_at
+        bigint    updated_at
+    }
 
-order-service DB (port 5435)
-┌──────────────────┐    ┌─────────────────────────┐    ┌─────────────────────┐
-│      carts       │    │      cart_products       │    │       orders        │
-│──────────────────│    │─────────────────────────│    │─────────────────────│
-│ id    BIGSERIAL  │◄───│ cart_id    BIGINT FK    │    │ id       BIGSERIAL  │
-│ user_id* BIGINT  │    │ product_id* BIGINT      │    │ cart_id* BIGINT FK  │
-│ store_id* BIGINT │    │ quantity   BIGINT        │    │ user_id* BIGINT     │
-│ is_ordered BOOL  │    │ unit_price BIGINT        │    │ store_id* BIGINT    │
-│ created_at BIGINT│    └─────────────────────────┘    │ total_price BIGINT  │
-└──────────────────┘                                   │ status   VARCHAR    │
-  user_id indexed,                                     └─────────────────────┘
-  non-unique (1:N)
-* cross-service reference — plain BIGINT, no FK constraint
+    %% ── orderdb :5435 (order-service) ──────────────────────
+    carts {
+        bigserial id PK
+        bigint    user_id     "* cross-service ref — no FK, indexed non-unique"
+        bigint    store_id    "* cross-service ref — no FK"
+        boolean   is_ordered
+        bigint    created_at
+        bigint    updated_at
+    }
+    cart_products {
+        bigserial id PK
+        bigint    cart_id FK
+        bigint    product_id  "* cross-service ref — no FK"
+        bigint    quantity
+        bigint    unit_price
+    }
+    orders {
+        bigserial id PK
+        bigint    cart_id FK
+        bigint    user_id     "* cross-service ref — no FK"
+        bigint    store_id    "* cross-service ref — no FK"
+        bigint    total_price
+        varchar   status      "PENDING | SOLD | CANCELED"
+        bigint    created_at
+        bigint    updated_at
+    }
+
+    %% relationships within storedb
+    stores      ||--o{ products      : "has"
+    stores      ||--o{ reviews       : "has"
+
+    %% relationships within orderdb
+    carts       ||--o{ cart_products : "contains"
+    carts       ||--o| orders        : "becomes"
 ```
 
 ---

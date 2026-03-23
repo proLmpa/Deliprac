@@ -50,6 +50,7 @@ Kotlin 2.x + Spring Boot 4 **microservices** with a shared `common` library modu
 
 ```
 common/         ← shared library (JWT filter, UserPrincipal, UserRole, GlobalExceptionHandler, Extensions)
+bff-service/    ← port 8080 — BFF gateway (routing, aggregation, JWT forwarding)
 user-service/   ← port 8081 — auth, user management
 store-service/  ← port 8082 — stores, products, reviews, product statistics
 order-service/  ← port 8083 — carts, orders, order statistics
@@ -108,6 +109,31 @@ order.{layer}.{subdomain}
 ```
 When adding a new subdomain (e.g. `product`), create files under every layer:
 `api/product/`, `dto/product/`, `entity/product/`, `repository/product/`, `service/product/`
+
+---
+
+### bff-service
+```
+bff-service/src/main/kotlin/bff/
+├── BffServiceApplication.kt
+├── client/       ← UserClient.kt, StoreClient.kt, OrderClient.kt  (RestClient wrappers)
+├── config/       ← SecurityConfig.kt, RestClientConfig.kt
+├── api/          ← controllers that expose aggregated endpoints to the front-service
+└── dto/          ← request/response DTOs (mirrors or composes backend DTOs)
+```
+
+**No own database.** The BFF holds no state — it only forwards and aggregates.
+
+**JWT forwarding:** The BFF extracts the `Authorization: Bearer <token>` header from the incoming request and passes it unchanged to each backend service call. Backend services validate the token independently using the shared JWT secret.
+
+**Cross-service aggregation pattern:**
+```kotlin
+// Example: add-to-cart flow that requires price from store-service
+fun addToCart(request: AddToCartRequest, token: String): CartResponse {
+    val product = storeClient.findProduct(request.storeId, request.productId, token)
+    return orderClient.addCartItem(request.copy(unitPrice = product.price), token)
+}
+```
 
 ---
 
@@ -212,6 +238,24 @@ fun jwtAuthFilterRegistration(jwtAuthFilter: JwtAuthenticationFilter): FilterReg
 ---
 
 ## Service Details
+
+### bff-service (port 8080)
+
+**Role:** Single entry point for all client requests. Routes to the correct backend service and handles cross-service aggregation.
+
+**No own database.** Stateless — forwards requests and aggregates responses only.
+
+**Key responsibilities:**
+- **Routing** — delegates each request to the appropriate backend service via `RestClient`
+- **Aggregation** — combines responses from multiple services into one (e.g. order list with store/product details)
+- **JWT forwarding** — extracts `Authorization: Bearer <token>` from the client request and passes it to every downstream call; each backend service validates independently
+- **Cross-service data hand-off** — handles flows where output from one service is input to another (e.g. fetch `unitPrice` from store-service, then call order-service to add a cart item)
+
+**Client wrappers** (`client/` package): one `RestClient`-based class per backend service (`UserClient`, `StoreClient`, `OrderClient`). Each method maps to one backend endpoint and forwards the JWT header.
+
+**Does not use `common` security filter** — the BFF is not a resource server. It does not validate JWT tokens itself; it only forwards them.
+
+---
 
 ### user-service (port 8081)
 
@@ -470,6 +514,7 @@ Each domain has exactly two DTO files:
 | Cart       | order-service | ✅     | ✅     | ✅      | ✅         | ✅    |
 | Order      | order-service | ✅     | ✅     | ✅      | ✅         | ✅    |
 | Statistics | —             | ✅     | ✅     | ✅      | ✅         | ✅    |
+| BFF        | bff-service   | —      | —      | ❌      | ❌         | ❌    |
 
 ---
 
