@@ -10,17 +10,9 @@ import java.net.URI
 @RestControllerAdvice
 class GlobalExceptionHandler {
 
-    @ExceptionHandler(NotFoundException::class)
-    fun handleNotFound(ex: NotFoundException, req: HttpServletRequest): ProblemDetail =
-        problem(HttpStatus.NOT_FOUND, "not-found", ex.message!!, req)
-
-    @ExceptionHandler(ForbiddenException::class)
-    fun handleForbidden(ex: ForbiddenException, req: HttpServletRequest): ProblemDetail =
-        problem(HttpStatus.FORBIDDEN, "forbidden", ex.message!!, req)
-
-    @ExceptionHandler(ConflictException::class)
-    fun handleConflict(ex: ConflictException, req: HttpServletRequest): ProblemDetail =
-        problem(HttpStatus.CONFLICT, "conflict", ex.message!!, req)
+    @ExceptionHandler(BaeminException::class)
+    fun handleBaemin(ex: BaeminException, req: HttpServletRequest): ProblemDetail =
+        problem(ex.status, ex.errorType, ex.message!!, req)
 
     @ExceptionHandler(IllegalArgumentException::class)
     fun handleIllegalArgument(ex: IllegalArgumentException, req: HttpServletRequest): ProblemDetail =
