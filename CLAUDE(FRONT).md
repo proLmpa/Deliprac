@@ -9,13 +9,11 @@ npm run dev     # http://localhost:5173
 npm run build   # production build (runs tsc -b first)
 ```
 
-All backends must be running before the frontend is usable:
+All traffic goes through the BFF. Start it before using the frontend:
 
 ```bash
 docker compose up -d
-./gradlew :user-service:bootRun &
-./gradlew :store-service:bootRun &
-./gradlew :order-service:bootRun &
+./gradlew :bff-service:bootRun
 ```
 
 ---
@@ -24,13 +22,13 @@ docker compose up -d
 
 | Tool | Version | Purpose |
 |---|---|---|
-| Vite + React + TypeScript | Vite 7, React 19 | App scaffolding |
+| Vite + React + TypeScript | Vite 7, React 19, TS 5.9 | App scaffolding |
 | Tailwind CSS | v3 | Styling |
-| React Router | v6 | SPA routing + role guards |
+| React Router | v7 | SPA routing + role guards |
 | Axios | latest | HTTP client with JWT interceptor |
-| Zustand | latest | Auth state (token, role, userId) |
+| Zustand | v5 | Auth state (token, role, userId) |
 | TanStack Query | v5 | Server-state fetching + caching |
-| date-fns | latest | Epoch millis → human-readable dates |
+| date-fns | v4 | Epoch millis → human-readable dates |
 
 ---
 
@@ -90,22 +88,14 @@ front-service/
 
 ## Vite Proxy Config
 
-Rules are matched in order — more specific paths must come first.
+All API traffic goes to the BFF on port 8080. The complex per-service routing is gone.
 
 ```typescript
 // vite.config.ts
 proxy: {
-  '/api/users/me/orders':              → http://localhost:8083  (order-service)
-  '/api/users/me/statistics':          → http://localhost:8083  (order-service)
-  '/api/users':                        → http://localhost:8081  (user-service)
-  '/api/carts':                        → http://localhost:8083  (order-service)
-  '^/api/stores/\\d+/orders':          → http://localhost:8083  (order-service)  ← regex key
-  '^/api/stores/\\d+/statistics/revenue': → http://localhost:8083               ← regex key
-  '/api/stores':                       → http://localhost:8082  (store-service)
+  '/api': { target: 'http://localhost:8080', changeOrigin: true }
 }
 ```
-
-**Important:** `/api/users/me/*` must be declared before `/api/users` or they will be caught by the user-service proxy. Regex keys use computed property syntax `['^/api/stores/\\d+/orders']`.
 
 ---
 
@@ -145,7 +135,7 @@ login(token: string)      ← decodes JWT payload (base64), sets token/userId/ro
 logout()                  ← clears all fields
 ```
 
-JWT payload expected fields: `id` (or `sub`) and `role`.
+JWT payload expected fields: `sub` (userId as string) and `role`.
 
 ---
 
@@ -153,7 +143,7 @@ JWT payload expected fields: `id` (or `sub`) and `role`.
 
 ```typescript
 // src/api/client.ts
-baseURL: '/'   // relative — Vite proxy routes to correct backend
+baseURL: '/'   // relative — Vite proxy routes to BFF
 
 // Request interceptor: Authorization: Bearer <token>
 // Response interceptor: 401 or 403 → logout() + redirect /signin
@@ -161,11 +151,98 @@ baseURL: '/'   // relative — Vite proxy routes to correct backend
 
 ---
 
-## Actual Backend Response Shapes
+## BFF API Reference
 
-> **These differ from what was initially assumed.** Always verify against the Kotlin DTOs.
+> **All read operations use `POST` with a JSON body. No path variables anywhere.**
+> Resource IDs are always in the request body.
 
-### `ProductResponse` (`store-service`)
+### Auth (`src/api/auth.ts`)
+
+```typescript
+signup(data)   POST /api/users/signup   { email, password, phone?, role? }  → { id }
+signin(data)   POST /api/users/signin   { email, password }                 → { accessToken, tokenType }
+```
+
+### Stores (`src/api/stores.ts`)
+
+```typescript
+listStores(sortBy?)          POST /api/stores/list       { sortBy: 'CREATED_AT'|'RATING' }  → StoreResponse[]
+getStore(id)                 POST /api/stores/find       { id }                              → StoreResponse
+listMyStores()               POST /api/stores/mine       (no body)                           → StoreResponse[]
+createStore(data)            POST /api/stores            { name, address, phone, content,
+                                                           storePictureUrl?, productCreatedTime,
+                                                           openedTime, closedTime, closedDays }
+updateStore(data)            PUT  /api/stores            { id, name, address, ... }
+deactivateStore(id)          PUT  /api/stores/deactivate { id }
+getPopularProducts(storeId)  POST /api/stores/statistics/popular-products  { storeId }       → ProductResponse[]
+```
+
+### Products (`src/api/products.ts`)
+
+```typescript
+listProducts(storeId)                    POST /api/stores/products/list       { storeId }            → ProductResponse[]
+getProduct(storeId, productId)           POST /api/stores/products/find       { storeId, productId } → ProductResponse
+createProduct(data)                      POST /api/stores/products            { storeId, name, description, price, productPictureUrl? }
+updateProduct(data)                      PUT  /api/stores/products            { storeId, productId, name, description, price, productPictureUrl? }
+deactivateProduct(storeId, productId)    PUT  /api/stores/products/deactivate { storeId, productId }
+```
+
+### Reviews (`src/api/reviews.ts`)
+
+```typescript
+listReviews(storeId)              POST   /api/stores/reviews/list  { storeId }                   → ReviewResponse[]
+createReview(data)                POST   /api/stores/reviews       { storeId, rating, content }
+deleteReview(storeId, reviewId)   DELETE /api/stores/reviews       { storeId, reviewId }          ← JSON body, not path
+```
+
+### Cart (`src/api/cart.ts`)
+
+```typescript
+getCart()                              POST   /api/carts/me        (no body)                         → CartResponse
+addToCart(productId, storeId, qty)     POST   /api/carts           { productId, storeId, quantity }   → CartResponse
+  // ⚠ storeId is required. unitPrice is NOT sent — BFF fetches it from store-service.
+removeCartItem(cartId, productId)      DELETE /api/carts/products  { cartId, productId }              ← JSON body
+clearCart(cartId)                      DELETE /api/carts           { cartId }                         ← JSON body
+checkout(cartId)                       PUT    /api/carts/checkout  { cartId }                         → OrderResponse
+```
+
+### Orders (`src/api/orders.ts`)
+
+```typescript
+listStoreOrders(storeId)               POST /api/stores/orders/list    { storeId }              → OrderResponse[]
+markSold(storeId, orderId)             PUT  /api/stores/orders/sold    { storeId, orderId }      → OrderResponse
+cancelOrder(storeId, orderId)          PUT  /api/stores/orders/cancel  { storeId, orderId }      → OrderResponse
+listMyOrders()                         POST /api/users/me/orders        (no body)                → OrderResponse[]
+getRevenue(storeId, year, month)       POST /api/stores/statistics/revenue   { storeId, year, month } → RevenueResponse
+getSpending(year, month)               POST /api/users/me/statistics/spending { year, month }    → SpendingResponse
+```
+
+---
+
+## Backend Response Shapes
+
+### `StoreResponse`
+
+```typescript
+{
+  id: number
+  name: string
+  address: string
+  phone: string
+  content: string
+  status: 'ACTIVE' | 'INACTIVE'
+  storePictureUrl: string | null
+  productCreatedTime: number       // epoch millis
+  openedTime: number               // epoch millis
+  closedTime: number               // epoch millis
+  closedDays: string
+  averageRating: number
+  createdAt: number
+  updatedAt: number
+}
+```
+
+### `ProductResponse`
 
 ```typescript
 {
@@ -174,7 +251,7 @@ baseURL: '/'   // relative — Vite proxy routes to correct backend
   name: string
   description: string
   price: number
-  status: boolean        // ← active/inactive flag; NOT named 'active'
+  status: boolean        // active flag — NOT named 'active'
   popularity: number
   productPictureUrl: string | null
   createdAt: number
@@ -184,7 +261,19 @@ baseURL: '/'   // relative — Vite proxy routes to correct backend
 
 **Filter active products:** `products.filter(p => p.status)`
 
-### `CartProductResponse` (`order-service`)
+### `CartResponse`
+
+```typescript
+{
+  id: number
+  storeId: number
+  isOrdered: boolean
+  items: CartItem[]
+  totalPrice: number
+}
+```
+
+### `CartItem` (inside `CartResponse.items`)
 
 ```typescript
 {
@@ -196,18 +285,7 @@ baseURL: '/'   // relative — Vite proxy routes to correct backend
 }
 ```
 
-### `CartResponse` (`order-service`)
-
-```typescript
-{
-  id: number
-  storeId: number
-  items: CartItem[]
-  totalPrice: number
-}
-```
-
-### `OrderResponse` (`order-service`)
+### `OrderResponse`
 
 ```typescript
 {
@@ -222,14 +300,47 @@ baseURL: '/'   // relative — Vite proxy routes to correct backend
 }
 ```
 
+### `RevenueResponse`
+
+```typescript
+{
+  storeId: number
+  year: number
+  month: number
+  totalRevenue: number
+}
+```
+
+### `SpendingResponse`
+
+```typescript
+{
+  year: number
+  month: number
+  totalSpending: number
+}
+```
+
 ---
 
 ## Known Patterns & Pitfalls
 
+### ⚠ API modules need rewriting
+The existing `src/api/*.ts` files use REST-style GET/PUT/DELETE with path variables.
+The BFF uses POST+body for all reads and IDs in the body for mutations.
+Every API module must be rewritten to match the BFF API Reference above.
+
+### DELETE with JSON body
+`removeCartItem` and `clearCart` and `deleteReview` send a JSON body on DELETE requests.
+Axios supports this: `client.delete(url, { data: { ... } })`.
+
+### addToCart requires storeId
+Unlike the old implementation, `addToCart` must pass `storeId` along with `productId` and `quantity`.
+The BFF uses `storeId` to look up the current product price from store-service internally.
+
 ### Product name in Cart
-`CartProductResponse` does not include product names. `Cart.tsx` resolves names by fetching
-`listProducts(cart.storeId)` in a second query (enabled only after cart loads) and building a
-`productId → name` lookup map:
+`CartItem` does not include product names. `Cart.tsx` resolves names by fetching
+`listProducts(cart.storeId)` in a second query (enabled only after cart loads):
 
 ```typescript
 const { data: products } = useQuery({
@@ -245,14 +356,12 @@ Store open/close times are stored as epoch millis. `StoreForm.tsx` converts betw
 `<input type="time">` strings and epoch millis:
 
 ```typescript
-// time string → epoch millis (using today's date as base)
 function timeToEpoch(timeStr: string): number {
   const [h, m] = timeStr.split(':').map(Number)
   const d = new Date(); d.setHours(h, m, 0, 0)
   return d.getTime()
 }
 
-// epoch millis → time string
 function epochToTimeInput(ms: number): string {
   const d = new Date(ms)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
@@ -273,14 +382,12 @@ import { ReactNode } from 'react'
 ```
 
 ### Tailwind CSS v3 setup
-The generated `tailwind.config.js` has an empty `content` array. Must set:
-
+`tailwind.config.js` must have:
 ```javascript
 content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}']
 ```
 
-`src/index.css` must contain only Tailwind directives (replace Vite's default styles):
-
+`src/index.css` must contain only Tailwind directives:
 ```css
 @tailwind base;
 @tailwind components;
