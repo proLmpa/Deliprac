@@ -1,0 +1,15 @@
+package bff.dto
+
+data class RegisterUserRequest(
+    val email: String,
+    val password: String,
+    val phone: String?,
+    val role: String = "CUSTOMER"
+)
+
+data class LoginUserRequest(
+    val email: String,
+    val password: String
+)
+
+data class SuspendUserRequest(val id: Long)

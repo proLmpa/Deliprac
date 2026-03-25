@@ -1,0 +1,17 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: bff-service
+  mvc:
+    problemdetails:
+      enabled: true
+
+backend:
+  user-service:
+    url: http://localhost:8081
+  store-service:
+    url: http://localhost:8082
+  order-service:
+    url: http://localhost:8083

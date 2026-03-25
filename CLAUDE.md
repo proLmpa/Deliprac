@@ -514,7 +514,7 @@ Each domain has exactly two DTO files:
 | Cart       | order-service | ✅     | ✅     | ✅      | ✅         | ✅    |
 | Order      | order-service | ✅     | ✅     | ✅      | ✅         | ✅    |
 | Statistics | —             | ✅     | ✅     | ✅      | ✅         | ✅    |
-| BFF        | bff-service   | —      | —      | ❌      | ❌         | ❌    |
+| BFF        | bff-service   | —      | —      | ✅      | ✅         | ✅    |
 
 ---
 
