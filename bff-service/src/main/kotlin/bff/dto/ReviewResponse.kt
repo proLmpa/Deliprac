@@ -6,5 +6,6 @@ data class ReviewResponse(
     val rating: Int,
     val content: String,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val isOwner: Boolean
 )

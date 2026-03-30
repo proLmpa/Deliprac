@@ -1,6 +1,7 @@
 package store.api.review
 
 import common.security.currentUser
+import common.security.optionalCurrentUser
 import store.dto.review.CreateReviewRequest
 import store.dto.review.DeleteReviewRequest
 import store.dto.review.ListReviewRequest
@@ -19,13 +20,15 @@ class ReviewController(private val reviewService: ReviewService) {
     @PostMapping("/api/stores/reviews")
     @ResponseStatus(HttpStatus.CREATED)
     fun create(@RequestBody request: CreateReviewRequest): ReviewResponse {
-        val review = reviewService.create(request.storeId, request, currentUser())
-        return ReviewResponse.of(review)
+        val principal = currentUser()
+        val review = reviewService.create(request.storeId, request, principal)
+        return ReviewResponse.of(review, principal.id)
     }
 
     @PostMapping("/api/stores/reviews/list")
     fun listByStore(@RequestBody request: ListReviewRequest): List<ReviewResponse> {
-        return reviewService.listByStore(request.storeId).map { ReviewResponse.of(it) }
+        val currentUserId = optionalCurrentUser()?.id
+        return reviewService.listByStore(request.storeId).map { ReviewResponse.of(it, currentUserId) }
     }
 
     @DeleteMapping("/api/stores/reviews")

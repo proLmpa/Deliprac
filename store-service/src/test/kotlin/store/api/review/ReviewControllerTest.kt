@@ -58,7 +58,7 @@ class ReviewControllerTest {
     }
 
     private val sampleInfo = ReviewInfo(
-        id = reviewId, storeId = storeId,
+        id = reviewId, storeId = storeId, userId = customerId,
         rating = 5, content = "Great food!", createdAt = 0L, updatedAt = 0L
     )
 

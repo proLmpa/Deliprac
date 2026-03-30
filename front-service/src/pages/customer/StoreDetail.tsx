@@ -142,7 +142,7 @@ export default function StoreDetail() {
                       {format(new Date(r.createdAt), 'yyyy-MM-dd HH:mm')}
                     </p>
                   </div>
-                  {(role === 'ADMIN') && (
+                  {(role === 'ADMIN' || r.isOwner) && (
                     <Button
                       variant="danger"
                       size="sm"

@@ -7,6 +7,7 @@ export interface ReviewResponse {
   content: string
   createdAt: number
   updatedAt: number
+  isOwner: boolean
 }
 
 export interface CreateReviewRequest {
