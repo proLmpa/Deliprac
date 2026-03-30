@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.HttpMethod
 import org.springframework.stereotype.Component
+import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestClient
 
 // Internal DTO: mirrors order-service's AddCartItemRequest (includes unitPrice)
@@ -26,7 +27,7 @@ data class AddCartItemRequest(
 )
 
 @Component
-class OrderClient(@Qualifier("orderClient") private val client: RestClient) {
+class OrderClient(@Qualifier("orderRestClient") private val client: RestClient) {
 
     // ── Cart ───────────────────────────────────────────────────────────────
 
@@ -38,20 +39,25 @@ class OrderClient(@Qualifier("orderClient") private val client: RestClient) {
             .retrieve()
             .body(CartResponse::class.java)!!
 
-    fun getMyCart(token: String): CartResponse =
-        client.post()
-            .uri("/api/carts/me")
-            .header("Authorization", token)
-            .retrieve()
-            .body(CartResponse::class.java)!!
+    fun getMyCart(token: String): CartResponse? =
+        try {
+            client.post()
+                .uri("/api/carts/me")
+                .header("Authorization", token)
+                .retrieve()
+                .body(CartResponse::class.java)
+        } catch (e: HttpClientErrorException.NotFound) {
+            null
+        }
 
-    fun removeCartItem(request: RemoveCartItemRequest, token: String): CartResponse =
+    fun removeCartItem(request: RemoveCartItemRequest, token: String): Unit =
         client.method(HttpMethod.DELETE)
             .uri("/api/carts/products")
             .header("Authorization", token)
             .body(request)
             .retrieve()
-            .body(CartResponse::class.java)!!
+            .toBodilessEntity()
+            .let {}
 
     fun clearCart(request: ClearCartRequest, token: String): Unit =
         client.method(HttpMethod.DELETE)

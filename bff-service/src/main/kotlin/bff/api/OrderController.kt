@@ -47,11 +47,11 @@ class OrderController(
     }
 
     @PostMapping("/api/carts/me")
-    fun getMyCart(httpRequest: HttpServletRequest): CartResponse =
+    fun getMyCart(httpRequest: HttpServletRequest): CartResponse? =
         orderClient.getMyCart(httpRequest.bearerToken())
 
     @DeleteMapping("/api/carts/products")
-    fun removeCartItem(@RequestBody request: RemoveCartItemRequest, httpRequest: HttpServletRequest): CartResponse =
+    fun removeCartItem(@RequestBody request: RemoveCartItemRequest, httpRequest: HttpServletRequest) =
         orderClient.removeCartItem(request, httpRequest.bearerToken())
 
     @DeleteMapping("/api/carts")
