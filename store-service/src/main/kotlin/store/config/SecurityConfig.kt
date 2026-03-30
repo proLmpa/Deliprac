@@ -39,6 +39,13 @@ class SecurityConfig(
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests {
+                it.requestMatchers(
+                    "/api/stores/list",
+                    "/api/stores/find",
+                    "/api/stores/products/list",
+                    "/api/stores/products/find",
+                    "/api/stores/reviews/list"
+                ).permitAll()
                 it.anyRequest().authenticated()
             }
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)
