@@ -15,7 +15,7 @@ class StatisticsController(private val statisticsService: StatisticsService) {
 
     @PostMapping("/api/stores/statistics/revenue")
     fun getRevenue(@RequestBody request: RevenueRequest): RevenueResponse {
-        val zoneId = parseZoneId(request.timezone)
+        val zoneId = parseZoneId(request.timezone ?: "UTC")
         val totalRevenue = statisticsService.getRevenue(request.storeId, request.year, request.month, zoneId, currentUser().role)
         return RevenueResponse(storeId = request.storeId, year = request.year, month = request.month, totalRevenue = totalRevenue)
     }

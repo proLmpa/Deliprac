@@ -27,6 +27,7 @@ data class CartProductResponse(
 data class CartResponse(
     val id: Long,
     val storeId: Long,
+    val isOrdered: Boolean,
     val items: List<CartProductResponse>,
     val totalPrice: Long
 ) {
@@ -34,6 +35,7 @@ data class CartResponse(
         fun of(cart: Cart, items: List<CartProduct>) = CartResponse(
             id         = cart.id,
             storeId    = cart.storeId,
+            isOrdered  = cart.isOrdered,
             items      = items.map { CartProductResponse.of(it) },
             totalPrice = items.sumOf { it.unitPrice * it.quantity }
         )

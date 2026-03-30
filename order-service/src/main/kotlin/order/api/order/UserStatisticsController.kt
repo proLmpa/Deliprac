@@ -15,7 +15,7 @@ class UserStatisticsController(private val statisticsService: StatisticsService)
 
     @PostMapping("/api/users/me/statistics/spending")
     fun getSpending(@RequestBody request: SpendingRequest): SpendingResponse {
-        val zoneId = try { ZoneId.of(request.timezone) } catch (e: DateTimeException) { throw IllegalArgumentException("Invalid timezone: ${request.timezone}") }
+        val zoneId = try { ZoneId.of(request.timezone ?: "UTC") } catch (e: DateTimeException) { throw IllegalArgumentException("Invalid timezone: ${request.timezone}") }
         val totalSpending = statisticsService.getSpending(request.year, request.month, zoneId, currentUser().id)
         return SpendingResponse(year = request.year, month = request.month, totalSpending = totalSpending)
     }
