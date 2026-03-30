@@ -24,5 +24,14 @@ subprojects {
                 languageVersion = JavaLanguageVersion.of(24)
             }
         }
+        tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+            compilerOptions {
+                jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+            }
+        }
+        tasks.withType<JavaCompile> {
+            sourceCompatibility = "21"
+            targetCompatibility = "21"
+        }
     }
 }
