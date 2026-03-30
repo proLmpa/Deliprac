@@ -22,7 +22,7 @@ open class User(
     var email: String,
 
     @Column(unique = true)
-    var phone: String,
+    var phone: String?,
 
     @Column(name = "password_hash", nullable = false)
     var passwordHash: String?,

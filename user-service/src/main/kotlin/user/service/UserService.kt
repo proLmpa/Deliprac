@@ -24,7 +24,7 @@ class UserService(
     private val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
 
     @Transactional
-    fun register(command: RegisterCommand) {
+    fun register(command: RegisterCommand): Long {
         if (!emailRegex.matches(command.email)) throw IllegalArgumentException("Invalid email format")
 
         if (userRepository.existsByEmail(command.email)) {
@@ -38,11 +38,11 @@ class UserService(
             id = 0L,
             email = command.email,
             passwordHash = passwordEncoder.encode(command.password),
-            phone = command.phone ?: "",
+            phone = command.phone,
             role = role,
         )
 
-        userRepository.save(user)
+        return userRepository.save(user).id
     }
 
     fun login(command: LoginCommand): String {
