@@ -4,6 +4,7 @@ export interface RegisterRequest {
   email: string
   password: string
   role: 'CUSTOMER' | 'OWNER'
+  phone?: string
 }
 
 export interface LoginRequest {
