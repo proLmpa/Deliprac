@@ -4,21 +4,21 @@ import bff.dto.LoginUserRequest
 import bff.dto.RegisterUserRequest
 import bff.dto.SuspendUserRequest
 import bff.dto.TokenResponse
-import bff.dto.UserIdResponse
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 
 @Component
-class UserClient(@Qualifier("userClient") private val client: RestClient) {
+class UserClient(@Qualifier("userRestClient") private val client: RestClient) {
 
-    fun signup(request: RegisterUserRequest): UserIdResponse =
+    fun signup(request: RegisterUserRequest): Unit =
         client.post()
             .uri("/api/users/signup")
             .body(request)
             .retrieve()
-            .body(UserIdResponse::class.java)!!
+            .toBodilessEntity()
+            .let {}
 
     fun signin(request: LoginUserRequest): TokenResponse =
         client.post()

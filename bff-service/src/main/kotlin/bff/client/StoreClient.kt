@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 
 @Component
-class StoreClient(@Qualifier("storeClient") private val client: RestClient) {
+class StoreClient(@Qualifier("storeRestClient") private val client: RestClient) {
 
     // ── Store ──────────────────────────────────────────────────────────────
 

@@ -5,7 +5,6 @@ import bff.dto.LoginUserRequest
 import bff.dto.RegisterUserRequest
 import bff.dto.SuspendUserRequest
 import bff.dto.TokenResponse
-import bff.dto.UserIdResponse
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.PostMapping
@@ -19,8 +18,9 @@ class UserController(private val userClient: UserClient) {
 
     @PostMapping("/api/users/signup")
     @ResponseStatus(HttpStatus.CREATED)
-    fun signup(@RequestBody request: RegisterUserRequest): UserIdResponse =
+    fun signup(@RequestBody request: RegisterUserRequest) {
         userClient.signup(request)
+    }
 
     @PostMapping("/api/users/signin")
     fun signin(@RequestBody request: LoginUserRequest): TokenResponse =

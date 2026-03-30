@@ -9,14 +9,14 @@ import org.springframework.web.client.RestClient
 class RestClientConfig {
 
     @Bean
-    fun userClient(@Value("\${backend.user-service.url}") baseUrl: String): RestClient =
+    fun userRestClient(@Value("\${backend.user-service.url}") baseUrl: String): RestClient =
         RestClient.builder().baseUrl(baseUrl).build()
 
     @Bean
-    fun storeClient(@Value("\${backend.store-service.url}") baseUrl: String): RestClient =
+    fun storeRestClient(@Value("\${backend.store-service.url}") baseUrl: String): RestClient =
         RestClient.builder().baseUrl(baseUrl).build()
 
     @Bean
-    fun orderClient(@Value("\${backend.order-service.url}") baseUrl: String): RestClient =
+    fun orderRestClient(@Value("\${backend.order-service.url}") baseUrl: String): RestClient =
         RestClient.builder().baseUrl(baseUrl).build()
 }
