@@ -19,4 +19,8 @@ class RestClientConfig {
     @Bean
     fun orderRestClient(@Value("\${backend.order-service.url}") baseUrl: String): RestClient =
         RestClient.builder().baseUrl(baseUrl).build()
+
+    @Bean
+    fun notificationRestClient(@Value("\${backend.notification-service.url}") baseUrl: String): RestClient =
+        RestClient.builder().baseUrl(baseUrl).build()
 }

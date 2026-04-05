@@ -14,6 +14,7 @@ All traffic goes through the BFF. Start it before using the frontend:
 ```bash
 docker compose up -d
 ./gradlew :bff-service:bootRun
+./gradlew :notification-service:bootRun   # required for notifications and WebSocket
 ```
 
 ---
@@ -52,13 +53,14 @@ front-service/
     │   │                         deactivateProduct
     │   ├── reviews.ts         ← listReviews, createReview, deleteReview
     │   ├── cart.ts            ← getCart, addToCart, removeCartItem, clearCart, checkout
-    │   └── orders.ts          ← listStoreOrders, markSold, cancelOrder, listMyOrders,
-    │                             getRevenue, getSpending
+    │   ├── orders.ts          ← listStoreOrders, markSold, cancelOrder, listMyOrders,
+    │   │                         getRevenue, getSpending
+    │   └── notifications.ts   ← listNotifications, markAsRead
     ├── store/
     │   └── auth.ts            ← Zustand (persisted): { token, userId, role, login(), logout() }
     ├── components/
     │   ├── layout/
-    │   │   ├── Header.tsx     ← nav bar with role-based links + logout button
+    │   │   ├── Header.tsx     ← nav bar with role-based links + logout button + notification badge
     │   │   └── Layout.tsx     ← Header + <Outlet />
     │   └── ui/
     │       ├── Button.tsx     ← variant: primary | secondary | danger | ghost
@@ -69,7 +71,9 @@ front-service/
     └── pages/
         ├── auth/
         │   ├── SignIn.tsx
-        │   └── SignUp.tsx      ← radio: CUSTOMER / OWNER
+        │   └── SignUp.tsx          ← radio: CUSTOMER / OWNER
+        ├── shared/
+        │   └── Notifications.tsx   ← /notifications (CUSTOMER + OWNER)
         ├── customer/
         │   ├── StoreList.tsx       ← /stores
         │   ├── StoreDetail.tsx     ← /stores/:id
@@ -88,12 +92,13 @@ front-service/
 
 ## Vite Proxy Config
 
-All API traffic goes to the BFF on port 8080. The complex per-service routing is gone.
+API traffic goes to the BFF on port 8080. WebSocket connects directly to notification-service on port 8084.
 
 ```typescript
 // vite.config.ts
 proxy: {
-  '/api': { target: 'http://localhost:8080', changeOrigin: true }
+  '/api': { target: 'http://localhost:8080', changeOrigin: true },
+  '/ws':  { target: 'ws://localhost:8084',  ws: true, changeOrigin: true }
 }
 ```
 
@@ -106,6 +111,7 @@ proxy: {
 /signup                          → SignUp          (public)
 /stores                          → StoreList       (public)
 /stores/:id                      → StoreDetail     (public; reviews section requires auth)
+/notifications                   → Notifications   (any authenticated: CUSTOMER + OWNER)
 /cart                            → Cart            (CUSTOMER only)
 /orders                          → OrderHistory    (CUSTOMER only)
 /statistics/spending             → SpendingStats   (CUSTOMER only)
@@ -159,7 +165,7 @@ baseURL: '/'   // relative — Vite proxy routes to BFF
 ### Auth (`src/api/auth.ts`)
 
 ```typescript
-signup(data)   POST /api/users/signup   { email, password, phone?, role? }  → { id }
+signup(data)   POST /api/users/signup   { email, password, phone?, role? }  → 201 Created
 signin(data)   POST /api/users/signin   { email, password }                 → { accessToken, tokenType }
 ```
 
@@ -215,6 +221,22 @@ cancelOrder(storeId, orderId)          PUT  /api/stores/orders/cancel  { storeId
 listMyOrders()                         POST /api/users/me/orders        (no body)                → OrderResponse[]
 getRevenue(storeId, year, month)       POST /api/stores/statistics/revenue   { storeId, year, month } → RevenueResponse
 getSpending(year, month)               POST /api/users/me/statistics/spending { year, month }    → SpendingResponse
+```
+
+### Notifications (`src/api/notifications.ts`)
+
+```typescript
+listNotifications()     POST /api/notifications/me    (no body)              → NotificationResponse[]
+markAsRead(id)          PUT  /api/notifications/read  { notificationId: id }
+```
+
+**WebSocket** (proxied via Vite `/ws` → `ws://localhost:8084`):
+```typescript
+const ws = new WebSocket(`/ws/notifications?token=${token}`)
+ws.onmessage = (e) => {
+  const notification: NotificationResponse = JSON.parse(e.data)
+  // push to local notification list or show toast
+}
 ```
 
 ---
@@ -321,6 +343,18 @@ getSpending(year, month)               POST /api/users/me/statistics/spending { 
 }
 ```
 
+### `NotificationResponse`
+
+```typescript
+{
+  id: number
+  title: string
+  content: string
+  isRead: boolean
+  createdAt: number    // epoch millis
+}
+```
+
 ---
 
 ## Known Patterns & Pitfalls
@@ -394,6 +428,18 @@ content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}']
 @tailwind utilities;
 ```
 
+### Notification WebSocket lifecycle
+Open the WebSocket connection once on mount (e.g. in `Layout.tsx` or a custom hook) and close it on unmount. Use TanStack Query's `invalidateQueries` to refresh the notification list when a WebSocket message arrives:
+
+```typescript
+useEffect(() => {
+  if (!token) return
+  const ws = new WebSocket(`/ws/notifications?token=${token}`)
+  ws.onmessage = () => queryClient.invalidateQueries({ queryKey: ['notifications'] })
+  return () => ws.close()
+}, [token])
+```
+
 ---
 
 ## Component Conventions
@@ -431,4 +477,7 @@ For product active state: pass `p.status ? 'ACTIVE' : 'INACTIVE'`
 5. OWNER → /owner/stores/:id/revenue → pick year/month → see ₩ total
 6. CUSTOMER → /statistics/spending → pick year/month → see ₩ total
 7. CUSTOMER → /orders → see order with SOLD status
+8. OWNER → /notifications → see "New order received" notification after customer checkout
+9. CUSTOMER → /notifications → see "Order confirmed" notification after owner marks SOLD
+10. Refresh /notifications → unread notifications persist; mark as read → isRead flag updates
 ```

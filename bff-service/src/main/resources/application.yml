@@ -15,3 +15,5 @@ backend:
     url: http://localhost:8082
   order-service:
     url: http://localhost:8083
+  notification-service:
+    url: http://localhost:8084

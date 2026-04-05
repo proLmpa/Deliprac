@@ -9,39 +9,56 @@ Built with **Kotlin 2.x + Spring Boot 4** as a hands-on microservices architectu
 
 ```mermaid
 flowchart TB
-    C["Client\n(front-service)"]
+    B["Browser"]
 
-    subgraph bff ["BFF Layer :8080"]
-        BFF["BFF Server"]
+    subgraph vmfront ["vm-front (192.168.160.100)"]
+        FS["Nginx :80\nfront-service (React)"]
+        BFF["bff-service :8080"]
     end
 
     subgraph svc ["Backend Services"]
         US["user-service :8081\nAuth · JWT issue"]
         SS["store-service :8082\nStores · Products · Reviews · Statistics"]
         OS["order-service :8083\nCart · Orders · Statistics"]
+        NS["notification-service :8084\nNotifications · WebSocket"]
+    end
+
+    subgraph broker ["Event Broker"]
+        KF[("Apache Kafka\nstore-events · order-events")]
     end
 
     subgraph db ["PostgreSQL Databases"]
         UD[("userdb\n:5433")]
         SD[("storedb\n:5434")]
         OD[("orderdb\n:5435")]
+        ND[("notificationdb\n:5436")]
     end
 
-    C --> BFF
-    BFF --> US & SS & OS
+    B -->|":80 HTTP"| FS
+    FS -->|"/api/ proxy"| BFF
+    BFF --> US & SS & OS & NS
+
+    SS -->|"StoreCreated"| KF
+    OS -->|"OrderCheckedOut\nOrderMarkedSold\nOrderMarkedCanceled"| KF
+    KF -->|"consumes"| NS
+
+    B -.->|"WS :8084"| NS
 
     US --> UD
     SS --> SD
     OS --> OD
+    NS --> ND
 ```
 
-All client requests flow through the BFF, which aggregates cross-service calls and forwards them to the appropriate backend service. There are no direct service-to-service calls between backend services. Each service owns its own PostgreSQL database. Foreign-key-like references across services (e.g. `store_id` in `orders`) are plain `BIGINT` columns — no ORM join, no FK constraint across DB boundaries.
+The React app (front-service) and bff-service are co-located on the same VM. Nginx on port 80 serves the React SPA and proxies `/api/*` requests to bff-service on port 8080. All API calls flow through the BFF, which aggregates cross-service calls and forwards them to the appropriate backend service. There are no direct service-to-service HTTP calls between backend services. Each service owns its own PostgreSQL database. Foreign-key-like references across services (e.g. `store_id` in `orders`) are plain `BIGINT` columns — no ORM join, no FK constraint across DB boundaries.
 
 The JWT secret is shared across all services via configuration — user-service issues tokens, and store-service and order-service validate them independently using the same secret. No runtime call is made between services for authentication.
 
+Notifications are delivered asynchronously via Apache Kafka. store-service and order-service publish domain events to Kafka topics; notification-service consumes them and persists notifications to its own database. Clients receive real-time pushes via WebSocket and can also poll the REST endpoint.
+
 ### BFF Layer
 
-The BFF (Backend for Frontend) sits between the client and the three backend services. Its responsibilities:
+The BFF (Backend for Frontend) sits between the client and the four backend services. Its responsibilities:
 
 - **Routing** — forwards requests to the correct backend service
 - **Aggregation** — combines data from multiple services into a single response (e.g. order list enriched with store/product names)
@@ -59,6 +76,7 @@ The BFF (Backend for Frontend) sits between the client and the three backend ser
 | Security | Spring Security 7, JWT (jjwt 0.12) |
 | Persistence | Spring Data JPA, Hibernate, QueryDSL 5.1 |
 | Database | PostgreSQL 16 |
+| Messaging | Apache Kafka, Spring Kafka |
 | Build | Gradle 9 (Kotlin DSL), kapt |
 | Java | JDK 24 |
 | Testing | JUnit 5, Mockito 5, MockMvc |
@@ -148,6 +166,18 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 |--------|------|------|--------------|
 | `POST` | `/api/stores/statistics/revenue` | OWNER | `{ storeId, year, month, timezone? }` → `RevenueResponse` |
 | `POST` | `/api/users/me/statistics/spending` | CUSTOMER | `{ year, month, timezone? }` → `SpendingResponse` |
+
+---
+
+### notification-service · `:8084`
+
+| Method | Path | Auth | Body / Notes |
+|--------|------|------|--------------|
+| `POST` | `/api/notifications/me` | Any | *(no body)* → `List<NotificationResponse>` |
+| `PUT`  | `/api/notifications/read` | Any | `{ notificationId }` — mark one notification as read |
+| `WS`   | `/ws/notifications?token=` | Any | Real-time push; authenticate via `token` query param |
+
+Notifications are created internally by Kafka consumers — there is no public creation endpoint.
 
 ---
 
@@ -249,6 +279,20 @@ Monthly aggregates compute UTC epoch-millis boundaries from a caller-supplied ti
 ZonedDateTime.of(year, month, 1, 0, 0, 0, 0, zoneId).toInstant().toEpochMilli()
 ```
 
+### Event-driven notifications via Kafka
+Notifications are decoupled from the request path entirely. store-service and order-service publish domain events to Kafka topics; notification-service consumes them asynchronously.
+
+- `userId` never appears in any HTTP request or response body — it travels only inside Kafka event payloads on the internal broker network.
+- notification-service maintains a local `store_owner_projections` table (`storeId → ownerUserId`) built from `StoreCreated` events, so it can resolve the store owner without calling store-service at runtime.
+- Delivery guarantee: Kafka retains messages (default 7-day retention). If notification-service is down, it replays missed events on recovery.
+
+| Event | Publisher | Topic | Payload |
+|---|---|---|---|
+| `StoreCreated` | store-service | `store-events` | `{ storeId, ownerUserId }` |
+| `OrderCheckedOut` | order-service | `order-events` | `{ orderId, storeId }` |
+| `OrderMarkedSold` | order-service | `order-events` | `{ orderId, customerId }` |
+| `OrderMarkedCanceled` | order-service | `order-events` | `{ orderId, customerId }` |
+
 ---
 
 ## Database Schema
@@ -325,6 +369,20 @@ erDiagram
         bigint    updated_at
     }
 
+    %% ── notificationdb :5436 (notification-service) ────────
+    notifications {
+        bigserial id PK
+        bigint    user_id     "* cross-service ref — no FK, indexed non-unique"
+        varchar   title
+        text      content
+        boolean   is_read
+        bigint    created_at
+    }
+    store_owner_projections {
+        bigint    store_id PK "projection: storeId → ownerUserId"
+        bigint    owner_user_id
+    }
+
     %% relationships within storedb
     stores      ||--o{ products      : "has"
     stores      ||--o{ reviews       : "has"
@@ -342,18 +400,19 @@ erDiagram
 - Docker + Docker Compose
 - JDK 24
 
-### 1. Start databases
+### 1. Start all infrastructure
 
 ```bash
-docker compose up -d
+docker compose up -d   # starts 4 PostgreSQL instances + Kafka
 ```
 
 ### 2. Apply schemas
 
 ```bash
-docker compose exec -T user-db  psql -U user_svc  -d userdb  < user-service/src/main/resources/db/schema.sql
-docker compose exec -T store-db psql -U store_svc -d storedb < store-service/src/main/resources/db/schema.sql
-docker compose exec -T order-db psql -U order_svc -d orderdb < order-service/src/main/resources/db/schema.sql
+docker compose exec -T user-db         psql -U user_svc   -d userdb         < user-service/src/main/resources/db/schema.sql
+docker compose exec -T store-db        psql -U store_svc  -d storedb        < store-service/src/main/resources/db/schema.sql
+docker compose exec -T order-db        psql -U order_svc  -d orderdb        < order-service/src/main/resources/db/schema.sql
+docker compose exec -T notification-db psql -U notif_svc  -d notificationdb < notification-service/src/main/resources/db/schema.sql
 ```
 
 ### 3. Run services
@@ -363,11 +422,13 @@ docker compose exec -T order-db psql -U order_svc -d orderdb < order-service/src
 ./gradlew :user-service:bootRun
 ./gradlew :store-service:bootRun
 ./gradlew :order-service:bootRun
+./gradlew :notification-service:bootRun
 ```
 
 ### 4. Run tests
 
 ```bash
-./gradlew test                  # all modules
-./gradlew :store-service:test   # single module
+./gradlew test                              # all modules
+./gradlew :store-service:test               # single module
+./gradlew :notification-service:test
 ```
