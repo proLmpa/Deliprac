@@ -6,7 +6,6 @@ import bff.dto.LoginUserRequest
 import bff.dto.RegisterUserRequest
 import bff.dto.SuspendUserRequest
 import bff.dto.TokenResponse
-import bff.dto.UserIdResponse
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.verify
@@ -33,9 +32,8 @@ class UserControllerTest {
     private val token = "Bearer test-token"
 
     @Test
-    fun `POST signup - 201 with user id`() {
+    fun `POST signup - 201`() {
         val request = RegisterUserRequest("a@b.com", "pw", null)
-        given(userClient.signup(request)).willReturn(UserIdResponse(1L))
 
         mockMvc.perform(
             post("/api/users/signup")
@@ -43,7 +41,6 @@ class UserControllerTest {
                 .content(objectMapper.writeValueAsString(request))
         )
             .andExpect(status().isCreated)
-            .andExpect(jsonPath("$.id").value(1))
     }
 
     @Test

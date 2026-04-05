@@ -5,4 +5,3 @@ data class TokenResponse(
     val tokenType: String
 )
 
-data class UserIdResponse(val id: Long)
