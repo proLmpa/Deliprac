@@ -45,6 +45,7 @@ class UserService(
         return userRepository.save(user).id
     }
 
+    @Transactional(readOnly = true)
     fun login(command: LoginCommand): String {
         val user = userRepository.findByEmail(command.email)
             ?: throw IllegalArgumentException("Invalid email or password")

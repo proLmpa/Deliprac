@@ -38,7 +38,7 @@ class ReviewService(
         return ReviewInfo.of(reviewRepository.save(review))
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     fun listByStore(storeId: Long): List<ReviewInfo> =
         reviewRepository.findAllByStoreId(storeId).map { ReviewInfo.of(it) }
 
