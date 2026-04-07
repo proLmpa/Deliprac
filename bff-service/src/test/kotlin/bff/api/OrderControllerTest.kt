@@ -1,6 +1,7 @@
 package bff.api
 
 import bff.client.AddCartItemRequest
+import bff.client.NotificationClient
 import bff.client.OrderClient
 import bff.client.StoreClient
 import bff.config.SecurityConfig
@@ -9,8 +10,10 @@ import bff.dto.CartProductResponse
 import bff.dto.CartResponse
 import bff.dto.CheckoutRequest
 import bff.dto.FindProductRequest
+import bff.dto.FindStoreRequest
 import bff.dto.OrderResponse
 import bff.dto.ProductResponse
+import bff.dto.StoreResponse
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.verify
@@ -32,6 +35,7 @@ class OrderControllerTest {
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var orderClient: OrderClient
     @MockitoBean private lateinit var storeClient: StoreClient
+    @MockitoBean private lateinit var notificationClient: NotificationClient
 
     private val token = "Bearer test-token"
 
@@ -44,6 +48,13 @@ class OrderControllerTest {
     private val sampleOrder = OrderResponse(
         id = 200L, storeId = 10L, totalPrice = 16000L,
         status = "PENDING", createdAt = 0L, updatedAt = 0L
+    )
+
+    private val sampleStore = StoreResponse(
+        id = 10L, userId = 99L, name = "Test Store", address = "Seoul", phone = "02-1234",
+        content = "Good food", status = "ACTIVE", storePictureUrl = null,
+        productCreatedTime = 0L, openedTime = 0L, closedTime = 0L, closedDays = "",
+        averageRating = 0.0, createdAt = 0L, updatedAt = 0L
     )
 
     private val sampleProduct = ProductResponse(
@@ -89,8 +100,9 @@ class OrderControllerTest {
     }
 
     @Test
-    fun `PUT checkout - 200 with pending order`() {
+    fun `PUT checkout - 200 with pending order and triggers notification`() {
         given(orderClient.checkout(CheckoutRequest(50L), token)).willReturn(sampleOrder)
+        given(storeClient.findStore(FindStoreRequest(10L), token)).willReturn(sampleStore)
 
         mockMvc.perform(
             put("/api/carts/checkout")

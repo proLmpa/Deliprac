@@ -59,6 +59,7 @@ class StoreControllerTest {
 
     private val sampleInfo = StoreInfo(
         id                 = storeId,
+        userId             = ownerId,
         name               = "Test Store",
         address            = "Seoul Gangnam-gu",
         phone              = "02-1234-5678",

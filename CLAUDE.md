@@ -10,34 +10,38 @@
 ./gradlew :user-service:bootRun
 ./gradlew :store-service:bootRun
 ./gradlew :order-service:bootRun
+./gradlew :notification-service:bootRun
 
 # Run tests
 ./gradlew test
 ./gradlew :user-service:test
 ./gradlew :store-service:test
 ./gradlew :store-service:test --tests "store.service.store.StoreServiceTest"
+./gradlew :notification-service:test
 ```
 
 ## Database
 
-Three separate PostgreSQL instances are defined in docker-compose:
+Four separate PostgreSQL instances are defined in docker-compose:
 
 ```bash
-docker compose up -d      # start all three databases
+docker compose up -d      # start all four databases
 docker compose down       # stop all databases
 ```
 
-| Service       | Container          | Port | DB       | User      | Password   |
-|---------------|--------------------|------|----------|-----------|------------|
-| user-service  | baemin_user_db     | 5433 | userdb   | user_svc  | userpass   |
-| store-service | baemin_store_db    | 5434 | storedb  | store_svc | storepass  |
-| order-service | baemin_order_db    | 5435 | orderdb  | order_svc | orderpass  |
+| Service               | Container               | Port | DB             | User       | Password   |
+|-----------------------|-------------------------|------|----------------|------------|------------|
+| user-service          | baemin_user_db          | 5433 | userdb         | user_svc   | userpass   |
+| store-service         | baemin_store_db         | 5434 | storedb        | store_svc  | storepass  |
+| order-service         | baemin_order_db         | 5435 | orderdb        | order_svc  | orderpass  |
+| notification-service  | baemin_notification_db  | 5436 | notificationdb | notif_svc  | notifpass  |
 
 Apply schema manually after adding DDL (never auto-created, `ddl-auto: validate`):
 ```bash
-docker compose exec -T user-db  psql -U user_svc  -d userdb  < user-service/src/main/resources/db/schema.sql
-docker compose exec -T store-db psql -U store_svc -d storedb < store-service/src/main/resources/db/schema.sql
-docker compose exec -T order-db psql -U order_svc -d orderdb < order-service/src/main/resources/db/schema.sql
+docker compose exec -T user-db          psql -U user_svc  -d userdb          < user-service/src/main/resources/db/schema.sql
+docker compose exec -T store-db         psql -U store_svc -d storedb         < store-service/src/main/resources/db/schema.sql
+docker compose exec -T order-db         psql -U order_svc -d orderdb         < order-service/src/main/resources/db/schema.sql
+docker compose exec -T notification-db  psql -U notif_svc -d notificationdb  < notification-service/src/main/resources/db/schema.sql
 ```
 
 ---
@@ -49,11 +53,12 @@ Kotlin 2.x + Spring Boot 4 **microservices** with a shared `common` library modu
 **Subprojects (`settings.gradle.kts`):**
 
 ```
-common/         ← shared library (JWT filter, UserPrincipal, UserRole, GlobalExceptionHandler, Extensions)
-bff-service/    ← port 8080 — BFF gateway (routing, aggregation, JWT forwarding)
-user-service/   ← port 8081 — auth, user management
-store-service/  ← port 8082 — stores, products, reviews, product statistics
-order-service/  ← port 8083 — carts, orders, order statistics
+common/                ← shared library (JWT filter, UserPrincipal, UserRole, GlobalExceptionHandler, Extensions)
+bff-service/           ← port 8080 — BFF gateway (routing, aggregation, JWT forwarding)
+user-service/          ← port 8081 — auth, user management
+store-service/         ← port 8082 — stores, products, reviews, product statistics
+order-service/         ← port 8083 — carts, orders, order statistics
+notification-service/  ← port 8084 — per-user notifications (created by BFF, read by frontend via BFF)
 ```
 
 **Tech stack:** Kotlin 2.x, Spring Boot 4, Spring Security, Spring Data JPA + QueryDSL 5.1, PostgreSQL, jjwt 0.12, JUnit 5
@@ -116,7 +121,7 @@ When adding a new subdomain (e.g. `product`), create files under every layer:
 ```
 bff-service/src/main/kotlin/bff/
 ├── BffServiceApplication.kt
-├── client/       ← UserClient.kt, StoreClient.kt, OrderClient.kt  (RestClient wrappers)
+├── client/       ← UserClient.kt, StoreClient.kt, OrderClient.kt, NotificationClient.kt  (RestClient wrappers)
 ├── config/       ← SecurityConfig.kt, RestClientConfig.kt
 ├── api/          ← controllers that expose aggregated endpoints to the front-service
 └── dto/          ← request/response DTOs (mirrors or composes backend DTOs)
@@ -209,6 +214,19 @@ order-service/src/main/kotlin/order/
     └── order/  ← OrderService.kt, StatisticsService.kt
 ```
 
+### notification-service
+```
+notification-service/src/main/kotlin/notification/
+├── NotificationServiceApplication.kt
+├── api/          ← NotificationController.kt
+├── config/       ← SecurityConfig.kt
+├── dto/          ← NotificationRequest.kt  (CreateNotificationRequest, MarkReadRequest, ListNotificationRequest)
+│                   NotificationResponse.kt (NotificationResponse — no userId field)
+├── entity/       ← Notification.kt
+├── repository/   ← NotificationRepository.kt
+└── service/      ← NotificationService.kt
+```
+
 **Note:** `currentUser()`, `UserPrincipal`, `UserRole`, `JwtAuthenticationFilter`, `GlobalExceptionHandler`, `orThrow` are all from `common.*`.
 
 ---
@@ -251,7 +269,7 @@ fun jwtAuthFilterRegistration(jwtAuthFilter: JwtAuthenticationFilter): FilterReg
 - **JWT forwarding** — extracts `Authorization: Bearer <token>` from the client request and passes it to every downstream call; each backend service validates independently
 - **Cross-service data hand-off** — handles flows where output from one service is input to another (e.g. fetch `unitPrice` from store-service, then call order-service to add a cart item)
 
-**Client wrappers** (`client/` package): one `RestClient`-based class per backend service (`UserClient`, `StoreClient`, `OrderClient`). Each method maps to one backend endpoint and forwards the JWT header.
+**Client wrappers** (`client/` package): one `RestClient`-based class per backend service (`UserClient`, `StoreClient`, `OrderClient`, `NotificationClient`). Each method maps to one backend endpoint and forwards the JWT header. `NotificationClient.createNotification` calls `/internal/notifications` without a JWT (BFF is the trusted caller).
 
 **Does not use `common` security filter** — the BFF is not a resource server. It does not validate JWT tokens itself; it only forwards them.
 
@@ -375,6 +393,36 @@ POST   /api/users/me/statistics/spending      → monthly spending; body: { year
 ```
 
 **Schema:** `carts` (`user_id BIGINT NOT NULL` — non-unique, indexed), `cart_products`, `orders` (`total_price BIGINT`) tables
+
+---
+
+### notification-service (port 8084)
+
+**Endpoints:**
+```
+POST  /internal/notifications        → create notification (no JWT — BFF is trusted caller)
+POST  /api/notifications/list        → list caller's notifications; body: { unreadOnly: Boolean } (any auth)
+PUT   /api/notifications/read        → mark one read; body: { notificationId } (any auth)
+PUT   /api/notifications/read-all    → mark all read (any auth)
+```
+
+**Security:** `/internal/**` is `permitAll()`. All `/api/**` require JWT. `userId` comes from `currentUser()` — never from the request body.
+
+**Notification triggers (BFF-side):**
+| Event | BFF calls | Recipient |
+|---|---|---|
+| `checkout` | `storeClient.findStore(storeId)` → owner's `userId` | Store owner |
+| `markSold` | `orderClient.markSold(...)` → `order.userId` | Customer |
+| `cancelOrder` | `orderClient.cancelOrder(...)` → `order.userId` | Customer |
+
+**userId security:** `StoreResponse.userId` and `OrderResponse.userId` in the BFF are annotated `@JsonProperty(access = WRITE_ONLY)` — deserialized from backends, never serialized to the frontend.
+
+**Notification business rules:**
+- `expiry` must be at least 10 minutes after `issuedAt` (enforced in `Notification.init`). BFF sets `expiry = now + 24h`.
+- `isRead` starts `false`; set to `true` by `markRead` or `markAllRead`.
+- Ownership check in `markRead`: if `notification.userId != currentUser().id` → `ForbiddenException`.
+
+**Schema:** `notifications` table with `user_id BIGINT NOT NULL`, `issued_at BIGINT NOT NULL`, `expiry BIGINT NOT NULL`, `is_read BOOLEAN NOT NULL DEFAULT FALSE`; index `idx_notifications_user_id`.
 
 ---
 
@@ -505,16 +553,17 @@ Each domain has exactly two DTO files:
 
 ## Implementation Status
 
-| Domain     | Service       | Schema | Entity | Service | Controller | Tests |
-|------------|---------------|:------:|:------:|:-------:|:----------:|:-----:|
-| User       | user-service  | ✅     | ✅     | ✅      | ✅         | ✅    |
-| Store      | store-service | ✅     | ✅     | ✅      | ✅         | ✅    |
-| Product    | store-service | ✅     | ✅     | ✅      | ✅         | ✅    |
-| Review     | store-service | ✅     | ✅     | ✅      | ✅         | ✅    |
-| Cart       | order-service | ✅     | ✅     | ✅      | ✅         | ✅    |
-| Order      | order-service | ✅     | ✅     | ✅      | ✅         | ✅    |
-| Statistics | —             | ✅     | ✅     | ✅      | ✅         | ✅    |
-| BFF        | bff-service   | —      | —      | ✅      | ✅         | ✅    |
+| Domain       | Service                | Schema | Entity | Service | Controller | Tests |
+|--------------|------------------------|:------:|:------:|:-------:|:----------:|:-----:|
+| User         | user-service           | ✅     | ✅     | ✅      | ✅         | ✅    |
+| Store        | store-service          | ✅     | ✅     | ✅      | ✅         | ✅    |
+| Product      | store-service          | ✅     | ✅     | ✅      | ✅         | ✅    |
+| Review       | store-service          | ✅     | ✅     | ✅      | ✅         | ✅    |
+| Cart         | order-service          | ✅     | ✅     | ✅      | ✅         | ✅    |
+| Order        | order-service          | ✅     | ✅     | ✅      | ✅         | ✅    |
+| Statistics   | —                      | ✅     | ✅     | ✅      | ✅         | ✅    |
+| Notification | notification-service   | ✅     | ✅     | ✅      | ✅         | ✅    |
+| BFF          | bff-service            | —      | —      | ✅      | ✅         | ✅    |
 
 ---
 
