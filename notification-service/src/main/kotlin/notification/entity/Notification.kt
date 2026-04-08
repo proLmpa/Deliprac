@@ -1,7 +1,10 @@
 package notification.entity
 
 import jakarta.persistence.Column
+import jakarta.persistence.Convert
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
@@ -17,11 +20,25 @@ open class Notification(
     @Column(name = "user_id", nullable = false)
     val userId: Long,
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    val type: NotificationType,
+
     @Column(nullable = false)
     val title: String,
 
     @Column(nullable = false, columnDefinition = "TEXT")
     val content: String,
+
+    @Column(name = "store_id")
+    val storeId: Long? = null,
+
+    @Column(name = "store_name")
+    val storeName: String? = null,
+
+    @Convert(converter = NotificationItemsConverter::class)
+    @Column(nullable = false, columnDefinition = "TEXT")
+    val items: List<NotificationItemData> = emptyList(),
 
     @Column(name = "is_read", nullable = false)
     var isRead: Boolean = false,

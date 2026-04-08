@@ -8,12 +8,18 @@ import org.springframework.core.ParameterizedTypeReference
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 
-// Internal DTO: matches notification-service's CreateNotificationRequest
+// Internal DTOs: match notification-service's CreateNotificationRequest
+data class NotificationItemData(val productName: String, val unitPrice: Long, val quantity: Long)
+
 data class CreateNotificationRequest(
     val recipientId: Long,
+    val type: String,           // "NEW_ORDER" | "ORDER_SOLD" | "ORDER_CANCELED"
     val title: String,
     val content: String,
-    val expiry: Long
+    val storeId: Long? = null,
+    val storeName: String? = null,
+    val expiry: Long,
+    val items: List<NotificationItemData> = emptyList(),
 )
 
 @Component

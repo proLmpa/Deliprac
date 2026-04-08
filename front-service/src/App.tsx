@@ -15,6 +15,9 @@ import Cart from './pages/customer/Cart'
 import OrderHistory from './pages/customer/OrderHistory'
 import SpendingStats from './pages/customer/SpendingStats'
 
+// Shared pages
+import NotificationsPage from './pages/NotificationsPage'
+
 // Owner pages
 import MyStores from './pages/owner/MyStores'
 import StoreForm from './pages/owner/StoreForm'
@@ -39,6 +42,12 @@ export default function App() {
           <Route path="/signup" element={<SignUp />} />
           <Route path="/stores" element={<StoreList />} />
           <Route path="/stores/:id" element={<StoreDetail />} />
+
+          {/* All authenticated roles */}
+          <Route
+            path="/notifications"
+            element={<RequireAuth><NotificationsPage /></RequireAuth>}
+          />
 
           {/* Customer only */}
           <Route

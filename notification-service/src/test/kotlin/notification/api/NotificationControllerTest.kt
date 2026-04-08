@@ -8,6 +8,7 @@ import io.jsonwebtoken.security.Keys
 import notification.config.SecurityConfig
 import notification.dto.CreateNotificationRequest
 import notification.entity.Notification
+import notification.entity.NotificationType
 import notification.service.NotificationService
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
@@ -54,6 +55,7 @@ class NotificationControllerTest {
         return Notification(
             id        = notificationId,
             userId    = userId,
+            type      = NotificationType.NEW_ORDER,
             title     = "새 주문 접수",
             content   = "₩8000",
             isRead    = read,
@@ -68,6 +70,7 @@ class NotificationControllerTest {
         val expiry = System.currentTimeMillis() + Notification.MIN_EXPIRY_MILLIS + 1000L
         val exactRequest = CreateNotificationRequest(
             recipientId = userId,
+            type        = NotificationType.NEW_ORDER,
             title       = "새 주문 접수",
             content     = "₩8000",
             expiry      = expiry
@@ -77,10 +80,11 @@ class NotificationControllerTest {
         mockMvc.perform(
             post("/internal/notifications")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"recipientId":$userId,"title":"새 주문 접수","content":"₩8000","expiry":$expiry}""")
+                .content("""{"recipientId":$userId,"type":"NEW_ORDER","title":"새 주문 접수","content":"₩8000","expiry":$expiry}""")
         )
             .andExpect(status().isCreated)
             .andExpect(jsonPath("$.title").value("새 주문 접수"))
+            .andExpect(jsonPath("$.type").value("NEW_ORDER"))
     }
 
     @Test
@@ -96,6 +100,7 @@ class NotificationControllerTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].id").value(notificationId))
             .andExpect(jsonPath("$[0].title").value("새 주문 접수"))
+            .andExpect(jsonPath("$[0].type").value("NEW_ORDER"))
     }
 
     @Test

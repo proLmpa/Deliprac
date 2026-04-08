@@ -4,6 +4,7 @@ import common.exception.ForbiddenException
 import common.exception.NotFoundException
 import notification.dto.CreateNotificationRequest
 import notification.entity.Notification
+import notification.entity.NotificationType
 import notification.repository.NotificationRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -31,6 +32,7 @@ class NotificationServiceTest {
         return Notification(
             id        = notificationId,
             userId    = userId,
+            type      = NotificationType.NEW_ORDER,
             title     = "Test Title",
             content   = "Test Content",
             isRead    = read,
@@ -44,6 +46,7 @@ class NotificationServiceTest {
         val now = System.currentTimeMillis()
         return CreateNotificationRequest(
             recipientId = userId,
+            type        = NotificationType.NEW_ORDER,
             title       = "Test Title",
             content     = "Test Content",
             expiry      = now + Notification.MIN_EXPIRY_MILLIS + 1000L

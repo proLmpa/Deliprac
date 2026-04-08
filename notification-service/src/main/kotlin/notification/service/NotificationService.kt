@@ -4,6 +4,7 @@ import common.exception.ForbiddenException
 import common.orThrow
 import notification.dto.CreateNotificationRequest
 import notification.entity.Notification
+import notification.entity.NotificationItemData
 import notification.repository.NotificationRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -17,8 +18,12 @@ class NotificationService(private val notificationRepository: NotificationReposi
         return notificationRepository.save(
             Notification(
                 userId    = request.recipientId,
+                type      = request.type,
                 title     = request.title,
                 content   = request.content,
+                storeId   = request.storeId,
+                storeName = request.storeName,
+                items     = request.items.map { NotificationItemData(it.productName, it.unitPrice, it.quantity) },
                 issuedAt  = now,
                 expiry    = request.expiry,
                 createdAt = now

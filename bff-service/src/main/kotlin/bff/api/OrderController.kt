@@ -3,6 +3,7 @@ package bff.api
 import bff.client.AddCartItemRequest
 import bff.client.CreateNotificationRequest
 import bff.client.NotificationClient
+import bff.client.NotificationItemData
 import bff.client.OrderClient
 import bff.client.StoreClient
 import bff.dto.AddToCartRequest
@@ -73,16 +74,23 @@ class OrderController(
             storeClient.listProducts(ListProductRequest(it.storeId), token)
                 .associate { p -> p.id to p.name }
         } ?: emptyMap()
-        val lines = cart?.items?.joinToString("\n") { item ->
-            val name = productNames[item.productId] ?: "상품 #${item.productId}"
-            "${name}(₩${item.unitPrice}) × ${item.quantity}"
-        } ?: ""
+        val items = cart?.items?.map { item ->
+            NotificationItemData(
+                productName = productNames[item.productId] ?: "상품 #${item.productId}",
+                unitPrice   = item.unitPrice,
+                quantity    = item.quantity
+            )
+        } ?: emptyList()
         notificationClient.createNotification(
             CreateNotificationRequest(
                 recipientId = store.userId,
+                type        = "NEW_ORDER",
                 title       = "새 주문 접수",
-                content     = lines,
-                expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L
+                content     = "새 주문이 접수되었습니다.",
+                storeId     = order.storeId,
+                storeName   = store.name,
+                expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
+                items       = items
             )
         )
         return order
@@ -98,11 +106,15 @@ class OrderController(
     fun markSold(@RequestBody request: MarkOrderRequest, httpRequest: HttpServletRequest): OrderResponse {
         val token = httpRequest.bearerToken()
         val order = orderClient.markSold(request, token)
+        val store = storeClient.findStore(FindStoreRequest(order.storeId), token)
         notificationClient.createNotification(
             CreateNotificationRequest(
                 recipientId = order.userId,
+                type        = "ORDER_SOLD",
                 title       = "주문 완료",
                 content     = "₩${order.totalPrice}",
+                storeId     = order.storeId,
+                storeName   = store.name,
                 expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L
             )
         )
@@ -113,11 +125,15 @@ class OrderController(
     fun markCanceled(@RequestBody request: MarkOrderRequest, httpRequest: HttpServletRequest): OrderResponse {
         val token = httpRequest.bearerToken()
         val order = orderClient.markCanceled(request, token)
+        val store = storeClient.findStore(FindStoreRequest(order.storeId), token)
         notificationClient.createNotification(
             CreateNotificationRequest(
                 recipientId = order.userId,
+                type        = "ORDER_CANCELED",
                 title       = "주문 취소",
                 content     = "₩${order.totalPrice}",
+                storeId     = order.storeId,
+                storeName   = store.name,
                 expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L
             )
         )
