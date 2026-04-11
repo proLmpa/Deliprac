@@ -32,9 +32,11 @@ export default function NotificationsPage() {
   })
 
   function handleNotificationClick(n: NotificationResponse) {
+    if (!n.isRead) markReadMutation.mutate(n.id)
     if (n.type === 'NEW_ORDER' && n.storeId !== null) {
-      if (!n.isRead) markReadMutation.mutate(n.id)
       navigate(`/owner/stores/${n.storeId}/orders`)
+    } else if (n.type === 'ORDER_SOLD' || n.type === 'ORDER_CANCELED') {
+      navigate('/orders')
     }
   }
 
@@ -64,7 +66,7 @@ export default function NotificationsPage() {
               onClick={() => handleNotificationClick(n)}
               className={`p-4 rounded-lg border flex items-start justify-between gap-4 ${
                 n.isRead ? 'bg-gray-100 border-gray-200' : 'bg-orange-50 border-orange-200'
-              } ${n.type === 'NEW_ORDER' && n.storeId !== null ? 'cursor-pointer hover:brightness-95' : ''}`}
+              } cursor-pointer hover:brightness-95`}
             >
               <div className="flex-1 min-w-0">
                 <p className={`font-semibold ${n.isRead ? 'text-gray-400' : 'text-gray-900'}`}>
