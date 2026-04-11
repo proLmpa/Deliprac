@@ -5,13 +5,10 @@ import common.exception.ForbiddenException
 import common.exception.NotFoundException
 import common.orThrow
 import common.security.UserRole
-import order.dto.order.OrderMarkedCanceledEvent
-import order.dto.order.OrderMarkedSoldEvent
 import order.entity.order.Order
 import order.entity.order.OrderStatus
 import order.repository.cart.CartProductRepository
 import order.repository.order.OrderRepository
-import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.stereotype.Service
 
@@ -19,7 +16,6 @@ import org.springframework.stereotype.Service
 class OrderService(
     private val orderRepository: OrderRepository,
     private val cartProductRepository: CartProductRepository,
-    private val kafkaTemplate: KafkaTemplate<String, Any>
 ) {
 
     @Transactional(readOnly = true)
@@ -39,9 +35,7 @@ class OrderService(
         if (order.status != OrderStatus.PENDING) throw ConflictException("Order cannot be marked as sold")
 
         order.status = OrderStatus.SOLD
-        val saved = orderRepository.save(order)
-        kafkaTemplate.send("order.marked-sold", OrderMarkedSoldEvent(orderId = saved.id, customerId = saved.userId))
-        return saved
+        return orderRepository.save(order)
     }
 
     @Transactional
@@ -53,9 +47,7 @@ class OrderService(
         if (order.status != OrderStatus.PENDING) throw ConflictException("Order cannot be canceled")
 
         order.status = OrderStatus.CANCELED
-        val saved = orderRepository.save(order)
-        kafkaTemplate.send("order.marked-canceled", OrderMarkedCanceledEvent(orderId = saved.id, customerId = saved.userId))
-        return saved
+        return orderRepository.save(order)
     }
 
     @Transactional(readOnly = true)

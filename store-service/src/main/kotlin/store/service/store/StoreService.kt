@@ -6,7 +6,6 @@ import common.orThrow
 import common.security.UserPrincipal
 import common.security.UserRole
 import store.dto.store.CreateStoreCommand
-import store.dto.store.StoreCreatedEvent
 import store.dto.store.StoreInfo
 import store.dto.store.StoreSortBy
 import store.dto.store.UpdateStoreCommand
@@ -14,7 +13,6 @@ import store.entity.store.Store
 import store.entity.store.StoreStatus
 import store.repository.review.ReviewRepository
 import store.repository.store.StoreRepository
-import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.stereotype.Service
 
@@ -22,7 +20,6 @@ import org.springframework.stereotype.Service
 class StoreService(
     private val storeRepository: StoreRepository,
     private val reviewRepository: ReviewRepository,
-    private val kafkaTemplate: KafkaTemplate<String, Any>
 ) {
 
     @Transactional
@@ -50,7 +47,6 @@ class StoreService(
         )
 
         val saved = storeRepository.save(store)
-        kafkaTemplate.send("store.created", StoreCreatedEvent(storeId = saved.id, ownerUserId = principal.id))
         return StoreInfo.of(saved, 0.0)
     }
 

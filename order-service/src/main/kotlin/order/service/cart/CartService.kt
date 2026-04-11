@@ -6,7 +6,6 @@ import common.exception.NotFoundException
 import common.orThrow
 import order.dto.cart.AddCartItemRequest
 import order.dto.cart.CartInfo
-import order.dto.order.OrderCheckedOutEvent
 import order.entity.cart.Cart
 import order.entity.cart.CartProduct
 import order.entity.order.Order
@@ -14,7 +13,6 @@ import order.entity.order.OrderStatus
 import order.repository.cart.CartProductRepository
 import order.repository.cart.CartRepository
 import order.repository.order.OrderRepository
-import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -23,7 +21,6 @@ class CartService(
     private val cartRepository: CartRepository,
     private val cartProductRepository: CartProductRepository,
     private val orderRepository: OrderRepository,
-    private val kafkaTemplate: KafkaTemplate<String, Any>
 ) {
 
     @Transactional
@@ -88,8 +85,6 @@ class CartService(
 
         cart.isOrdered = true
         cartRepository.save(cart)
-
-        kafkaTemplate.send("order.checked-out", OrderCheckedOutEvent(orderId = order.id, storeId = order.storeId))
 
         return order
     }

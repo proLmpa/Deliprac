@@ -22,7 +22,6 @@ import org.mockito.BDDMockito.then
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
-import org.springframework.kafka.core.KafkaTemplate
 import java.util.Optional
 
 @ExtendWith(MockitoExtension::class)
@@ -30,7 +29,6 @@ class StoreServiceTest {
 
     @Mock private lateinit var storeRepository: StoreRepository
     @Mock private lateinit var reviewRepository: ReviewRepository
-    @Mock private lateinit var kafkaTemplate: KafkaTemplate<String, Any>
     @InjectMocks private lateinit var storeService: StoreService
 
     private val ownerId = 1L
