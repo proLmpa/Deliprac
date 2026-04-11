@@ -19,29 +19,34 @@ flowchart TB
         US["user-service :8081\nAuth · JWT issue"]
         SS["store-service :8082\nStores · Products · Reviews · Statistics"]
         OS["order-service :8083\nCart · Orders · Statistics"]
+        NS["notification-service :8084\nNotifications"]
     end
 
     subgraph db ["PostgreSQL Databases"]
         UD[("userdb\n:5433")]
         SD[("storedb\n:5434")]
         OD[("orderdb\n:5435")]
+        ND[("notificationdb\n:5436")]
     end
 
     C --> BFF
-    BFF --> US & SS & OS
+    BFF --> US & SS & OS & NS
 
     US --> UD
     SS --> SD
     OS --> OD
+    NS --> ND
 ```
 
 All client requests flow through the BFF, which aggregates cross-service calls and forwards them to the appropriate backend service. There are no direct service-to-service calls between backend services. Each service owns its own PostgreSQL database. Foreign-key-like references across services (e.g. `store_id` in `orders`) are plain `BIGINT` columns — no ORM join, no FK constraint across DB boundaries.
 
 The JWT secret is shared across all services via configuration — user-service issues tokens, and store-service and order-service validate them independently using the same secret. No runtime call is made between services for authentication.
 
+Notifications are created synchronously by the BFF after order mutations. After a checkout the BFF looks up the store owner and calls notification-service to notify them; after marking an order sold or canceled it calls notification-service to notify the customer. The BFF calls `/internal/notifications` (no JWT) — notification-service treats the BFF as a trusted internal caller. Clients poll the REST endpoint to fetch and mark notifications.
+
 ### BFF Layer
 
-The BFF (Backend for Frontend) sits between the client and the three backend services. Its responsibilities:
+The BFF (Backend for Frontend) sits between the client and the four backend services. Its responsibilities:
 
 - **Routing** — forwards requests to the correct backend service
 - **Aggregation** — combines data from multiple services into a single response (e.g. order list enriched with store/product names)
@@ -127,7 +132,7 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 
 | Method | Path | Auth | Body / Notes |
 |--------|------|------|--------------|
-| `POST`   | `/api/carts` | CUSTOMER | `{ productId, storeId, unitPrice, quantity }` — creates cart if none; resets if different store |
+| `POST`   | `/api/carts` | CUSTOMER | `{ productId, storeId, quantity }` — BFF fetches `unitPrice`; creates cart if none; resets if different store |
 | `POST`   | `/api/carts/me` | CUSTOMER | *(no body)* → current cart |
 | `DELETE` | `/api/carts/products` | CUSTOMER | `{ cartId, productId }` — remove one item |
 | `DELETE` | `/api/carts` | CUSTOMER | `{ cartId }` — clear all items |
@@ -151,6 +156,18 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 
 ---
 
+### notification-service · `:8084`
+
+| Method | Path | Auth | Body / Notes |
+|--------|------|------|--------------|
+| `POST` | `/api/notifications/list` | Any | `{ unreadOnly: Boolean }` → `List<NotificationResponse>` |
+| `PUT`  | `/api/notifications/read` | Any | `{ notificationId }` — mark one notification as read |
+| `PUT`  | `/api/notifications/read-all` | Any | *(no body)* — mark all as read |
+
+`/internal/notifications` (no JWT) is called by the BFF to create notifications — it is not exposed to clients.
+
+---
+
 ## API Flow Examples
 
 ### New customer places an order
@@ -158,33 +175,33 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 ```mermaid
 sequenceDiagram
     actor Cu as Customer
-    participant US as user-service :8081
+    participant BFF as bff-service :8080
     participant SS as store-service :8082
     participant OS as order-service :8083
 
-    Cu->>US: POST /api/users/signup
-    US-->>Cu: 201 Created
-    Cu->>US: POST /api/users/signin
-    US-->>Cu: { accessToken }
+    Cu->>BFF: POST /api/users/signup
+    BFF-->>Cu: 201 Created
+    Cu->>BFF: POST /api/users/signin
+    BFF-->>Cu: { accessToken }
 
-    Note over Cu,SS: Browse — data extracted from store-service
-    Cu->>SS: POST /api/stores/list { sortBy: "RATING" }
-    SS-->>Cu: List[StoreResponse]
-    Cu->>SS: POST /api/stores/products/list { storeId }
-    SS-->>Cu: List[ProductResponse]
+    Cu->>BFF: POST /api/stores/list { sortBy: "RATING" }
+    BFF-->>Cu: List[StoreResponse]
+    Cu->>BFF: POST /api/stores/products/list { storeId }
+    BFF-->>Cu: List[ProductResponse]
 
-    Note over Cu,OS: ⚠ Cross-service: unitPrice extracted from SS, passed to OS → BFF candidate
-    Cu->>SS: POST /api/stores/products/find { storeId, productId }
-    SS-->>Cu: ProductResponse (unitPrice)
-    Cu->>OS: POST /api/carts { productId, storeId, unitPrice, quantity }
-    OS-->>Cu: CartResponse
+    Note over BFF,SS: BFF fetches unitPrice from store-service internally
+    Cu->>BFF: POST /api/carts { productId, storeId, quantity }
+    BFF->>SS: POST /api/stores/products/find { storeId, productId }
+    SS-->>BFF: ProductResponse (price)
+    BFF->>OS: POST /api/carts { productId, storeId, unitPrice, quantity }
+    OS-->>BFF: CartResponse
+    BFF-->>Cu: CartResponse
 
-    Cu->>OS: PUT /api/carts/checkout { cartId }
-    OS-->>Cu: OrderResponse (PENDING)
+    Cu->>BFF: PUT /api/carts/checkout { cartId }
+    BFF-->>Cu: OrderResponse (PENDING)
 
-    Note over Cu,OS: Confirm — data extracted from order-service
-    Cu->>OS: POST /api/users/me/orders
-    OS-->>Cu: List[OrderResponse]
+    Cu->>BFF: POST /api/users/me/orders
+    BFF-->>Cu: List[OrderResponse]
 ```
 
 ### Owner manages a store order
@@ -192,25 +209,28 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     actor Ow as Owner
-    participant US as user-service :8081
+    participant BFF as bff-service :8080
     participant SS as store-service :8082
     participant OS as order-service :8083
+    participant NS as notification-service :8084
 
-    Ow->>US: POST /api/users/signin
-    US-->>Ow: { accessToken }
+    Ow->>BFF: POST /api/users/signin
+    BFF-->>Ow: { accessToken }
 
-    Note over Ow,OS: ⚠ Cross-service: orders in OS, product data in SS → BFF candidate
-    Ow->>OS: POST /api/stores/orders/list { storeId }
-    OS-->>Ow: List[OrderResponse]
-    Ow->>OS: PUT /api/stores/orders/sold { storeId, orderId }
-    OS-->>Ow: OrderResponse (SOLD)
+    Ow->>BFF: POST /api/stores/orders/list { storeId }
+    BFF-->>Ow: List[OrderResponse]
 
-    Ow->>SS: PUT /api/stores/products/popularity { storeId, productId, delta: 1 }
-    SS-->>Ow: ProductResponse
+    Ow->>BFF: PUT /api/stores/orders/sold { storeId, orderId }
+    BFF->>OS: PUT /api/stores/orders/sold
+    OS-->>BFF: OrderResponse (SOLD)
+    BFF->>NS: POST /internal/notifications (notify customer)
+    BFF-->>Ow: OrderResponse (SOLD)
 
-    Note over Ow,SS: Statistics — data extracted from store-service
-    Ow->>SS: POST /api/stores/statistics/revenue { storeId, year, month }
-    SS-->>Ow: RevenueResponse
+    Ow->>BFF: PUT /api/stores/products/popularity { storeId, productId, delta: 1 }
+    BFF-->>Ow: ProductResponse
+
+    Ow->>BFF: POST /api/stores/statistics/revenue { storeId, year, month }
+    BFF-->>Ow: RevenueResponse
 ```
 
 ---
@@ -248,6 +268,17 @@ Monthly aggregates compute UTC epoch-millis boundaries from a caller-supplied ti
 ```kotlin
 ZonedDateTime.of(year, month, 1, 0, 0, 0, 0, zoneId).toInstant().toEpochMilli()
 ```
+
+### BFF-triggered synchronous notifications
+Notifications are created by the BFF immediately after order mutations — no message broker is involved.
+
+| BFF action | BFF calls | Recipient |
+|---|---|---|
+| `checkout` | `storeClient.findStore(storeId)` → owner `userId` | Store owner |
+| `markSold` | `orderClient.markSold(...)` → `order.userId` | Customer |
+| `cancelOrder` | `orderClient.cancelOrder(...)` → `order.userId` | Customer |
+
+The BFF posts to `/internal/notifications` (no JWT) on notification-service. `userId` is extracted from backend responses (`StoreResponse.userId`, `OrderResponse.userId`) which are annotated `@get:JsonIgnore` — deserialized from backends, never forwarded to the frontend.
 
 ---
 
@@ -325,6 +356,22 @@ erDiagram
         bigint    updated_at
     }
 
+    %% ── notificationdb :5436 (notification-service) ────────
+    notifications {
+        bigserial id PK
+        bigint    user_id     "* cross-service ref — no FK, indexed non-unique"
+        varchar   type        "NEW_ORDER | ORDER_SOLD | ORDER_CANCELED"
+        varchar   title
+        text      content
+        bigint    store_id    "snapshot — no FK"
+        varchar   store_name  "snapshot"
+        text      items       "JSON array snapshot"
+        boolean   is_read
+        bigint    issued_at
+        bigint    expiry
+        bigint    created_at
+    }
+
     %% relationships within storedb
     stores      ||--o{ products      : "has"
     stores      ||--o{ reviews       : "has"
@@ -342,7 +389,7 @@ erDiagram
 - Docker + Docker Compose
 - JDK 24
 
-### 1. Start databases
+### 1. Start all databases
 
 ```bash
 docker compose up -d
@@ -351,9 +398,10 @@ docker compose up -d
 ### 2. Apply schemas
 
 ```bash
-docker compose exec -T user-db  psql -U user_svc  -d userdb  < user-service/src/main/resources/db/schema.sql
-docker compose exec -T store-db psql -U store_svc -d storedb < store-service/src/main/resources/db/schema.sql
-docker compose exec -T order-db psql -U order_svc -d orderdb < order-service/src/main/resources/db/schema.sql
+docker compose exec -T user-db         psql -U user_svc  -d userdb         < user-service/src/main/resources/db/schema.sql
+docker compose exec -T store-db        psql -U store_svc -d storedb        < store-service/src/main/resources/db/schema.sql
+docker compose exec -T order-db        psql -U order_svc -d orderdb        < order-service/src/main/resources/db/schema.sql
+docker compose exec -T notification-db psql -U notif_svc -d notificationdb < notification-service/src/main/resources/db/schema.sql
 ```
 
 ### 3. Run services
@@ -363,11 +411,14 @@ docker compose exec -T order-db psql -U order_svc -d orderdb < order-service/src
 ./gradlew :user-service:bootRun
 ./gradlew :store-service:bootRun
 ./gradlew :order-service:bootRun
+./gradlew :notification-service:bootRun
+./gradlew :bff-service:bootRun
 ```
 
 ### 4. Run tests
 
 ```bash
-./gradlew test                  # all modules
-./gradlew :store-service:test   # single module
+./gradlew test                              # all modules
+./gradlew :store-service:test               # single module
+./gradlew :notification-service:test
 ```
