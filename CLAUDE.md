@@ -6,7 +6,7 @@
 # Build all modules
 ./gradlew build
 
-# Run individual services (requires their DB to be up first; notification-service also requires Kafka)
+# Run individual services (requires their DB to be up first)
 ./gradlew :user-service:bootRun
 ./gradlew :store-service:bootRun
 ./gradlew :order-service:bootRun
@@ -25,23 +25,23 @@
 Four separate PostgreSQL instances are defined in docker-compose:
 
 ```bash
-docker compose up -d      # start all four databases + Kafka
-docker compose down       # stop all
+docker compose up -d      # start all four databases
+docker compose down       # stop all databases
 ```
 
-| Service              | Container              | Port | DB             | User      | Password   |
-|----------------------|------------------------|------|----------------|-----------|------------|
-| user-service         | baemin_user_db         | 5433 | userdb         | user_svc  | userpass   |
-| store-service        | baemin_store_db        | 5434 | storedb        | store_svc | storepass  |
-| order-service        | baemin_order_db        | 5435 | orderdb        | order_svc | orderpass  |
-| notification-service | baemin_notification_db | 5436 | notificationdb | notif_svc | notifpass  |
+| Service               | Container               | Port | DB             | User       | Password   |
+|-----------------------|-------------------------|------|----------------|------------|------------|
+| user-service          | baemin_user_db          | 5433 | userdb         | user_svc   | userpass   |
+| store-service         | baemin_store_db         | 5434 | storedb        | store_svc  | storepass  |
+| order-service         | baemin_order_db         | 5435 | orderdb        | order_svc  | orderpass  |
+| notification-service  | baemin_notification_db  | 5436 | notificationdb | notif_svc  | notifpass  |
 
 Apply schema manually after adding DDL (never auto-created, `ddl-auto: validate`):
 ```bash
-docker compose exec -T user-db         psql -U user_svc   -d userdb         < user-service/src/main/resources/db/schema.sql
-docker compose exec -T store-db        psql -U store_svc  -d storedb        < store-service/src/main/resources/db/schema.sql
-docker compose exec -T order-db        psql -U order_svc  -d orderdb        < order-service/src/main/resources/db/schema.sql
-docker compose exec -T notification-db psql -U notif_svc  -d notificationdb < notification-service/src/main/resources/db/schema.sql
+docker compose exec -T user-db          psql -U user_svc  -d userdb          < user-service/src/main/resources/db/schema.sql
+docker compose exec -T store-db         psql -U store_svc -d storedb         < store-service/src/main/resources/db/schema.sql
+docker compose exec -T order-db         psql -U order_svc -d orderdb         < order-service/src/main/resources/db/schema.sql
+docker compose exec -T notification-db  psql -U notif_svc -d notificationdb  < notification-service/src/main/resources/db/schema.sql
 ```
 
 ---
@@ -53,15 +53,15 @@ Kotlin 2.x + Spring Boot 4 **microservices** with a shared `common` library modu
 **Subprojects (`settings.gradle.kts`):**
 
 ```
-common/               ← shared library (JWT filter, UserPrincipal, UserRole, GlobalExceptionHandler, Extensions)
-bff-service/          ← port 8080 — BFF gateway (routing, aggregation, JWT forwarding)
-user-service/         ← port 8081 — auth, user management
-store-service/        ← port 8082 — stores, products, reviews, product statistics
-order-service/        ← port 8083 — carts, orders, order statistics
-notification-service/ ← port 8084 — notifications (Kafka consumer, WebSocket push, DB polling)
+common/                ← shared library (JWT filter, UserPrincipal, UserRole, GlobalExceptionHandler, Extensions)
+bff-service/           ← port 8080 — BFF gateway (routing, aggregation, JWT forwarding)
+user-service/          ← port 8081 — auth, user management
+store-service/         ← port 8082 — stores, products, reviews, product statistics
+order-service/         ← port 8083 — carts, orders, order statistics
+notification-service/  ← port 8084 — per-user notifications (created by BFF, read by frontend via BFF)
 ```
 
-**Tech stack:** Kotlin 2.x, Spring Boot 4, Spring Security, Spring Data JPA + QueryDSL 5.1, PostgreSQL, jjwt 0.12, Spring Kafka, Apache Kafka, JUnit 5
+**Tech stack:** Kotlin 2.x, Spring Boot 4, Spring Security, Spring Data JPA + QueryDSL 5.1, PostgreSQL, jjwt 0.12, JUnit 5
 
 ---
 
@@ -102,10 +102,9 @@ fun <T> Optional<T>.orThrow(msg: String): T = orElseThrow { NotFoundException(ms
 
 ### Package structure conventions
 
-**user-service** and **notification-service** use a flat `layer` structure (single domain):
+**user-service** uses a flat `layer` structure (single domain):
 ```
 user.{layer}
-notification.{layer}
 ```
 
 **store-service** and **order-service** use `layer/subdomain` (multiple subdomains per service):
@@ -165,13 +164,12 @@ store-service/src/main/kotlin/store/
 │   ├── store/    ← StoreController.kt
 │   ├── product/  ← ProductController.kt, StoreStatisticsController.kt
 │   └── review/   ← ReviewController.kt
-├── config/       ← SecurityConfig.kt, QueryDslConfig.kt, KafkaConfig.kt
+├── config/       ← SecurityConfig.kt, QueryDslConfig.kt
 ├── dto/
 │   ├── store/    ← StoreRequest.kt  (CreateStoreRequest, UpdateStoreRequest, DeactivateStoreRequest,
 │   │                                  CreateStoreCommand, UpdateStoreCommand,
 │   │                                  StoreSortBy, ListStoreRequest, FindStoreRequest)
 │   │               StoreResponse.kt (StoreInfo, StoreResponse)
-│   │               StoreEvent.kt    (StoreCreatedEvent)
 │   ├── product/  ← ProductRequest.kt  (CreateProductRequest, UpdateProductRequest,
 │   │                                    DeactivateProductRequest, IncrementPopularityRequest,
 │   │                                    ListProductRequest, FindProductRequest, PopularProductRequest)
@@ -186,7 +184,7 @@ store-service/src/main/kotlin/store/
 │   ├── product/  ← ProductRepository.kt, ProductRepositoryCustom.kt, ProductRepositoryCustomImpl.kt
 │   └── review/   ← ReviewRepository.kt, ReviewRepositoryCustom.kt, ReviewRepositoryCustomImpl.kt
 └── service/
-    ├── store/    ← StoreService.kt      (publishes StoreCreatedEvent after create)
+    ├── store/    ← StoreService.kt
     ├── product/  ← ProductService.kt, ProductStatisticsService.kt
     └── review/   ← ReviewService.kt
 ```
@@ -199,13 +197,12 @@ order-service/src/main/kotlin/order/
 │   ├── cart/   ← CartController.kt
 │   └── order/  ← OrderController.kt, UserOrderController.kt, StatisticsController.kt,
 │                  UserStatisticsController.kt
-├── config/     ← SecurityConfig.kt, QueryDslConfig.kt, KafkaConfig.kt
+├── config/     ← SecurityConfig.kt, QueryDslConfig.kt
 ├── dto/
 │   ├── cart/   ← CartRequest.kt  (AddCartItemRequest, RemoveCartItemRequest, ClearCartRequest, CheckoutRequest)
 │   │              CartResponse.kt (CartInfo, CartProductResponse, CartResponse)
 │   └── order/  ← OrderRequest.kt  (ListOrderRequest, RevenueRequest, SpendingRequest, FindOrderRequest, MarkOrderRequest)
 │                  OrderResponse.kt (OrderResponse, RevenueResponse, SpendingResponse)
-│                  OrderEvent.kt    (OrderCheckedOutEvent, OrderMarkedSoldEvent, OrderMarkedCanceledEvent)
 ├── entity/
 │   ├── cart/   ← Cart.kt, CartProduct.kt
 │   └── order/  ← Order.kt, OrderStatus.kt
@@ -213,36 +210,21 @@ order-service/src/main/kotlin/order/
 │   ├── cart/   ← CartRepository.kt, CartProductRepository.kt
 │   └── order/  ← OrderRepository.kt, OrderRepositoryCustom.kt, OrderRepositoryCustomImpl.kt
 └── service/
-    ├── cart/   ← CartService.kt   (publishes OrderCheckedOutEvent after checkout)
-    └── order/  ← OrderService.kt  (publishes OrderMarkedSoldEvent / OrderMarkedCanceledEvent), StatisticsService.kt
+    ├── cart/   ← CartService.kt
+    └── order/  ← OrderService.kt, StatisticsService.kt
 ```
 
 ### notification-service
 ```
 notification-service/src/main/kotlin/notification/
 ├── NotificationServiceApplication.kt
-├── api/
-│   └── NotificationController.kt
-├── config/
-│   ├── SecurityConfig.kt
-│   ├── WebSocketConfig.kt          ← registers NotificationWebSocketHandler at /ws/notifications
-│   └── KafkaConfig.kt              ← consumer group config
-├── consumer/
-│   ├── StoreEventConsumer.kt       ← @KafkaListener(store-events): upserts store_owner_projections
-│   └── OrderEventConsumer.kt       ← @KafkaListener(order-events): creates notifications
-├── dto/
-│   ├── NotificationRequest.kt      ← MarkReadRequest
-│   └── NotificationResponse.kt     ← NotificationResponse with companion .of()
-├── entity/
-│   ├── Notification.kt             ← id, userId, title, content, isRead, createdAt
-│   └── StoreOwnerProjection.kt     ← storeId (PK), ownerUserId
-├── repository/
-│   ├── NotificationRepository.kt
-│   └── StoreOwnerProjectionRepository.kt
-├── service/
-│   └── NotificationService.kt      ← create(), listByUser(), markRead()
-└── websocket/
-    └── NotificationWebSocketHandler.kt  ← ConcurrentHashMap<userId, WebSocketSession>
+├── api/          ← NotificationController.kt
+├── config/       ← SecurityConfig.kt
+├── dto/          ← NotificationRequest.kt  (CreateNotificationRequest, MarkReadRequest, ListNotificationRequest)
+│                   NotificationResponse.kt (NotificationResponse — no userId field)
+├── entity/       ← Notification.kt
+├── repository/   ← NotificationRepository.kt
+└── service/      ← NotificationService.kt
 ```
 
 **Note:** `currentUser()`, `UserPrincipal`, `UserRole`, `JwtAuthenticationFilter`, `GlobalExceptionHandler`, `orThrow` are all from `common.*`.
@@ -251,7 +233,7 @@ notification-service/src/main/kotlin/notification/
 
 ## Auth Flow
 
-1. `POST /api/users/signup` → `UserService.register()` → BCrypt hash → `201 Created` (no body)
+1. `POST /api/users/signup` → `UserService.register()` → BCrypt hash → returns `{"id": Long}` (201)
 2. `POST /api/users/signin` → `UserService.login()` → verify password + status → `JwtProvider.generateToken()` → `TokenResponse(accessToken, tokenType="Bearer")`
 3. **All other endpoints** require `Authorization: Bearer <token>`
    - `JwtAuthenticationFilter` parses the JWT and populates `SecurityContextHolder` with `UserPrincipal`
@@ -287,7 +269,7 @@ fun jwtAuthFilterRegistration(jwtAuthFilter: JwtAuthenticationFilter): FilterReg
 - **JWT forwarding** — extracts `Authorization: Bearer <token>` from the client request and passes it to every downstream call; each backend service validates independently
 - **Cross-service data hand-off** — handles flows where output from one service is input to another (e.g. fetch `unitPrice` from store-service, then call order-service to add a cart item)
 
-**Client wrappers** (`client/` package): one `RestClient`-based class per backend service (`UserClient`, `StoreClient`, `OrderClient`, `NotificationClient`). Each method maps to one backend endpoint and forwards the JWT header.
+**Client wrappers** (`client/` package): one `RestClient`-based class per backend service (`UserClient`, `StoreClient`, `OrderClient`, `NotificationClient`). Each method maps to one backend endpoint and forwards the JWT header. `NotificationClient.createNotification` calls `/internal/notifications` without a JWT (BFF is the trusted caller).
 
 **Does not use `common` security filter** — the BFF is not a resource server. It does not validate JWT tokens itself; it only forwards them.
 
@@ -297,7 +279,7 @@ fun jwtAuthFilterRegistration(jwtAuthFilter: JwtAuthenticationFilter): FilterReg
 
 **Endpoints:**
 ```
-POST /api/users/signup          → register (public) — 201 Created, no body
+POST /api/users/signup          → register (public) — returns {"id": Long}
 POST /api/users/signin          → login, returns JWT (public)
 PUT  /api/users/suspend         → suspend user; body: { id } (ADMIN) — sets status SUSPENDED
 PUT  /api/users/me/withdraw     → self-withdraw (any authenticated) — sets status WITHDRAWN
@@ -334,7 +316,6 @@ PUT    /api/stores/deactivate           → soft-delete store; body: { id } — 
 - Times (`openedTime`, `closedTime`, `productCreatedTime`) stored as `Long` (epoch millis)
 - `userId: Long` — plain column, no `@ManyToOne` (cross-DB boundary)
 - Ownership check: `store.userId != principal.id`
-- `StoreService.create()` publishes `StoreCreatedEvent { storeId, ownerUserId }` to `store-events` topic after saving
 
 **Schema:** `stores` table with `user_id BIGINT NOT NULL` + non-unique index `idx_stores_user_id` (no FK constraint)
 
@@ -394,7 +375,6 @@ PUT    /api/carts/checkout                      → checkout; body: { cartId } �
 - Ordered carts (`is_ordered = true`) are preserved as history, permanently linked to their order via `orders.cart_id`.
 - Replacing store: active cart is reset in-place (items cleared, `store_id` updated).
 - Snapshot: `unit_price` is provided by the client at add-time (already known from the product page).
-- `CartService.checkout()` publishes `OrderCheckedOutEvent { orderId, storeId }` to `order-events` topic after creating the order.
 
 **Order endpoints:**
 ```
@@ -405,9 +385,6 @@ POST   /api/users/me/orders                         → caller's order history (
 ```
 
 **Order status flow:** `PENDING → SOLD | CANCELED` (only PENDING can transition)
-
-- `OrderService.markSold()` publishes `OrderMarkedSoldEvent { orderId, customerId: order.userId }` to `order-events` topic.
-- `OrderService.markCanceled()` publishes `OrderMarkedCanceledEvent { orderId, customerId: order.userId }` to `order-events` topic.
 
 **Statistics endpoints:**
 ```
@@ -421,91 +398,31 @@ POST   /api/users/me/statistics/spending      → monthly spending; body: { year
 
 ### notification-service (port 8084)
 
-**Domains:** Notification, StoreOwnerProjection (internal)
-
-**REST endpoints (via BFF):**
+**Endpoints:**
 ```
-POST   /api/notifications/me        → list caller's notifications (any authenticated)
-PUT    /api/notifications/read      → mark as read; body: { notificationId }
-```
-
-**WebSocket endpoint (direct, not through BFF):**
-```
-WS /ws/notifications?token=<jwt>    → real-time push on notification creation
+POST  /internal/notifications        → create notification (no JWT — BFF is trusted caller)
+POST  /api/notifications/list        → list caller's notifications; body: { unreadOnly: Boolean } (any auth)
+PUT   /api/notifications/read        → mark one read; body: { notificationId } (any auth)
+PUT   /api/notifications/read-all    → mark all read (any auth)
 ```
 
-**Kafka consumers:**
-- `StoreEventConsumer` listens to `store-events`:
-  - `StoreCreatedEvent` → upsert `store_owner_projections(storeId, ownerUserId)`
-- `OrderEventConsumer` listens to `order-events`:
-  - `OrderCheckedOutEvent` → look up `ownerUserId` from projection by `storeId` → create notification for owner
-  - `OrderMarkedSoldEvent` → create notification for `customerId`
-  - `OrderMarkedCanceledEvent` → create notification for `customerId`
+**Security:** `/internal/**` is `permitAll()`. All `/api/**` require JWT. `userId` comes from `currentUser()` — never from the request body.
 
-**WebSocket lifecycle:**
-- On connect: parse JWT from `?token=` query param → extract `userId` → register `userId → WebSocketSession` in `ConcurrentHashMap`
-- On disconnect: remove session from map
-- `NotificationService.create()` saves to DB, then pushes to session if user is currently connected
-
-**Schema:** `notifications` table + `store_owner_projections` table
-
----
-
-## Kafka Event Publishing
-
-### Topics
-
-| Topic | Publisher | Consumer |
+**Notification triggers (BFF-side):**
+| Event | BFF calls | Recipient |
 |---|---|---|
-| `store-events` | store-service | notification-service |
-| `order-events` | order-service | notification-service |
+| `checkout` | `storeClient.findStore(storeId)` → owner's `userId` | Store owner |
+| `markSold` | `orderClient.markSold(...)` → `order.userId` | Customer |
+| `cancelOrder` | `orderClient.cancelOrder(...)` → `order.userId` | Customer |
 
-### Event data classes
+**userId security:** `StoreResponse.userId` and `OrderResponse.userId` in the BFF are annotated `@JsonProperty(access = WRITE_ONLY)` — deserialized from backends, never serialized to the frontend.
 
-**store-service** (`dto/store/StoreEvent.kt`):
-```kotlin
-data class StoreCreatedEvent(val storeId: Long, val ownerUserId: Long)
-```
+**Notification business rules:**
+- `expiry` must be at least 10 minutes after `issuedAt` (enforced in `Notification.init`). BFF sets `expiry = now + 24h`.
+- `isRead` starts `false`; set to `true` by `markRead` or `markAllRead`.
+- Ownership check in `markRead`: if `notification.userId != currentUser().id` → `ForbiddenException`.
 
-**order-service** (`dto/order/OrderEvent.kt`):
-```kotlin
-data class OrderCheckedOutEvent(val orderId: Long, val storeId: Long)
-data class OrderMarkedSoldEvent(val orderId: Long, val customerId: Long)
-data class OrderMarkedCanceledEvent(val orderId: Long, val customerId: Long)
-```
-
-### Publisher pattern (service layer)
-
-```kotlin
-@Service
-class StoreService(
-    private val storeRepository: StoreRepository,
-    private val kafkaTemplate: KafkaTemplate<String, Any>
-) {
-    @Transactional
-    fun create(command: CreateStoreCommand, principal: UserPrincipal): StoreInfo {
-        val store = storeRepository.save(Store(...))
-        kafkaTemplate.send("store-events", StoreCreatedEvent(store.id, principal.id))
-        return StoreInfo.of(store)
-    }
-}
-```
-
-### Consumer pattern (notification-service)
-
-```kotlin
-@Component
-class OrderEventConsumer(private val notificationService: NotificationService) {
-    @KafkaListener(topics = ["order-events"], groupId = "notification-service")
-    fun consume(event: OrderMarkedSoldEvent) {
-        notificationService.create(event.customerId, "Order Update", "Your order #${event.orderId} has been confirmed.")
-    }
-}
-```
-
-### userId security boundary
-
-`userId` appears **only** inside Kafka event payloads — never in any HTTP request or response body. The payload travels exclusively through the broker's internal network. No service exposes another user's ID over HTTP.
+**Schema:** `notifications` table with `user_id BIGINT NOT NULL`, `issued_at BIGINT NOT NULL`, `expiry BIGINT NOT NULL`, `is_read BOOLEAN NOT NULL DEFAULT FALSE`; index `idx_notifications_user_id`.
 
 ---
 
@@ -536,8 +453,6 @@ allOpen {
 ```
 
 **QueryDSL** (`store-service`, `order-service`): `kotlin("kapt")` + `querydsl-jpa:5.1.0:jakarta` + `querydsl-apt:5.1.0:jakarta` via `kapt`. Q-classes are generated into `build/generated/source/kapt/main/`. A `QueryDslConfig` bean exposes `JPAQueryFactory`.
-
-**Spring Kafka** (`store-service`, `order-service`, `notification-service`): add `implementation("org.springframework.kafka:spring-kafka")` to each service's `build.gradle.kts`.
 
 **Compiler options** in all subprojects:
 ```kotlin
@@ -615,8 +530,6 @@ Each domain has exactly two DTO files:
 - `{Domain}Request.kt` — all input-side classes (request bodies, commands, query DTOs)
 - `{Domain}Response.kt` — all output-side classes (info projections, response wrappers)
 
-Event classes published to Kafka live in a separate `{Domain}Event.kt` file (not Request/Response).
-
 ---
 
 ## Testing Conventions
@@ -626,7 +539,6 @@ Event classes published to Kafka live in a separate `{Domain}Event.kt` file (not
 - Controller tests: send a real JWT in `Authorization: Bearer <token>`; filter parses it to `UserPrincipal`
 - POST-body tests: set `.contentType(MediaType.APPLICATION_JSON).content(...)` on every POST with a body
 - Mockito 5 + Kotlin: avoid `any()` matchers; stub with exact objects to prevent NPE from `@NonNull` annotation
-- Kafka consumer tests: use `@EmbeddedKafka` + `@SpringBootTest` for integration tests; unit-test consumer logic by calling the method directly with a constructed event object
 
 ### Test checklist per domain
 - [ ] Service: happy path
@@ -641,19 +553,17 @@ Event classes published to Kafka live in a separate `{Domain}Event.kt` file (not
 
 ## Implementation Status
 
-| Domain       | Service              | Schema | Entity | Service | Controller | Tests |
-|--------------|----------------------|:------:|:------:|:-------:|:----------:|:-----:|
-| User         | user-service         | ✅     | ✅     | ✅      | ✅         | ✅    |
-| Store        | store-service        | ✅     | ✅     | ✅      | ✅         | ✅    |
-| Product      | store-service        | ✅     | ✅     | ✅      | ✅         | ✅    |
-| Review       | store-service        | ✅     | ✅     | ✅      | ✅         | ✅    |
-| Cart         | order-service        | ✅     | ✅     | ✅      | ✅         | ✅    |
-| Order        | order-service        | ✅     | ✅     | ✅      | ✅         | ✅    |
-| Statistics   | —                    | ✅     | ✅     | ✅      | ✅         | ✅    |
-| BFF          | bff-service          | —      | —      | ✅      | ✅         | ✅    |
-| Notification | notification-service | ⬜     | ⬜     | ⬜      | ⬜         | ⬜    |
-| Kafka (store)| store-service        | —      | —      | ⬜      | —          | ⬜    |
-| Kafka (order)| order-service        | —      | —      | ⬜      | —          | ⬜    |
+| Domain       | Service                | Schema | Entity | Service | Controller | Tests |
+|--------------|------------------------|:------:|:------:|:-------:|:----------:|:-----:|
+| User         | user-service           | ✅     | ✅     | ✅      | ✅         | ✅    |
+| Store        | store-service          | ✅     | ✅     | ✅      | ✅         | ✅    |
+| Product      | store-service          | ✅     | ✅     | ✅      | ✅         | ✅    |
+| Review       | store-service          | ✅     | ✅     | ✅      | ✅         | ✅    |
+| Cart         | order-service          | ✅     | ✅     | ✅      | ✅         | ✅    |
+| Order        | order-service          | ✅     | ✅     | ✅      | ✅         | ✅    |
+| Statistics   | —                      | ✅     | ✅     | ✅      | ✅         | ✅    |
+| Notification | notification-service   | ✅     | ✅     | ✅      | ✅         | ✅    |
+| BFF          | bff-service            | —      | —      | ✅      | ✅         | ✅    |
 
 ---
 
@@ -677,11 +587,4 @@ For a new subdomain `{sub}` in a multi-domain service (e.g. store-service):
 For user-service (single domain), omit the `{sub}/` level:
 ```
 entity/Xxx.kt, repository/XxxRepository.kt, dto/XxxRequest.kt, dto/XxxResponse.kt ...
-```
-
-For notification-service, the standard checklist applies with these additions:
-```
-11. consumer/XxxEventConsumer.kt    ← @KafkaListener methods
-12. websocket/XxxWebSocketHandler.kt
-13. dto/XxxEvent.kt (in publishing service)   ← Kafka event data classes
 ```

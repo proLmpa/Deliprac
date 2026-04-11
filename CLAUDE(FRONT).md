@@ -14,7 +14,6 @@ All traffic goes through the BFF. Start it before using the frontend:
 ```bash
 docker compose up -d
 ./gradlew :bff-service:bootRun
-./gradlew :notification-service:bootRun   # required for notifications and WebSocket
 ```
 
 ---
@@ -55,12 +54,12 @@ front-service/
     │   ├── cart.ts            ← getCart, addToCart, removeCartItem, clearCart, checkout
     │   ├── orders.ts          ← listStoreOrders, markSold, cancelOrder, listMyOrders,
     │   │                         getRevenue, getSpending
-    │   └── notifications.ts   ← listNotifications, markAsRead
+    │   └── notifications.ts   ← listNotifications, markRead, markAllRead
     ├── store/
     │   └── auth.ts            ← Zustand (persisted): { token, userId, role, login(), logout() }
     ├── components/
     │   ├── layout/
-    │   │   ├── Header.tsx     ← nav bar with role-based links + logout button + notification badge
+    │   │   ├── Header.tsx     ← nav bar with role-based links + logout button + 🔔 bell icon (unread count badge, polls every 30s)
     │   │   └── Layout.tsx     ← Header + <Outlet />
     │   └── ui/
     │       ├── Button.tsx     ← variant: primary | secondary | danger | ghost
@@ -71,15 +70,14 @@ front-service/
     └── pages/
         ├── auth/
         │   ├── SignIn.tsx
-        │   └── SignUp.tsx          ← radio: CUSTOMER / OWNER
-        ├── shared/
-        │   └── Notifications.tsx   ← /notifications (CUSTOMER + OWNER)
+        │   └── SignUp.tsx      ← radio: CUSTOMER / OWNER
         ├── customer/
         │   ├── StoreList.tsx       ← /stores
         │   ├── StoreDetail.tsx     ← /stores/:id
         │   ├── Cart.tsx            ← /cart
         │   ├── OrderHistory.tsx    ← /orders
         │   └── SpendingStats.tsx   ← /statistics/spending
+        ├── NotificationsPage.tsx   ← /notifications (all authenticated roles)
         └── owner/
             ├── MyStores.tsx        ← /owner/stores
             ├── StoreForm.tsx       ← /owner/stores/new + /owner/stores/:id/edit
@@ -92,13 +90,12 @@ front-service/
 
 ## Vite Proxy Config
 
-API traffic goes to the BFF on port 8080. WebSocket connects directly to notification-service on port 8084.
+All API traffic goes to the BFF on port 8080. The complex per-service routing is gone.
 
 ```typescript
 // vite.config.ts
 proxy: {
-  '/api': { target: 'http://localhost:8080', changeOrigin: true },
-  '/ws':  { target: 'ws://localhost:8084',  ws: true, changeOrigin: true }
+  '/api': { target: 'http://localhost:8080', changeOrigin: true }
 }
 ```
 
@@ -107,20 +104,20 @@ proxy: {
 ## Routing & Role Guards
 
 ```
-/signin                          → SignIn          (public)
-/signup                          → SignUp          (public)
-/stores                          → StoreList       (public)
-/stores/:id                      → StoreDetail     (public; reviews section requires auth)
-/notifications                   → Notifications   (any authenticated: CUSTOMER + OWNER)
-/cart                            → Cart            (CUSTOMER only)
-/orders                          → OrderHistory    (CUSTOMER only)
-/statistics/spending             → SpendingStats   (CUSTOMER only)
-/owner/stores                    → MyStores        (OWNER only)
-/owner/stores/new                → StoreForm       (OWNER only)
-/owner/stores/:id/edit           → StoreForm       (OWNER only)
-/owner/stores/:id/products       → ProductList     (OWNER only)
-/owner/stores/:id/orders         → IncomingOrders  (OWNER only)
-/owner/stores/:id/revenue        → RevenueStats    (OWNER only)
+/signin                          → SignIn             (public)
+/signup                          → SignUp             (public)
+/stores                          → StoreList          (public)
+/stores/:id                      → StoreDetail        (public; reviews section requires auth)
+/notifications                   → NotificationsPage  (any authenticated role)
+/cart                            → Cart               (CUSTOMER only)
+/orders                          → OrderHistory       (CUSTOMER only)
+/statistics/spending             → SpendingStats      (CUSTOMER only)
+/owner/stores                    → MyStores           (OWNER only)
+/owner/stores/new                → StoreForm          (OWNER only)
+/owner/stores/:id/edit           → StoreForm          (OWNER only)
+/owner/stores/:id/products       → ProductList        (OWNER only)
+/owner/stores/:id/orders         → IncomingOrders     (OWNER only)
+/owner/stores/:id/revenue        → RevenueStats       (OWNER only)
 /                                → redirect /stores
 *                                → redirect /stores
 ```
@@ -165,7 +162,7 @@ baseURL: '/'   // relative — Vite proxy routes to BFF
 ### Auth (`src/api/auth.ts`)
 
 ```typescript
-signup(data)   POST /api/users/signup   { email, password, phone?, role? }  → 201 Created
+signup(data)   POST /api/users/signup   { email, password, phone?, role? }  → { id }
 signin(data)   POST /api/users/signin   { email, password }                 → { accessToken, tokenType }
 ```
 
@@ -226,18 +223,12 @@ getSpending(year, month)               POST /api/users/me/statistics/spending { 
 ### Notifications (`src/api/notifications.ts`)
 
 ```typescript
-listNotifications()     POST /api/notifications/me    (no body)              → NotificationResponse[]
-markAsRead(id)          PUT  /api/notifications/read  { notificationId: id }
+listNotifications(unreadOnly?)   POST /api/notifications/list     { unreadOnly: boolean }    → NotificationResponse[]
+markRead(notificationId)         PUT  /api/notifications/read     { notificationId }          → NotificationResponse
+markAllRead()                    PUT  /api/notifications/read-all (no body)
 ```
 
-**WebSocket** (proxied via Vite `/ws` → `ws://localhost:8084`):
-```typescript
-const ws = new WebSocket(`/ws/notifications?token=${token}`)
-ws.onmessage = (e) => {
-  const notification: NotificationResponse = JSON.parse(e.data)
-  // push to local notification list or show toast
-}
-```
+`Header.tsx` polls unread notifications: `useQuery({ queryKey: ['notifications', 'unread'], queryFn: () => listNotifications(true), refetchInterval: 30_000, enabled: !!token })`
 
 ---
 
@@ -351,7 +342,10 @@ ws.onmessage = (e) => {
   title: string
   content: string
   isRead: boolean
-  createdAt: number    // epoch millis
+  issuedAt: number    // epoch millis
+  expiry: number      // epoch millis
+  createdAt: number   // epoch millis
+  // NO userId — never exposed to the frontend
 }
 ```
 
@@ -428,18 +422,6 @@ content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}']
 @tailwind utilities;
 ```
 
-### Notification WebSocket lifecycle
-Open the WebSocket connection once on mount (e.g. in `Layout.tsx` or a custom hook) and close it on unmount. Use TanStack Query's `invalidateQueries` to refresh the notification list when a WebSocket message arrives:
-
-```typescript
-useEffect(() => {
-  if (!token) return
-  const ws = new WebSocket(`/ws/notifications?token=${token}`)
-  ws.onmessage = () => queryClient.invalidateQueries({ queryKey: ['notifications'] })
-  return () => ws.close()
-}, [token])
-```
-
 ---
 
 ## Component Conventions
@@ -473,11 +455,11 @@ For product active state: pass `p.status ? 'ACTIVE' : 'INACTIVE'`
 1. Sign up as CUSTOMER → redirected to /signin → sign in → see /stores
 2. Sign up as OWNER → sign in → /owner/stores → create store → add products
 3. Sign in as CUSTOMER → /stores/:id → Add product → /cart → Checkout → /orders
-4. Sign in as OWNER → /owner/stores/:id/orders → Mark PENDING order as Sold
-5. OWNER → /owner/stores/:id/revenue → pick year/month → see ₩ total
-6. CUSTOMER → /statistics/spending → pick year/month → see ₩ total
-7. CUSTOMER → /orders → see order with SOLD status
-8. OWNER → /notifications → see "New order received" notification after customer checkout
-9. CUSTOMER → /notifications → see "Order confirmed" notification after owner marks SOLD
-10. Refresh /notifications → unread notifications persist; mark as read → isRead flag updates
+4. Sign in as OWNER → /owner/stores/:id/orders → see PENDING order → bell icon shows unread badge
+5. OWNER → /owner/stores/:id/orders → Mark PENDING order as Sold
+6. CUSTOMER → /notifications → see "주문 완료" notification → Mark as read
+7. OWNER → /owner/stores/:id/revenue → pick year/month → see ₩ total
+8. CUSTOMER → /statistics/spending → pick year/month → see ₩ total
+9. CUSTOMER → /orders → see order with SOLD status
+10. Any user → /notifications → "Mark all read" button clears badge
 ```

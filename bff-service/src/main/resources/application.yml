@@ -7,13 +7,12 @@ spring:
   mvc:
     problemdetails:
       enabled: true
-
-backend:
-  user-service:
-    url: http://localhost:8081
-  store-service:
-    url: http://localhost:8082
-  order-service:
-    url: http://localhost:8083
-  notification-service:
-    url: http://localhost:8084
+  profiles:
+    default: dev
+    group:
+      dev:  [backend-dev]
+      test: [backend-test]
+      prod: [backend-prod]
+  config:
+    import:
+      - "backend.yaml"

@@ -4,6 +4,7 @@ import order.entity.order.Order
 
 data class OrderResponse(
     val id: Long,
+    val userId: Long,
     val storeId: Long,
     val totalPrice: Long,
     val status: String,
@@ -13,6 +14,7 @@ data class OrderResponse(
     companion object {
         fun of(order: Order) = OrderResponse(
             id         = order.id,
+            userId     = order.userId,
             storeId    = order.storeId,
             totalPrice = order.totalPrice,
             status     = order.status.name,

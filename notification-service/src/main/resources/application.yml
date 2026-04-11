@@ -7,23 +7,13 @@ spring:
   mvc:
     problemdetails:
       enabled: true
-  datasource:
-    url: jdbc:postgresql://localhost:5436/notificationdb
-    username: notif_svc
-    password: notifpass
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-  kafka:
-    bootstrap-servers: localhost:9092
-    consumer:
-      group-id: notification-service
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-
-jwt:
-  secret: "baemin-jwt-secret-key-must-be-at-least-32-characters-long"
+  profiles:
+    default: dev
+    group:
+      dev:  [pgsql-dev,  jwt-dev]
+      test: [pgsql-test, jwt-test]
+      prod: [pgsql-prod, jwt-prod]
+  config:
+    import:
+      - "pgsql.yaml"
+      - "jwt.yaml"

@@ -2,39 +2,52 @@ package notification.service
 
 import common.exception.ForbiddenException
 import common.orThrow
-import notification.dto.NotificationResponse
+import notification.dto.CreateNotificationRequest
 import notification.entity.Notification
+import notification.entity.NotificationItemData
 import notification.repository.NotificationRepository
-import notification.websocket.NotificationWebSocketHandler
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class NotificationService(
-    private val notificationRepository: NotificationRepository,
-    private val webSocketHandler: NotificationWebSocketHandler
-) {
+class NotificationService(private val notificationRepository: NotificationRepository) {
 
     @Transactional
-    fun create(userId: Long, title: String, content: String): NotificationResponse {
-        val notification = notificationRepository.save(
-            Notification(userId = userId, title = title, content = content)
+    fun createNotification(request: CreateNotificationRequest): Notification {
+        val now = System.currentTimeMillis()
+        return notificationRepository.save(
+            Notification(
+                userId    = request.recipientId,
+                type      = request.type,
+                title     = request.title,
+                content   = request.content,
+                storeId   = request.storeId,
+                storeName = request.storeName,
+                items     = request.items.map { NotificationItemData(it.productName, it.unitPrice, it.quantity) },
+                issuedAt  = now,
+                expiry    = request.expiry,
+                createdAt = now
+            )
         )
-        val response = NotificationResponse.of(notification)
-        webSocketHandler.push(userId, response)
-        return response
     }
 
     @Transactional(readOnly = true)
-    fun listByUser(userId: Long): List<NotificationResponse> =
-        notificationRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
-            .map { NotificationResponse.of(it) }
+    fun listMyNotifications(userId: Long, unreadOnly: Boolean): List<Notification> =
+        if (unreadOnly) notificationRepository.findByUserIdAndIsReadFalseOrderByCreatedAtDesc(userId)
+        else notificationRepository.findByUserIdOrderByCreatedAtDesc(userId)
 
     @Transactional
-    fun markRead(notificationId: Long, userId: Long) {
+    fun markRead(userId: Long, notificationId: Long): Notification {
         val notification = notificationRepository.findById(notificationId).orThrow("Notification not found")
         if (notification.userId != userId) throw ForbiddenException("Forbidden")
         notification.isRead = true
-        notificationRepository.save(notification)
+        return notificationRepository.save(notification)
+    }
+
+    @Transactional
+    fun markAllRead(userId: Long) {
+        val unread = notificationRepository.findByUserIdAndIsReadFalseOrderByCreatedAtDesc(userId)
+        unread.forEach { it.isRead = true }
+        notificationRepository.saveAll(unread)
     }
 }

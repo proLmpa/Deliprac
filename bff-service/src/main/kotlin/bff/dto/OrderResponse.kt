@@ -1,7 +1,11 @@
 package bff.dto
 
+import com.fasterxml.jackson.annotation.JsonProperty
+
 data class OrderResponse(
     val id: Long,
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    val userId: Long = 0L,
     val storeId: Long,
     val totalPrice: Long,
     val status: String,

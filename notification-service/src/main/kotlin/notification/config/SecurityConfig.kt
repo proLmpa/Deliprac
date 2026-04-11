@@ -16,7 +16,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
-class SecurityConfig(@Value("\${jwt.secret}") private val secret: String) {
+class SecurityConfig(
+    @Value("\${jwt.secret}") private val secret: String
+) {
 
     @Bean
     fun jwtParser(): JwtParser = Jwts.parser()
@@ -36,7 +38,10 @@ class SecurityConfig(@Value("\${jwt.secret}") private val secret: String) {
         http
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
-            .authorizeHttpRequests { it.anyRequest().authenticated() }
+            .authorizeHttpRequests {
+                it.requestMatchers("/internal/**").permitAll()
+                it.anyRequest().authenticated()
+            }
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)
         return http.build()
     }

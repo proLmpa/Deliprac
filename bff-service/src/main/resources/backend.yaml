@@ -1,0 +1,42 @@
+---
+spring:
+  config:
+    activate:
+      on-profile: "backend-dev"
+backend:
+  user-service:
+    url: http://localhost:8081
+  store-service:
+    url: http://localhost:8082
+  order-service:
+    url: http://localhost:8083
+  notification-service:
+    url: http://localhost:8084
+---
+spring:
+  config:
+    activate:
+      on-profile: "backend-test"
+backend:
+  user-service:
+    url: http://localhost:8081
+  store-service:
+    url: http://localhost:8082
+  order-service:
+    url: http://localhost:8083
+  notification-service:
+    url: http://localhost:8084
+---
+spring:
+  config:
+    activate:
+      on-profile: "backend-prod"
+backend:
+  user-service:
+    url: ${USER_SERVICE_URL}
+  store-service:
+    url: ${STORE_SERVICE_URL}
+  order-service:
+    url: ${ORDER_SERVICE_URL}
+  notification-service:
+    url: ${NOTIFICATION_SERVICE_URL}

@@ -4,6 +4,7 @@ import store.entity.store.Store
 
 data class StoreInfo(
     val id: Long,
+    val userId: Long,
     val name: String,
     val address: String,
     val phone: String,
@@ -21,6 +22,7 @@ data class StoreInfo(
     companion object {
         fun of(store: Store, averageRating: Double) = StoreInfo(
             id                 = store.id,
+            userId             = store.userId,
             name               = store.name,
             address            = store.address,
             phone              = store.phone,
@@ -40,6 +42,7 @@ data class StoreInfo(
 
 data class StoreResponse(
     val id: Long,
+    val userId: Long,
     val name: String,
     val address: String,
     val phone: String,
@@ -57,6 +60,7 @@ data class StoreResponse(
     companion object {
         fun of(info: StoreInfo) = StoreResponse(
             id                 = info.id,
+            userId             = info.userId,
             name               = info.name,
             address            = info.address,
             phone              = info.phone,
