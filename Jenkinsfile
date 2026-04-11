@@ -80,7 +80,7 @@ def deploy(String service, String host) {
         // 5. Run newly copied server
         sh """
             ssh -o StrictHostKeyChecking=no ${host} \
-            'set -a; source /etc/environment; set +a; \
+            'set -a; . /etc/environment; set +a; \
              nohup java -jar ${destDir}/${service}.jar \
                 --spring.profiles.active=prod \
                 > ${destDir}/${service}.log 2>&1 &'
