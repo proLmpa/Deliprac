@@ -33,10 +33,10 @@ spring:
       on-profile: "backend-prod"
 backend:
   user-service:
-    url: http://192.168.160.101:8081
+    url: ${USER_SERVICE_URL}
   store-service:
-    url: http://192.168.160.102:8082
+    url: ${STORE_SERVICE_URL}
   order-service:
-    url: http://192.168.160.103:8083
+    url: ${ORDER_SERVICE_URL}
   notification-service:
-    url: http://192.168.160.104:8084
+    url: ${NOTIFICATION_SERVICE_URL}

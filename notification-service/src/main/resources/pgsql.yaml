@@ -30,9 +30,9 @@ spring:
     activate:
       on-profile: "pgsql-prod"
   datasource:
-    url: jdbc:postgresql://localhost:5436/notificationdb
-    username: notif_svc
-    password: notifpass
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
   jpa:
     properties:
       hibernate:

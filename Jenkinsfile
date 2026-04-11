@@ -1,0 +1,89 @@
+pipeline {
+    agent any
+
+    environment {
+        BFF_HOST          = 'front@<BFF_SERVER_IP>'
+        USER_HOST         = 'front@<USER_SERVER_IP>'
+        STORE_HOST        = 'front@<STORE_SERVER_IP>'
+        ORDER_HOST        = 'front@<ORDER_SERVER_IP>'
+        NOTIFICATION_HOST = 'front@<NOTIFICATION_SERVER_IP>'
+
+        DEPLOY_DIR = '/opt/baemin'
+        SSH_CRED   = 'deploy-ssh-key'   // Jenkins credential ID (SSH private key)
+    }
+
+    stages {
+
+        // ── 1. Bring in sources ──────────────────────────────────────────────
+        stage('Checkout') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/<your-org>/Baemin.git',
+                    credentialsId: 'github-cred'
+            }
+        }
+
+        // ── 2. Build ─────────────────────────────────────────────────────────
+        stage('Build') {
+            steps {
+                sh './gradlew build -x test'
+            }
+        }
+
+        // ── 3. Copy  4. Stop  5. Start  (all services in parallel) ──────────
+        stage('Deploy') {
+            parallel {
+                stage('bff-service') {
+                    steps { script { deploy('bff-service', env.BFF_HOST) } }
+                }
+                stage('user-service') {
+                    steps { script { deploy('user-service', env.USER_HOST) } }
+                }
+                stage('store-service') {
+                    steps { script { deploy('store-service', env.STORE_HOST) } }
+                }
+                stage('order-service') {
+                    steps { script { deploy('order-service', env.ORDER_HOST) } }
+                }
+                stage('notification-service') {
+                    steps { script { deploy('notification-service', env.NOTIFICATION_HOST) } }
+                }
+            }
+        }
+    }
+
+    post {
+        success { echo 'All services deployed successfully.' }
+        failure  { echo 'Deployment failed. Check the logs above.' }
+    }
+}
+
+// ── Shared deploy function ───────────────────────────────────────────────────
+// Per service: (3) scp jar  →  (4) pkill old process  →  (5) start new jar
+def deploy(String service, String host) {
+    def credId  = env.SSH_CRED
+    def destDir = env.DEPLOY_DIR
+
+    def jar = sh(
+        script: "find ${service}/build/libs -name '*.jar' ! -name '*plain*' | head -1",
+        returnStdout: true
+    ).trim()
+
+    sshagent(credentials: [credId]) {
+        // 3. Copy build result to server
+        sh "scp -o StrictHostKeyChecking=no ${jar} ${host}:${destDir}/${service}.jar"
+
+        // 4. Terminate running server (ignore error if not running)
+        sh "ssh -o StrictHostKeyChecking=no ${host} 'pkill -f ${service}.jar || true'"
+        sh 'sleep 3'
+
+        // 5. Run newly copied server
+        sh """
+            ssh -o StrictHostKeyChecking=no ${host} \
+            'set -a; source /etc/environment; set +a; \
+             nohup java -jar ${destDir}/${service}.jar \
+                --spring.profiles.active=prod \
+                > ${destDir}/${service}.log 2>&1 &'
+        """
+    }
+}

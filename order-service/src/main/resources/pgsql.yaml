@@ -30,9 +30,9 @@ spring:
     activate:
       on-profile: "pgsql-prod"
   datasource:
-    url: jdbc:postgresql://localhost:5435/orderdb
-    username: order_svc
-    password: orderpass
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
   jpa:
     properties:
       hibernate:
