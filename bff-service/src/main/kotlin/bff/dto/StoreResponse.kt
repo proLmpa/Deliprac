@@ -1,10 +1,12 @@
 package bff.dto
 
 import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonProperty
 
 data class StoreResponse(
     val id: Long,
     @get:JsonIgnore
+    @param:JsonProperty("userId")
     val userId: Long = 0L,
     val name: String,
     val address: String,

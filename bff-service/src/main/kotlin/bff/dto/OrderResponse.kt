@@ -1,10 +1,12 @@
 package bff.dto
 
 import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonProperty
 
 data class OrderResponse(
     val id: Long,
     @get:JsonIgnore
+    @param:JsonProperty("userId")
     val userId: Long = 0L,
     val storeId: Long,
     val totalPrice: Long,
