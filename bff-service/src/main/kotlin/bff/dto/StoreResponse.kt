@@ -1,10 +1,10 @@
 package bff.dto
 
-import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.annotation.JsonIgnore
 
 data class StoreResponse(
     val id: Long,
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @get:JsonIgnore
     val userId: Long = 0L,
     val name: String,
     val address: String,
