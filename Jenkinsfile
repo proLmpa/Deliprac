@@ -16,6 +16,7 @@ pipeline {
         stage('Build') {
             steps {
                 sh './gradlew build -x test'
+                sh 'cd front-service && npm ci && npm run build'
             }
         }
 
@@ -37,6 +38,9 @@ pipeline {
                 stage('notification-service') {
                     steps { script { deploy('notification-service', env.NOTIFICATION_HOST) } }
                 }
+                stage('front-service') {
+                    steps { script { deployFront(env.FRONT_HOST) } }
+                }
             }
         }
     }
@@ -44,6 +48,20 @@ pipeline {
     post {
         success { echo 'All services deployed successfully.' }
         failure  { echo 'Deployment failed. Check the logs above.' }
+    }
+}
+
+// ── Front-service deploy function (static files via nginx) ──────────────────
+def deployFront(String host) {
+    def credId   = env.SSH_CRED
+    def frontDir = env.FRONT_DEPLOY_DIR
+
+    sshagent(credentials: [credId]) {
+        // Clear old build and copy new dist/
+        sh "ssh -o StrictHostKeyChecking=no ${host} 'rm -rf ${frontDir} && mkdir -p ${frontDir}'"
+        sh "scp -o StrictHostKeyChecking=no -r front-service/dist/. ${host}:${frontDir}/"
+        // Reload nginx to pick up new files
+        sh "ssh -o StrictHostKeyChecking=no ${host} 'sudo nginx -s reload' || true"
     }
 }
 
