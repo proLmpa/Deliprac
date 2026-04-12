@@ -74,7 +74,7 @@ def deploy(String service, String host) {
         sh "scp -o StrictHostKeyChecking=no ${jar} ${host}:${destDir}/${service}.jar"
 
         // 4. Terminate running server (ignore error if not running)
-        sh "ssh -o StrictHostKeyChecking=no ${host} 'pkill -f ${service}.jar || true'"
+        sh "ssh -o StrictHostKeyChecking=no ${host} 'pkill -f ${service}.jar' || true"
         sh 'sleep 3'
 
         // 5. Run newly copied server
@@ -83,7 +83,7 @@ def deploy(String service, String host) {
             'set -a; . /etc/environment; set +a; \
              nohup java -jar ${destDir}/${service}.jar \
                 --spring.profiles.active=prod \
-                > ${destDir}/${service}.log 2>&1 &'
+                > ${destDir}/${service}.log 2>&1 < /dev/null &'
         """
     }
 }
