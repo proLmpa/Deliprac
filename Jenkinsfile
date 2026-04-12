@@ -60,7 +60,7 @@ def deployFront(String host) {
 
     sshagent(credentials: [credId]) {
         // Clear old build and copy new dist/
-        sh "ssh -o StrictHostKeyChecking=no ${host} 'rm -rf ${frontDir} && mkdir -p ${frontDir}'"
+        sh "ssh -o StrictHostKeyChecking=no ${host} 'rm -rf ${frontDir}/*'"
         sh "scp -o StrictHostKeyChecking=no -r front-service/dist/. ${host}:${frontDir}/"
         // Reload nginx to pick up new files
         sh "ssh -o StrictHostKeyChecking=no ${host} 'sudo nginx -s reload' || true"
