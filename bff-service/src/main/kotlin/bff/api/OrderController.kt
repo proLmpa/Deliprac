@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
+import java.util.concurrent.CompletableFuture
 
 @RestController
 class OrderController(
@@ -81,18 +82,22 @@ class OrderController(
                 quantity    = item.quantity
             )
         } ?: emptyList()
-        notificationClient.createNotification(
-            CreateNotificationRequest(
-                recipientId = store.userId,
-                type        = "NEW_ORDER",
-                title       = "새 주문 접수",
-                content     = "새 주문이 접수되었습니다.",
-                storeId     = order.storeId,
-                storeName   = store.name,
-                expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
-                items       = items
-            )
-        )
+        CompletableFuture.runAsync {
+            try {
+                notificationClient.createNotification(
+                    CreateNotificationRequest(
+                        recipientId = store.userId,
+                        type        = "NEW_ORDER",
+                        title       = "새 주문 접수",
+                        content     = "새 주문이 접수되었습니다.",
+                        storeId     = order.storeId,
+                        storeName   = store.name,
+                        expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
+                        items       = items
+                    )
+                )
+            } catch (_: Exception) {}
+        }
         return order
     }
 
@@ -116,18 +121,22 @@ class OrderController(
                 quantity    = item.quantity
             )
         }
-        notificationClient.createNotification(
-            CreateNotificationRequest(
-                recipientId = order.userId,
-                type        = "ORDER_SOLD",
-                title       = "주문 완료",
-                content     = "주문이 완료되었습니다.",
-                storeId     = order.storeId,
-                storeName   = store.name,
-                expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
-                items       = items
-            )
-        )
+        CompletableFuture.runAsync {
+            try {
+                notificationClient.createNotification(
+                    CreateNotificationRequest(
+                        recipientId = order.userId,
+                        type        = "ORDER_SOLD",
+                        title       = "주문 완료",
+                        content     = "주문이 완료되었습니다.",
+                        storeId     = order.storeId,
+                        storeName   = store.name,
+                        expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
+                        items       = items
+                    )
+                )
+            } catch (_: Exception) {}
+        }
         return order
     }
 
@@ -145,18 +154,22 @@ class OrderController(
                 quantity    = item.quantity
             )
         }
-        notificationClient.createNotification(
-            CreateNotificationRequest(
-                recipientId = order.userId,
-                type        = "ORDER_CANCELED",
-                title       = "주문 취소",
-                content     = "주문이 취소되었습니다.",
-                storeId     = order.storeId,
-                storeName   = store.name,
-                expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
-                items       = items
-            )
-        )
+        CompletableFuture.runAsync {
+            try {
+                notificationClient.createNotification(
+                    CreateNotificationRequest(
+                        recipientId = order.userId,
+                        type        = "ORDER_CANCELED",
+                        title       = "주문 취소",
+                        content     = "주문이 취소되었습니다.",
+                        storeId     = order.storeId,
+                        storeName   = store.name,
+                        expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
+                        items       = items
+                    )
+                )
+            } catch (_: Exception) {}
+        }
         return order
     }
 
