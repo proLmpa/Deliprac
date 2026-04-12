@@ -16,7 +16,9 @@ pipeline {
         stage('Build') {
             steps {
                 sh './gradlew build -x test'
-                sh 'cd front-service && npm ci && npm run build'
+                nodejs('node-22') {
+                    sh 'cd front-service && npm ci && npm run build'
+                }
             }
         }
 
