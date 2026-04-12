@@ -2,11 +2,11 @@ pipeline {
     agent any
 
     environment {
-        BFF_HOST          = 'front@<BFF_SERVER_IP>'
-        USER_HOST         = 'front@<USER_SERVER_IP>'
-        STORE_HOST        = 'front@<STORE_SERVER_IP>'
-        ORDER_HOST        = 'front@<ORDER_SERVER_IP>'
-        NOTIFICATION_HOST = 'front@<NOTIFICATION_SERVER_IP>'
+        BFF_HOST          = 'front@192.168.160.100'
+        USER_HOST         = 'front@192.168.160.101'
+        STORE_HOST        = 'front@192.168.160.102'
+        ORDER_HOST        = 'front@192.168.160.103'
+        NOTIFICATION_HOST = 'front@192.168.160.104'
 
         DEPLOY_DIR = '/opt/baemin'
         SSH_CRED   = 'deploy-ssh-key'   // Jenkins credential ID (SSH private key)
@@ -18,7 +18,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/<your-org>/Baemin.git',
+                    url: 'https://github.com/proLmpa/Deliprac.git',
                     credentialsId: 'github-cred'
             }
         }
