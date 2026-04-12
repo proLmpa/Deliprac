@@ -3,6 +3,12 @@ package bff.dto
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
 
+data class OrderItemResponse(
+    val productId: Long,
+    val unitPrice: Long,
+    val quantity: Long
+)
+
 data class OrderResponse(
     val id: Long,
     @get:JsonIgnore
@@ -12,7 +18,8 @@ data class OrderResponse(
     val totalPrice: Long,
     val status: String,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val items: List<OrderItemResponse> = emptyList()
 )
 
 data class RevenueResponse(

@@ -11,6 +11,7 @@ export default function NotificationsPage() {
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => listNotifications(false),
+    refetchInterval: 30_000,
   })
 
   const markReadMutation = useMutation({
@@ -32,9 +33,11 @@ export default function NotificationsPage() {
   })
 
   function handleNotificationClick(n: NotificationResponse) {
+    if (!n.isRead) markReadMutation.mutate(n.id)
     if (n.type === 'NEW_ORDER' && n.storeId !== null) {
-      if (!n.isRead) markReadMutation.mutate(n.id)
       navigate(`/owner/stores/${n.storeId}/orders`)
+    } else if (n.type === 'ORDER_SOLD' || n.type === 'ORDER_CANCELED') {
+      navigate('/orders')
     }
   }
 
@@ -62,22 +65,22 @@ export default function NotificationsPage() {
             <li
               key={n.id}
               onClick={() => handleNotificationClick(n)}
-              className={`p-4 rounded-lg border flex items-start justify-between gap-4 ${
+              className={`p-4 rounded-lg border flex items-start justify-between gap-4 cursor-pointer hover:brightness-95 ${
                 n.isRead ? 'bg-gray-100 border-gray-200' : 'bg-orange-50 border-orange-200'
-              } ${n.type === 'NEW_ORDER' && n.storeId !== null ? 'cursor-pointer hover:brightness-95' : ''}`}
+              }`}
             >
               <div className="flex-1 min-w-0">
                 <p className={`font-semibold ${n.isRead ? 'text-gray-400' : 'text-gray-900'}`}>
                   {n.title}
                 </p>
                 <div className={`text-sm mt-0.5 ${n.isRead ? 'text-gray-400' : 'text-gray-600'}`}>
-                  {n.type === 'NEW_ORDER' && n.items.length > 0 ? (
+                  {n.items.length > 0 ? (
                     <table className="text-sm w-full mt-1">
                       <tbody>
                         {n.items.map((item, i) => (
                           <tr key={i}>
                             <td className="pr-3">{item.productName}</td>
-                            <td className="pr-3 text-gray-500">₩{item.unitPrice.toLocaleString()}</td>
+                            <td className={`pr-3 ${n.isRead ? 'text-gray-400' : 'text-gray-500'}`}>₩{item.unitPrice.toLocaleString()}</td>
                             <td>× {item.quantity}</td>
                           </tr>
                         ))}

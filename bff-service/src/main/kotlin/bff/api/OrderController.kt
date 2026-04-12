@@ -107,15 +107,25 @@ class OrderController(
         val token = httpRequest.bearerToken()
         val order = orderClient.markSold(request, token)
         val store = storeClient.findStore(FindStoreRequest(order.storeId), token)
+        val productNames = storeClient.listProducts(ListProductRequest(order.storeId), token)
+            .associate { it.id to it.name }
+        val items = order.items.map { item ->
+            NotificationItemData(
+                productName = productNames[item.productId] ?: "상품 #${item.productId}",
+                unitPrice   = item.unitPrice,
+                quantity    = item.quantity
+            )
+        }
         notificationClient.createNotification(
             CreateNotificationRequest(
                 recipientId = order.userId,
                 type        = "ORDER_SOLD",
                 title       = "주문 완료",
-                content     = "₩${order.totalPrice}",
+                content     = "주문이 완료되었습니다.",
                 storeId     = order.storeId,
                 storeName   = store.name,
-                expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L
+                expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
+                items       = items
             )
         )
         return order
@@ -126,15 +136,25 @@ class OrderController(
         val token = httpRequest.bearerToken()
         val order = orderClient.markCanceled(request, token)
         val store = storeClient.findStore(FindStoreRequest(order.storeId), token)
+        val productNames = storeClient.listProducts(ListProductRequest(order.storeId), token)
+            .associate { it.id to it.name }
+        val items = order.items.map { item ->
+            NotificationItemData(
+                productName = productNames[item.productId] ?: "상품 #${item.productId}",
+                unitPrice   = item.unitPrice,
+                quantity    = item.quantity
+            )
+        }
         notificationClient.createNotification(
             CreateNotificationRequest(
                 recipientId = order.userId,
                 type        = "ORDER_CANCELED",
                 title       = "주문 취소",
-                content     = "₩${order.totalPrice}",
+                content     = "주문이 취소되었습니다.",
                 storeId     = order.storeId,
                 storeName   = store.name,
-                expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L
+                expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
+                items       = items
             )
         )
         return order

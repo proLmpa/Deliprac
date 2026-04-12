@@ -178,6 +178,7 @@ sequenceDiagram
     participant BFF as bff-service :8080
     participant SS as store-service :8082
     participant OS as order-service :8083
+    participant NS as notification-service :8084
 
     Cu->>BFF: POST /api/users/signup
     BFF-->>Cu: 201 Created
@@ -197,7 +198,15 @@ sequenceDiagram
     OS-->>BFF: CartResponse
     BFF-->>Cu: CartResponse
 
+    Note over BFF,NS: BFF aggregates store + product info to build notification
     Cu->>BFF: PUT /api/carts/checkout { cartId }
+    BFF->>OS: PUT /api/carts/checkout
+    OS-->>BFF: OrderResponse (PENDING)
+    BFF->>SS: POST /api/stores/find { storeId }
+    SS-->>BFF: StoreResponse (owner userId, name)
+    BFF->>SS: POST /api/stores/products/list { storeId }
+    SS-->>BFF: List[ProductResponse] (names)
+    BFF->>NS: POST /internal/notifications (NEW_ORDER → owner, items)
     BFF-->>Cu: OrderResponse (PENDING)
 
     Cu->>BFF: POST /api/users/me/orders
@@ -209,6 +218,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     actor Ow as Owner
+    actor Cu as Customer
     participant BFF as bff-service :8080
     participant SS as store-service :8082
     participant OS as order-service :8083
@@ -220,11 +230,17 @@ sequenceDiagram
     Ow->>BFF: POST /api/stores/orders/list { storeId }
     BFF-->>Ow: List[OrderResponse]
 
+    Note over BFF,NS: OrderResponse includes cart item snapshot (productId, unitPrice, quantity)
     Ow->>BFF: PUT /api/stores/orders/sold { storeId, orderId }
     BFF->>OS: PUT /api/stores/orders/sold
-    OS-->>BFF: OrderResponse (SOLD)
-    BFF->>NS: POST /internal/notifications (notify customer)
+    OS-->>BFF: OrderResponse (SOLD, items[])
+    BFF->>SS: POST /api/stores/find { storeId }
+    SS-->>BFF: StoreResponse (name)
+    BFF->>SS: POST /api/stores/products/list { storeId }
+    SS-->>BFF: List[ProductResponse] (names)
+    BFF->>NS: POST /internal/notifications (ORDER_SOLD → customer, items)
     BFF-->>Ow: OrderResponse (SOLD)
+    NS--)Cu: notification visible on next poll (≤ 30 s)
 
     Ow->>BFF: PUT /api/stores/products/popularity { storeId, productId, delta: 1 }
     BFF-->>Ow: ProductResponse
@@ -270,15 +286,17 @@ ZonedDateTime.of(year, month, 1, 0, 0, 0, 0, zoneId).toInstant().toEpochMilli()
 ```
 
 ### BFF-triggered synchronous notifications
-Notifications are created by the BFF immediately after order mutations — no message broker is involved.
+Notifications are created by the BFF immediately after order mutations — no message broker is involved. Every notification includes a full item snapshot (product name, unit price, quantity) and the store name.
 
-| BFF action | BFF calls | Recipient |
-|---|---|---|
-| `checkout` | `storeClient.findStore(storeId)` → owner `userId` | Store owner |
-| `markSold` | `orderClient.markSold(...)` → `order.userId` | Customer |
-| `cancelOrder` | `orderClient.cancelOrder(...)` → `order.userId` | Customer |
+| BFF action | Recipient | Type | Item source |
+|---|---|---|---|
+| `checkout` | Store owner | `NEW_ORDER` | BFF fetches active cart + product names from store-service |
+| `markSold` | Customer | `ORDER_SOLD` | order-service returns cart snapshot in `OrderResponse.items` |
+| `markCanceled` | Customer | `ORDER_CANCELED` | order-service returns cart snapshot in `OrderResponse.items` |
 
-The BFF posts to `/internal/notifications` (no JWT) on notification-service. `userId` is extracted from backend responses (`StoreResponse.userId`, `OrderResponse.userId`) which are annotated `@get:JsonIgnore` — deserialized from backends, never forwarded to the frontend.
+**userId security:** `StoreResponse.userId` and `OrderResponse.userId` are annotated `@get:JsonIgnore` / `@param:JsonProperty` — deserialized from backend services, never serialized to the frontend. The recipient's `userId` only ever exists inside the BFF at request time.
+
+**Near-real-time delivery:** notifications are created synchronously during the BFF request, so they exist in the database before the API response returns. The frontend polls `/api/notifications/list` every 30 seconds; recipients see new notifications within one poll cycle.
 
 ---
 
@@ -380,6 +398,76 @@ erDiagram
     carts       ||--o{ cart_products : "contains"
     carts       ||--o| orders        : "becomes"
 ```
+
+---
+
+## CI/CD — Jenkins Pipeline
+
+### Pipeline Overview
+
+```mermaid
+flowchart LR
+    GH["GitHub\n(main branch)"]
+
+    subgraph jenkins ["Jenkins Server"]
+        CO["1. Checkout"]
+        BU["2. Build\n./gradlew build -x test"]
+    end
+
+    subgraph vms ["Deploy — parallel"]
+        V0["VM :100\nbff-service"]
+        V1["VM :101\nuser-service"]
+        V2["VM :102\nstore-service"]
+        V3["VM :103\norder-service"]
+        V4["VM :104\nnotification-service"]
+    end
+
+    GH -->|push| CO --> BU
+    BU -->|"3. scp + pkill + nohup"| V0 & V1 & V2 & V3 & V4
+```
+
+### Stages
+
+| Stage | What happens |
+|---|---|
+| **Checkout** | Pulls `main` branch from GitHub |
+| **Build** | `./gradlew build -x test` — produces executable JARs for all 5 services |
+| **Deploy** | 5 branches in parallel, one per service |
+
+Each parallel deploy branch runs three steps in sequence:
+
+```
+scp  JAR → VM                           # copy build artifact
+ssh  pkill -f service.jar  || true      # stop old process (no-op if not running)
+sleep 3                                  # wait for port to free
+ssh  nohup java -jar service.jar ... &  # start new process in background
+```
+
+The start command sources `/etc/environment` on the VM to inject Spring `prod` profile variables before launching the JAR:
+
+```bash
+set -a; . /etc/environment; set +a
+nohup java -jar /opt/baemin/service.jar \
+    --spring.profiles.active=prod \
+    > /opt/baemin/service.log 2>&1 < /dev/null &
+```
+
+### Jenkins Server Configuration
+
+All infrastructure details are kept off the public repo as **Global Environment Variables**:
+**Manage Jenkins → Configure System → Global Properties → Environment variables**
+
+| Key | Value |
+|---|---|
+| `BFF_HOST` | `<user>@<bff-vm-ip>` |
+| `USER_HOST` | `<user>@<user-vm-ip>` |
+| `STORE_HOST` | `<user>@<store-vm-ip>` |
+| `ORDER_HOST` | `<user>@<order-vm-ip>` |
+| `NOTIFICATION_HOST` | `<user>@<notification-vm-ip>` |
+| `DEPLOY_DIR` | `/opt/baemin` |
+| `SSH_CRED` | Jenkins credential ID for the deploy SSH private key |
+
+The SSH private key itself is stored as a Jenkins **SSH Username with private key** credential and injected at runtime via `sshagent`. The `Jenkinsfile` in the repo contains no IPs, usernames, or secrets.
 
 ---
 

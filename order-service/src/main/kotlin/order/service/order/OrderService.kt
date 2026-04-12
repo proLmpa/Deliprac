@@ -5,6 +5,7 @@ import common.exception.ForbiddenException
 import common.exception.NotFoundException
 import common.orThrow
 import common.security.UserRole
+import order.dto.order.OrderResponse
 import order.entity.order.Order
 import order.entity.order.OrderStatus
 import order.repository.cart.CartProductRepository
@@ -27,7 +28,7 @@ class OrderService(
     }
 
     @Transactional
-    fun markSold(storeId: Long, orderId: Long, role: UserRole): Order {
+    fun markSold(storeId: Long, orderId: Long, role: UserRole): OrderResponse {
         if (role != UserRole.OWNER) throw ForbiddenException("Only OWNER can update orders")
 
         val order = orderRepository.findById(orderId).orThrow("Order not found")
@@ -35,11 +36,13 @@ class OrderService(
         if (order.status != OrderStatus.PENDING) throw ConflictException("Order cannot be marked as sold")
 
         order.status = OrderStatus.SOLD
-        return orderRepository.save(order)
+        val saved = orderRepository.save(order)
+        val items = cartProductRepository.findAllByCartId(saved.cartId)
+        return OrderResponse.of(saved, items)
     }
 
     @Transactional
-    fun markCanceled(storeId: Long, orderId: Long, role: UserRole): Order {
+    fun markCanceled(storeId: Long, orderId: Long, role: UserRole): OrderResponse {
         if (role != UserRole.OWNER) throw ForbiddenException("Only OWNER can update orders")
 
         val order = orderRepository.findById(orderId).orThrow("Order not found")
@@ -47,7 +50,9 @@ class OrderService(
         if (order.status != OrderStatus.PENDING) throw ConflictException("Order cannot be canceled")
 
         order.status = OrderStatus.CANCELED
-        return orderRepository.save(order)
+        val saved = orderRepository.save(order)
+        val items = cartProductRepository.findAllByCartId(saved.cartId)
+        return OrderResponse.of(saved, items)
     }
 
     @Transactional(readOnly = true)

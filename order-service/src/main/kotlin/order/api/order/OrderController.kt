@@ -19,14 +19,10 @@ class OrderController(private val orderService: OrderService) {
     }
 
     @PutMapping("/api/stores/orders/sold")
-    fun markSold(@RequestBody request: MarkOrderRequest): OrderResponse {
-        val order = orderService.markSold(request.storeId, request.orderId, currentUser().role)
-        return OrderResponse.of(order)
-    }
+    fun markSold(@RequestBody request: MarkOrderRequest): OrderResponse =
+        orderService.markSold(request.storeId, request.orderId, currentUser().role)
 
     @PutMapping("/api/stores/orders/cancel")
-    fun markCanceled(@RequestBody request: MarkOrderRequest): OrderResponse {
-        val order = orderService.markCanceled(request.storeId, request.orderId, currentUser().role)
-        return OrderResponse.of(order)
-    }
+    fun markCanceled(@RequestBody request: MarkOrderRequest): OrderResponse =
+        orderService.markCanceled(request.storeId, request.orderId, currentUser().role)
 }
