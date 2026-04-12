@@ -21,7 +21,7 @@ subprojects {
     pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
         extensions.configure<JavaPluginExtension> {
             toolchain {
-                languageVersion = JavaLanguageVersion.of(24)
+                languageVersion = JavaLanguageVersion.of(21)
             }
         }
         tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
