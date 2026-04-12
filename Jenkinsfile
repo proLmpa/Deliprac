@@ -1,17 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        BFF_HOST          = 'front@192.168.160.100'
-        USER_HOST         = 'front@192.168.160.101'
-        STORE_HOST        = 'front@192.168.160.102'
-        ORDER_HOST        = 'front@192.168.160.103'
-        NOTIFICATION_HOST = 'front@192.168.160.104'
-
-        DEPLOY_DIR = '/opt/baemin'
-        SSH_CRED   = 'deploy-ssh-key'   // Jenkins credential ID (SSH private key)
-    }
-
     stages {
 
         // ── 1. Bring in sources ──────────────────────────────────────────────
