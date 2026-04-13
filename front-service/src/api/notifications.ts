@@ -13,7 +13,7 @@ export interface NotificationResponse {
   content: string
   storeId: number | null
   storeName: string | null
-  isRead: boolean
+  read: boolean
   issuedAt: number
   expiry: number
   createdAt: number
