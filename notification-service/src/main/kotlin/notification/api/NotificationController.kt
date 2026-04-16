@@ -19,16 +19,15 @@ class NotificationController(private val notificationService: NotificationServic
     @PostMapping("/internal/notifications")
     @ResponseStatus(HttpStatus.CREATED)
     fun create(@RequestBody request: CreateNotificationRequest): NotificationResponse =
-        NotificationResponse.of(notificationService.createNotification(request))
+        notificationService.createNotification(request)
 
     @PostMapping("/api/notifications/list")
     fun listMy(@RequestBody request: ListNotificationRequest): List<NotificationResponse> =
         notificationService.listMyNotifications(currentUser().id, request.unreadOnly)
-            .map { NotificationResponse.of(it) }
 
     @PutMapping("/api/notifications/read")
     fun markRead(@RequestBody request: MarkReadRequest): NotificationResponse =
-        NotificationResponse.of(notificationService.markRead(currentUser().id, request.notificationId))
+        notificationService.markRead(currentUser().id, request.notificationId)
 
     @PutMapping("/api/notifications/read-all")
     @ResponseStatus(HttpStatus.NO_CONTENT)

@@ -3,6 +3,7 @@ package notification.service
 import common.exception.ForbiddenException
 import common.orThrow
 import notification.dto.CreateNotificationRequest
+import notification.dto.NotificationResponse
 import notification.entity.Notification
 import notification.entity.NotificationItemData
 import notification.repository.NotificationRepository
@@ -13,9 +14,9 @@ import org.springframework.transaction.annotation.Transactional
 class NotificationService(private val notificationRepository: NotificationRepository) {
 
     @Transactional
-    fun createNotification(request: CreateNotificationRequest): Notification {
+    fun createNotification(request: CreateNotificationRequest): NotificationResponse {
         val now = System.currentTimeMillis()
-        return notificationRepository.save(
+        return NotificationResponse.of(notificationRepository.save(
             Notification(
                 userId    = request.recipientId,
                 type      = request.type,
@@ -28,20 +29,21 @@ class NotificationService(private val notificationRepository: NotificationReposi
                 expiry    = request.expiry,
                 createdAt = now
             )
-        )
+        ))
     }
 
     @Transactional(readOnly = true)
-    fun listMyNotifications(userId: Long, unreadOnly: Boolean): List<Notification> =
-        if (unreadOnly) notificationRepository.findByUserIdAndIsReadFalseOrderByCreatedAtDesc(userId)
-        else notificationRepository.findByUserIdOrderByCreatedAtDesc(userId)
+    fun listMyNotifications(userId: Long, unreadOnly: Boolean): List<NotificationResponse> =
+        (if (unreadOnly) notificationRepository.findByUserIdAndIsReadFalseOrderByCreatedAtDesc(userId)
+        else notificationRepository.findByUserIdOrderByCreatedAtDesc(userId))
+            .map { NotificationResponse.of(it) }
 
     @Transactional
-    fun markRead(userId: Long, notificationId: Long): Notification {
+    fun markRead(userId: Long, notificationId: Long): NotificationResponse {
         val notification = notificationRepository.findById(notificationId).orThrow("Notification not found")
         if (notification.userId != userId) throw ForbiddenException("Forbidden")
         notification.isRead = true
-        return notificationRepository.save(notification)
+        return NotificationResponse.of(notificationRepository.save(notification))
     }
 
     @Transactional
