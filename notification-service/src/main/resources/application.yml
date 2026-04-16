@@ -7,6 +7,10 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
   profiles:
     default: dev
     group:

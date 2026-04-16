@@ -7,10 +7,6 @@ spring:
     url: jdbc:postgresql://localhost:5436/notificationdb
     username: notif_svc
     password: notifpass
-  jpa:
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
 ---
 spring:
   config:
@@ -20,10 +16,6 @@ spring:
     url: jdbc:postgresql://localhost:5436/notificationdb
     username: notif_svc
     password: notifpass
-  jpa:
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
 ---
 spring:
   config:
@@ -33,7 +25,3 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-  jpa:
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
