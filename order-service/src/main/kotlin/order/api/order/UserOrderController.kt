@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.RestController
 class UserOrderController(private val orderService: OrderService) {
 
     @PostMapping("/api/users/me/orders")
-    fun listMyOrders(): List<OrderResponse> {
-        return orderService.listByUser(currentUser().id).map { OrderResponse.of(it) }
-    }
+    fun listMyOrders(): List<OrderResponse> =
+        orderService.listByUser(currentUser().id)
 }

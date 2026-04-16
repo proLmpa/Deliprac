@@ -14,9 +14,8 @@ import org.springframework.web.bind.annotation.RestController
 class OrderController(private val orderService: OrderService) {
 
     @PostMapping("/api/stores/orders/list")
-    fun listByStore(@RequestBody request: ListOrderRequest): List<OrderResponse> {
-        return orderService.listByStore(request.storeId, currentUser().role).map { OrderResponse.of(it) }
-    }
+    fun listByStore(@RequestBody request: ListOrderRequest): List<OrderResponse> =
+        orderService.listByStore(request.storeId, currentUser().role)
 
     @PutMapping("/api/stores/orders/sold")
     fun markSold(@RequestBody request: MarkOrderRequest): OrderResponse =

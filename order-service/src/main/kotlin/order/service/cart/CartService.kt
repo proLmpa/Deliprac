@@ -5,7 +5,8 @@ import common.exception.ForbiddenException
 import common.exception.NotFoundException
 import common.orThrow
 import order.dto.cart.AddCartItemRequest
-import order.dto.cart.CartInfo
+import order.dto.cart.CartResponse
+import order.dto.order.OrderResponse
 import order.entity.cart.Cart
 import order.entity.cart.CartProduct
 import order.entity.order.Order
@@ -24,7 +25,7 @@ class CartService(
 ) {
 
     @Transactional
-    fun addItem(request: AddCartItemRequest, userId: Long): CartInfo {
+    fun addItem(request: AddCartItemRequest, userId: Long): CartResponse {
         val activeCart = cartRepository.findByUserIdAndIsOrderedFalse(userId)
 
         val cart: Cart = when {
@@ -41,15 +42,15 @@ class CartService(
             cartProductRepository.save(CartProduct(0L, cart.id, request.productId, request.quantity, request.unitPrice))
         }
 
-        return CartInfo(cart, cartProductRepository.findAllByCartId(cart.id))
+        return CartResponse.of(cart, cartProductRepository.findAllByCartId(cart.id))
     }
 
     @Transactional(readOnly = true)
-    fun getMyCart(userId: Long): CartInfo {
+    fun getMyCart(userId: Long): CartResponse {
         val cart = cartRepository.findByUserIdAndIsOrderedFalse(userId)
             ?: throw NotFoundException("Cart not found")
 
-        return CartInfo(cart, cartProductRepository.findAllByCartId(cart.id))
+        return CartResponse.of(cart, cartProductRepository.findAllByCartId(cart.id))
     }
 
     @Transactional
@@ -71,7 +72,7 @@ class CartService(
     }
 
     @Transactional
-    fun checkout(cartId: Long, userId: Long): Order {
+    fun checkout(cartId: Long, userId: Long): OrderResponse {
         val cart = cartRepository.findById(cartId).orThrow("Cart not found")
         if (cart.userId != userId) throw ForbiddenException("Forbidden")
         if (cart.isOrdered or orderRepository.existsByCartId(cartId)) throw ConflictException("Cart already checked out")
@@ -86,7 +87,7 @@ class CartService(
         cart.isOrdered = true
         cartRepository.save(cart)
 
-        return order
+        return OrderResponse.of(order, items)
     }
 
     private fun createCart(userId: Long, storeId: Long): Cart =

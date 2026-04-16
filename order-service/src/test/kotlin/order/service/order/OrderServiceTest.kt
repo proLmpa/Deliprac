@@ -69,7 +69,7 @@ class OrderServiceTest {
 
         val result = orderService.markSold(storeId, orderId, UserRole.OWNER)
 
-        assertThat(result.status).isEqualTo(OrderStatus.SOLD)
+        assertThat(result.status).isEqualTo("SOLD")
         assertThat(order.status).isEqualTo(OrderStatus.SOLD)
     }
 
@@ -110,7 +110,7 @@ class OrderServiceTest {
 
         val result = orderService.markCanceled(storeId, orderId, UserRole.OWNER)
 
-        assertThat(result.status).isEqualTo(OrderStatus.CANCELED)
+        assertThat(result.status).isEqualTo("CANCELED")
         assertThat(order.status).isEqualTo(OrderStatus.CANCELED)
     }
 

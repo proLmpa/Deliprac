@@ -20,16 +20,12 @@ import org.springframework.web.bind.annotation.RestController
 class CartController(private val cartService: CartService) {
 
     @PostMapping("/api/carts")
-    fun addItem(@RequestBody request: AddCartItemRequest): CartResponse {
-        val cartInfo = cartService.addItem(request, currentUser().id)
-        return CartResponse.of(cartInfo.cart, cartInfo.items)
-    }
+    fun addItem(@RequestBody request: AddCartItemRequest): CartResponse =
+        cartService.addItem(request, currentUser().id)
 
     @PostMapping("/api/carts/me")
-    fun getMyCart(): CartResponse {
-        val cartInfo = cartService.getMyCart(currentUser().id)
-        return CartResponse.of(cartInfo.cart, cartInfo.items)
-    }
+    fun getMyCart(): CartResponse =
+        cartService.getMyCart(currentUser().id)
 
     @DeleteMapping("/api/carts/products")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -44,8 +40,6 @@ class CartController(private val cartService: CartService) {
     }
 
     @PutMapping("/api/carts/checkout")
-    fun checkout(@RequestBody request: CheckoutRequest): OrderResponse {
-        val order = cartService.checkout(request.cartId, currentUser().id)
-        return OrderResponse.of(order)
-    }
+    fun checkout(@RequestBody request: CheckoutRequest): OrderResponse =
+        cartService.checkout(request.cartId, currentUser().id)
 }

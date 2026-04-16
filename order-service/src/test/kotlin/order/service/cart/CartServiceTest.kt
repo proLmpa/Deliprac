@@ -7,7 +7,6 @@ import order.dto.cart.AddCartItemRequest
 import order.entity.cart.Cart
 import order.entity.cart.CartProduct
 import order.entity.order.Order
-import order.entity.order.OrderStatus
 import order.repository.cart.CartProductRepository
 import order.repository.cart.CartRepository
 import order.repository.order.OrderRepository
@@ -59,7 +58,7 @@ class CartServiceTest {
 
         val result = cartService.addItem(makeRequest(), userId)
 
-        assertThat(result.cart.storeId).isEqualTo(storeId)
+        assertThat(result.storeId).isEqualTo(storeId)
         assertThat(result.items).hasSize(1)
     }
 
@@ -114,7 +113,7 @@ class CartServiceTest {
 
         val result = cartService.getMyCart(userId)
 
-        assertThat(result.cart.id).isEqualTo(cartId)
+        assertThat(result.id).isEqualTo(cartId)
         assertThat(result.items).hasSize(1)
     }
 
@@ -183,7 +182,7 @@ class CartServiceTest {
         val result = cartService.checkout(cartId, userId)
 
         assertThat(result.totalPrice).isEqualTo(8000L)
-        assertThat(result.status).isEqualTo(OrderStatus.PENDING)
+        assertThat(result.status).isEqualTo("PENDING")
         assertThat(cart.isOrdered).isTrue()
     }
 

@@ -3,11 +3,6 @@ package order.dto.cart
 import order.entity.cart.Cart
 import order.entity.cart.CartProduct
 
-data class CartInfo(
-    val cart: Cart,
-    val items: List<CartProduct>
-)
-
 data class CartProductResponse(
     val id: Long,
     val productId: Long,
