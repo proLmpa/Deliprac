@@ -1,5 +1,10 @@
 # CLAUDE.md
 
+## Git Policy
+
+**Never `git push` without explicit user instruction.**
+Commit changes freely, but always stop at commit. The user decides when and what to push.
+
 ## Build & Run
 
 ```bash
@@ -200,7 +205,7 @@ order-service/src/main/kotlin/order/
 ├── config/     ← SecurityConfig.kt, QueryDslConfig.kt
 ├── dto/
 │   ├── cart/   ← CartRequest.kt  (AddCartItemRequest, RemoveCartItemRequest, ClearCartRequest, CheckoutRequest)
-│   │              CartResponse.kt (CartInfo, CartProductResponse, CartResponse)
+│   │              CartResponse.kt (CartProductResponse, CartResponse)
 │   └── order/  ← OrderRequest.kt  (ListOrderRequest, RevenueRequest, SpendingRequest, FindOrderRequest, MarkOrderRequest)
 │                  OrderResponse.kt (OrderResponse, RevenueResponse, SpendingResponse)
 ├── entity/
@@ -510,6 +515,34 @@ class StoreController { ... }
 
 ### No @Transactional in repository layer
 `@Transactional` belongs only in the **service layer**. Repository interfaces (extending `JpaRepository`) and custom `RepositoryCustomImpl` classes must not carry `@Transactional` annotations.
+
+### Service layer must return DTOs, never entities
+**Services must never return a persistence entity.** All service methods must return a response DTO (or a primitive/`Unit`). Map entities to DTOs inside the service using the companion `.of()` factory before returning.
+
+```kotlin
+// CORRECT — service returns DTO
+fun create(...): OrderResponse {
+    val entity = repository.save(Order(...))
+    return OrderResponse.of(entity)
+}
+
+// WRONG — entity leaks out of the service layer
+fun create(...): Order {
+    return repository.save(Order(...))
+}
+```
+
+### Only request/response DTOs cross the controller–service boundary
+The **only** types that may pass between a controller and a service are request DTOs (input) and response DTOs (output). Intermediate wrapper types that hold raw entities (e.g. a data class containing an `@Entity` field) are forbidden — they are entity leaks in disguise.
+
+```kotlin
+// CORRECT
+fun addItem(request: AddCartItemRequest, userId: Long): CartResponse  // DTO in, DTO out
+
+// WRONG — wrapper holds entity fields; controller must not touch entities
+data class CartInfo(val cart: Cart, val items: List<CartProduct>)     // forbidden
+fun addItem(request: AddCartItemRequest, userId: Long): CartInfo
+```
 
 ### Ownership check (store-service — plain userId column)
 ```kotlin

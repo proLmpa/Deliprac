@@ -1,5 +1,10 @@
 # CLAUDE(FRONT).md
 
+## Git Policy
+
+**Never `git push` without explicit user instruction.**
+Commit changes freely, but always stop at commit. The user decides when and what to push.
+
 ## Build & Run
 
 ```bash
@@ -339,12 +344,16 @@ markAllRead()                    PUT  /api/notifications/read-all (no body)
 ```typescript
 {
   id: number
+  type: 'NEW_ORDER' | 'ORDER_SOLD' | 'ORDER_CANCELED'
   title: string
   content: string
-  isRead: boolean
-  issuedAt: number    // epoch millis
-  expiry: number      // epoch millis
-  createdAt: number   // epoch millis
+  storeId: number | null
+  storeName: string | null
+  read: boolean         // ⚠ Java bean convention: Kotlin `isRead` → JSON `"read"`
+  issuedAt: number      // epoch millis
+  expiry: number        // epoch millis
+  createdAt: number     // epoch millis
+  items: { productName: string; unitPrice: number; quantity: number }[]
   // NO userId — never exposed to the frontend
 }
 ```
