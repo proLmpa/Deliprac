@@ -7,6 +7,7 @@ import order.dto.cart.AddCartItemRequest
 import order.entity.cart.Cart
 import order.entity.cart.CartProduct
 import order.entity.order.Order
+import order.entity.order.OrderStatus
 import order.repository.cart.CartProductRepository
 import order.repository.cart.CartRepository
 import order.repository.order.OrderRepository

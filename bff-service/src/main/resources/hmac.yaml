@@ -1,0 +1,30 @@
+---
+spring:
+  config:
+    activate:
+      on-profile: "hmac-dev"
+bff.hmac:
+  user-service.secret:          "baemin-bff-user-hmac-secret-key-32chars+"
+  store-service.secret:         "baemin-bff-store-hmac-secret-key-32chars+"
+  order-service.secret:         "baemin-bff-order-hmac-secret-key-32chars+"
+  notification-service.secret:  "baemin-bff-notif-hmac-secret-key-32chars+"
+---
+spring:
+  config:
+    activate:
+      on-profile: "hmac-test"
+bff.hmac:
+  user-service.secret:          "baemin-bff-user-hmac-secret-key-32chars+"
+  store-service.secret:         "baemin-bff-store-hmac-secret-key-32chars+"
+  order-service.secret:         "baemin-bff-order-hmac-secret-key-32chars+"
+  notification-service.secret:  "baemin-bff-notif-hmac-secret-key-32chars+"
+---
+spring:
+  config:
+    activate:
+      on-profile: "hmac-prod"
+bff.hmac:
+  user-service.secret:          ${BFF_HMAC_USER_SECRET}
+  store-service.secret:         ${BFF_HMAC_STORE_SECRET}
+  order-service.secret:         ${BFF_HMAC_ORDER_SECRET}
+  notification-service.secret:  ${BFF_HMAC_NOTIF_SECRET}

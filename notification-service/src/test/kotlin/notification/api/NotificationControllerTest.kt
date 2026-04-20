@@ -7,6 +7,7 @@ import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
 import notification.config.SecurityConfig
 import notification.dto.CreateNotificationRequest
+import notification.dto.NotificationResponse
 import notification.entity.Notification
 import notification.entity.NotificationType
 import notification.service.NotificationService
@@ -50,18 +51,20 @@ class NotificationControllerTest {
         return "Bearer $token"
     }
 
-    private fun makeNotification(read: Boolean = false): Notification {
+    private fun makeNotification(read: Boolean = false): NotificationResponse {
         val now = System.currentTimeMillis()
-        return Notification(
+        return NotificationResponse(
             id        = notificationId,
-            userId    = userId,
             type      = NotificationType.NEW_ORDER,
             title     = "새 주문 접수",
             content   = "₩8000",
+            storeId   = null,
+            storeName = null,
             isRead    = read,
             issuedAt  = now,
             expiry    = now + Notification.MIN_EXPIRY_MILLIS + 1000L,
-            createdAt = now
+            createdAt = now,
+            items     = emptyList()
         )
     }
 

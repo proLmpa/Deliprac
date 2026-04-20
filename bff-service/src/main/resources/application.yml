@@ -10,9 +10,10 @@ spring:
   profiles:
     default: dev
     group:
-      dev:  [backend-dev]
-      test: [backend-test]
-      prod: [backend-prod]
+      dev:  [backend-dev,  hmac-dev]
+      test: [backend-test, hmac-test]
+      prod: [backend-prod, hmac-prod]
   config:
     import:
       - "backend.yaml"
+      - "hmac.yaml"

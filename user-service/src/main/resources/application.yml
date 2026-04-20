@@ -14,10 +14,11 @@ spring:
   profiles:
     default: dev
     group:
-      dev:  [pgsql-dev,  jwt-dev]
-      test: [pgsql-test, jwt-test]
-      prod: [pgsql-prod, jwt-prod]
+      dev:  [pgsql-dev,  jwt-dev,  hmac-dev]
+      test: [pgsql-test, jwt-test, hmac-test]
+      prod: [pgsql-prod, jwt-prod, hmac-prod]
   config:
     import:
       - "pgsql.yaml"
       - "jwt.yaml"
+      - "hmac.yaml"

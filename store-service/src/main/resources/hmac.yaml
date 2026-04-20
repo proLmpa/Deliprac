@@ -1,0 +1,24 @@
+---
+spring:
+  config:
+    activate:
+      on-profile: "hmac-dev"
+bff.hmac:
+  secret: "baemin-bff-store-hmac-secret-key-32chars+"
+  window-ms: 30000
+---
+spring:
+  config:
+    activate:
+      on-profile: "hmac-test"
+bff.hmac:
+  secret: "baemin-bff-store-hmac-secret-key-32chars+"
+  window-ms: 30000
+---
+spring:
+  config:
+    activate:
+      on-profile: "hmac-prod"
+bff.hmac:
+  secret: ${BFF_HMAC_STORE_SECRET}
+  window-ms: 30000

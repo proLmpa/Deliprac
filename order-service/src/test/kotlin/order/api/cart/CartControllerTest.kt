@@ -2,10 +2,9 @@ package order.api.cart
 
 import order.config.SecurityConfig
 import order.dto.cart.AddCartItemRequest
-import order.dto.cart.CartInfo
-import order.entity.cart.Cart
-import order.entity.cart.CartProduct
-import order.entity.order.Order
+import order.dto.cart.CartProductResponse
+import order.dto.cart.CartResponse
+import order.dto.order.OrderResponse
 import order.entity.order.OrderStatus
 import common.security.UserRole
 import common.exception.ConflictException
@@ -55,25 +54,30 @@ class CartControllerTest {
         return "Bearer $token"
     }
 
-    private val sampleCartInfo = CartInfo(
-        cart  = Cart(id = cartId, userId = userId, storeId = 10L, isOrdered = false),
-        items = listOf(CartProduct(id = 1L, cartId = cartId, productId = 100L, quantity = 1L, unitPrice = 8000L))
+    private val sampleCartResponse = CartResponse(
+        id         = cartId,
+        storeId    = 10L,
+        isOrdered  = false,
+        items      = listOf(CartProductResponse(id = 1L, productId = 100L, quantity = 1L, unitPrice = 8000L)),
+        totalPrice = 8000L
     )
 
-    private val sampleOrder = Order(
+    private val now = System.currentTimeMillis()
+    private val sampleOrderResponse = OrderResponse(
         id         = 200L,
-        cartId     = cartId,
         userId     = userId,
         storeId    = 10L,
         totalPrice = 8000L,
-        status     = OrderStatus.PENDING,
+        status     = OrderStatus.PENDING.name,
+        createdAt  = now,
+        updatedAt  = now
     )
 
     private val addRequest = AddCartItemRequest(productId = 100L, storeId = 10L, unitPrice = 8000L, quantity = 1L)
 
     @Test
     fun `POST carts - 200 with cart response`() {
-        given(cartService.addItem(addRequest, userId)).willReturn(sampleCartInfo)
+        given(cartService.addItem(addRequest, userId)).willReturn(sampleCartResponse)
 
         mockMvc.perform(
             post("/api/carts")
@@ -104,7 +108,7 @@ class CartControllerTest {
 
     @Test
     fun `POST carts me - 200 with cart response`() {
-        given(cartService.getMyCart(userId)).willReturn(sampleCartInfo)
+        given(cartService.getMyCart(userId)).willReturn(sampleCartResponse)
 
         mockMvc.perform(
             post("/api/carts/me")
@@ -151,7 +155,7 @@ class CartControllerTest {
 
     @Test
     fun `PUT checkout - 200 with order response`() {
-        given(cartService.checkout(cartId, userId)).willReturn(sampleOrder)
+        given(cartService.checkout(cartId, userId)).willReturn(sampleOrderResponse)
 
         mockMvc.perform(
             put("/api/carts/checkout")

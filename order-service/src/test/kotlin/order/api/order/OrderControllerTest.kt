@@ -4,7 +4,7 @@ import common.security.UserRole
 import common.exception.ConflictException
 import common.exception.ForbiddenException
 import order.config.SecurityConfig
-import order.entity.order.Order
+import order.dto.order.OrderResponse
 import order.entity.order.OrderStatus
 import order.service.order.OrderService
 import order.service.order.StatisticsService
@@ -32,7 +32,6 @@ class OrderControllerTest {
 
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var orderService: OrderService
-    @Autowired private lateinit var objectMapper: ObjectMapper
     @Value("\${jwt.secret}") private lateinit var jwtSecret: String
 
     private val ownerId  = 1L
@@ -51,8 +50,9 @@ class OrderControllerTest {
         return "Bearer $token"
     }
 
+    private val now = System.currentTimeMillis()
     private fun makeOrder(status: OrderStatus = OrderStatus.PENDING) =
-        Order(orderId, 0L, ownerId, storeId, 8000L, status)
+        OrderResponse(id = orderId, userId = ownerId, storeId = storeId, totalPrice = 8000L, status = status.name, createdAt = now, updatedAt = now)
 
     @Test
     fun `POST store orders list - 200 with list`() {
@@ -151,8 +151,9 @@ class UserOrderControllerTest {
 
     @Test
     fun `POST my orders - 200 with list`() {
+        val ts = System.currentTimeMillis()
         given(orderService.listByUser(customerId))
-            .willReturn(listOf(Order(200L, 0L, customerId, 10L, 8000L, OrderStatus.PENDING)))
+            .willReturn(listOf(OrderResponse(id = 200L, userId = customerId, storeId = 10L, totalPrice = 8000L, status = OrderStatus.PENDING.name, createdAt = ts, updatedAt = ts)))
 
         mockMvc.perform(
             post("/api/users/me/orders")
@@ -169,7 +170,6 @@ class StatisticsControllerTest {
 
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var statisticsService: StatisticsService
-    @Autowired private lateinit var objectMapper: ObjectMapper
     @Value("\${jwt.secret}") private lateinit var jwtSecret: String
 
     private val ownerId = 1L
@@ -252,7 +252,6 @@ class UserStatisticsControllerTest {
 
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var statisticsService: StatisticsService
-    @Autowired private lateinit var objectMapper: ObjectMapper
     @Value("\${jwt.secret}") private lateinit var jwtSecret: String
 
     private val customerId = 2L
