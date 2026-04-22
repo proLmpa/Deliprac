@@ -23,3 +23,17 @@ spring:
     import:
       - "backend.yaml"
       - "hmac.yaml"
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      notification:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 100
+        slow-call-duration-threshold: 3s
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
