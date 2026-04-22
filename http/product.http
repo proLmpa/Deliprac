@@ -1,4 +1,4 @@
-@baseUrl = http://localhost:8082
+@baseUrl = http://localhost:8080
 @storeId = 1
 @productId = 1
 
@@ -89,4 +89,55 @@ Content-Type: application/json
   "storeId": {{storeId}},
   "productId": {{productId}},
   "delta": 1
+}
+
+###
+
+# =============================================================================
+# HMAC Verification — store-service :8082  (product endpoint)
+# =============================================================================
+
+### HMAC-1: Direct to backend — no headers → 401 Missing HMAC headers
+POST http://localhost:8082/api/stores/products/list
+Content-Type: application/json
+
+{
+  "storeId": {{storeId}}
+}
+
+###
+
+### HMAC-2: Through BFF — signed automatically → 200
+POST http://localhost:8080/api/stores/products/list
+Content-Type: application/json
+
+{
+  "storeId": {{storeId}}
+}
+
+###
+
+### HMAC-3: Direct to backend — valid timestamp, wrong signature → 401 Invalid HMAC signature
+< {%
+  request.variables.set("nowMs", Date.now().toString());
+%}
+POST http://localhost:8082/api/stores/products/list
+Content-Type: application/json
+X-Bff-Timestamp: {{nowMs}}
+X-Bff-Signature: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+
+{
+  "storeId": {{storeId}}
+}
+
+###
+
+### HMAC-4: Direct to backend — expired timestamp → 401 Request expired
+POST http://localhost:8082/api/stores/products/list
+Content-Type: application/json
+X-Bff-Timestamp: 1000000000000
+X-Bff-Signature: anything
+
+{
+  "storeId": {{storeId}}
 }

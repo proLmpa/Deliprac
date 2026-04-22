@@ -19,18 +19,18 @@ class HmacRequestFilter(
         val signatureHeader = req.getHeader("X-Bff-Signature")
 
         if (timestampHeader == null || signatureHeader == null) {
-            res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing HMAC headers")
+            res.reject("Missing HMAC headers")
             return
         }
 
         val timestampMs = timestampHeader.toLongOrNull()
         if (timestampMs == null) {
-            res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid timestamp")
+            res.reject("Invalid timestamp")
             return
         }
 
         if (abs(System.currentTimeMillis() - timestampMs) > windowMs) {
-            res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Request expired")
+            res.reject("Request expired")
             return
         }
 
@@ -47,11 +47,17 @@ class HmacRequestFilter(
         )
 
         if (!valid) {
-            res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid HMAC signature")
+            res.reject("Invalid HMAC signature")
             return
         }
 
         chain.doFilter(cached, res)
+    }
+
+    private fun HttpServletResponse.reject(message: String) {
+        status = HttpServletResponse.SC_UNAUTHORIZED
+        contentType = "text/plain"
+        writer.write(message)
     }
 
     private class CachedBodyHttpServletRequest(request: HttpServletRequest) : HttpServletRequestWrapper(request) {

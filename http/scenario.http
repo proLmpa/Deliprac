@@ -1,6 +1,4 @@
-@userBaseUrl  = http://localhost:8081
-@storeBaseUrl = http://localhost:8082
-@orderBaseUrl = http://localhost:8083
+@baseUrl = http://localhost:8080
 
 # =============================================================================
 # End-to-End Scenario
@@ -27,7 +25,7 @@
 # =============================================================================
 
 ### [1-1] Sign up — CUSTOMER
-POST {{userBaseUrl}}/api/users/signup
+POST {{baseUrl}}/api/users/signup
 Content-Type: application/json
 
 {
@@ -37,7 +35,7 @@ Content-Type: application/json
 }
 
 ### [1-2] Sign up — OWNER
-POST {{userBaseUrl}}/api/users/signup
+POST {{baseUrl}}/api/users/signup
 Content-Type: application/json
 
 {
@@ -53,7 +51,7 @@ Content-Type: application/json
 # =============================================================================
 
 ### [2-1] Sign in — CUSTOMER  →  saves customerToken
-POST {{userBaseUrl}}/api/users/signin
+POST {{baseUrl}}/api/users/signin
 Content-Type: application/json
 
 {
@@ -66,7 +64,7 @@ client.global.set("customerToken", "Bearer " + response.body.accessToken);
 %}
 
 ### [2-2] Sign in — OWNER  →  saves ownerToken
-POST {{userBaseUrl}}/api/users/signin
+POST {{baseUrl}}/api/users/signin
 Content-Type: application/json
 
 {
@@ -84,7 +82,7 @@ client.global.set("ownerToken", "Bearer " + response.body.accessToken);
 # =============================================================================
 
 ### [3-1] Create store  →  saves storeId
-POST {{storeBaseUrl}}/api/stores
+POST {{baseUrl}}/api/stores
 Authorization: {{ownerToken}}
 Content-Type: application/json
 
@@ -105,7 +103,7 @@ client.global.set("storeId", response.body.id);
 %}
 
 ### Get my stores (OWNER)
-POST {{storeBaseUrl}}/api/stores/mine
+POST {{baseUrl}}/api/stores/mine
 Authorization: {{ownerToken}}
 
 ### =============================================================================
@@ -113,7 +111,7 @@ Authorization: {{ownerToken}}
 # =============================================================================
 
 ### [4-1] Create product 1 — 후라이드 치킨  18,000원  →  saves product1Id
-POST {{storeBaseUrl}}/api/stores/products
+POST {{baseUrl}}/api/stores/products
 Authorization: {{ownerToken}}
 Content-Type: application/json
 
@@ -130,7 +128,7 @@ client.global.set("product1Id", response.body.id);
 %}
 
 ### [4-2] Create product 2 — 양념 치킨  19,000원  →  saves product2Id
-POST {{storeBaseUrl}}/api/stores/products
+POST {{baseUrl}}/api/stores/products
 Authorization: {{ownerToken}}
 Content-Type: application/json
 
@@ -149,7 +147,7 @@ client.global.set("product2Id", response.body.id);
 ###
 
 ### [4-3] Create product 3 — 간장 치킨  20,000원  →  saves product3Id
-POST {{storeBaseUrl}}/api/stores/products
+POST {{baseUrl}}/api/stores/products
 Authorization: {{ownerToken}}
 Content-Type: application/json
 
@@ -168,7 +166,7 @@ client.global.set("product3Id", response.body.id);
 ###
 
 ### [4-4] Create product 4 — 파닭  21,000원
-POST {{storeBaseUrl}}/api/stores/products
+POST {{baseUrl}}/api/stores/products
 Authorization: {{ownerToken}}
 Content-Type: application/json
 
@@ -181,7 +179,7 @@ Content-Type: application/json
 }
 
 ### [4-5] Create product 5 — 순살 치킨  22,000원
-POST {{storeBaseUrl}}/api/stores/products
+POST {{baseUrl}}/api/stores/products
 Authorization: {{ownerToken}}
 Content-Type: application/json
 
@@ -194,7 +192,7 @@ Content-Type: application/json
 }
 
 ### List products by store (public)
-POST {{storeBaseUrl}}/api/stores/products/list
+POST {{baseUrl}}/api/stores/products/list
 Authorization: {{customerToken}}
 Content-Type: application/json
 
@@ -207,14 +205,13 @@ Content-Type: application/json
 # =============================================================================
 
 ### [5-1] Add product 1  qty 2  →  unitPrice 18,000 snapshotted  →  saves cartId
-POST {{orderBaseUrl}}/api/carts
+POST {{baseUrl}}/api/carts
 Authorization: {{customerToken}}
 Content-Type: application/json
 
 {
   "productId": {{product1Id}},
   "storeId": {{storeId}},
-  "unitPrice": 18000,
   "quantity": 2
 }
 
@@ -225,28 +222,26 @@ client.global.set("cartId", response.body.id);
 ###
 
 ### [5-2] Add product 2  qty 1  →  unitPrice 19,000 snapshotted
-POST {{orderBaseUrl}}/api/carts
+POST {{baseUrl}}/api/carts
 Authorization: {{customerToken}}
 Content-Type: application/json
 
 {
   "productId": {{product2Id}},
   "storeId": {{storeId}},
-  "unitPrice": 19000,
   "quantity": 1
 }
 
 ###
 
 ### [5-3] Add product 3  qty 1  →  unitPrice 20,000 snapshotted
-POST {{orderBaseUrl}}/api/carts
+POST {{baseUrl}}/api/carts
 Authorization: {{customerToken}}
 Content-Type: application/json
 
 {
   "productId": {{product3Id}},
   "storeId": {{storeId}},
-  "unitPrice": 20000,
   "quantity": 1
 }
 
@@ -254,7 +249,7 @@ Content-Type: application/json
 
 ### [5-4] View cart — confirm items and snapshotted unit prices
 # Expected: items[].unitPrice = [18000, 19000, 20000], totalPrice = 75000
-POST {{orderBaseUrl}}/api/carts/me
+POST {{baseUrl}}/api/carts/me
 Authorization: {{customerToken}}
 
 
@@ -263,7 +258,7 @@ Authorization: {{customerToken}}
 # =============================================================================
 
 ### [6-1] Checkout  →  saves orderId
-PUT {{orderBaseUrl}}/api/carts/checkout
+PUT {{baseUrl}}/api/carts/checkout
 Authorization: {{customerToken}}
 Content-Type: application/json
 
@@ -281,7 +276,7 @@ client.global.set("orderId", response.body.id);
 # =============================================================================
 
 ### [7-1] Owner lists orders for store  →  confirm order status = PENDING
-POST {{orderBaseUrl}}/api/stores/orders/list
+POST {{baseUrl}}/api/stores/orders/list
 Authorization: {{ownerToken}}
 Content-Type: application/json
 
@@ -292,7 +287,7 @@ Content-Type: application/json
 ###
 
 ### [7-2] Owner marks order SOLD
-PUT {{orderBaseUrl}}/api/stores/orders/sold
+PUT {{baseUrl}}/api/stores/orders/sold
 Authorization: {{ownerToken}}
 Content-Type: application/json
 
@@ -316,7 +311,7 @@ Content-Type: application/json
 # =============================================================================
 
 ### [8-1] BEFORE — product 1 price: 18,000원
-POST {{storeBaseUrl}}/api/stores/products/find
+POST {{baseUrl}}/api/stores/products/find
 Authorization: {{ownerToken}}
 Content-Type: application/json
 
@@ -328,7 +323,7 @@ Content-Type: application/json
 ###
 
 ### [8-2] Owner raises product 1 price to 22,000원
-PUT {{storeBaseUrl}}/api/stores/products
+PUT {{baseUrl}}/api/stores/products
 Authorization: {{ownerToken}}
 Content-Type: application/json
 
@@ -344,7 +339,7 @@ Content-Type: application/json
 ###
 
 ### [8-3] AFTER — product 1 price: 22,000원  (changed)
-POST {{storeBaseUrl}}/api/stores/products/find
+POST {{baseUrl}}/api/stores/products/find
 Authorization: {{ownerToken}}
 Content-Type: application/json
 
@@ -357,7 +352,7 @@ Content-Type: application/json
 
 ### [8-4] Customer views order history — totalPrice still 75,000원  (frozen at purchase time)
 # Proves unit prices were captured at add-to-cart time, not at current product price
-POST {{orderBaseUrl}}/api/users/me/orders
+POST {{baseUrl}}/api/users/me/orders
 Authorization: {{customerToken}}
 
 
@@ -369,7 +364,7 @@ Authorization: {{customerToken}}
 # =============================================================================
 
 ### [9-1] Owner revenue — March 2026 (Seoul time)
-POST {{orderBaseUrl}}/api/stores/statistics/revenue
+POST {{baseUrl}}/api/stores/statistics/revenue
 Authorization: {{ownerToken}}
 Content-Type: application/json
 
@@ -383,7 +378,7 @@ Content-Type: application/json
 ###
 
 ### [9-2] Customer spending — March 2026 (Seoul time)
-POST {{orderBaseUrl}}/api/users/me/statistics/spending
+POST {{baseUrl}}/api/users/me/statistics/spending
 Authorization: {{customerToken}}
 Content-Type: application/json
 
@@ -391,4 +386,63 @@ Content-Type: application/json
   "year": 2026,
   "month": 3,
   "timezone": "Asia/Seoul"
+}
+
+###
+
+# =============================================================================
+# HMAC Verification — end-to-end: BFF signs, backends verify
+# =============================================================================
+
+### HMAC-1: Direct to user-service — no headers → 401 Missing HMAC headers
+POST http://localhost:8081/api/users/signup
+Content-Type: application/json
+
+{
+  "email": "hmac-test@example.com",
+  "password": "password123",
+  "role": "CUSTOMER"
+}
+
+###
+
+### HMAC-2: Through BFF — signed automatically → 201 (or 409 if already registered)
+POST http://localhost:8080/api/users/signup
+Content-Type: application/json
+
+{
+  "email": "hmac-test@example.com",
+  "password": "password123",
+  "role": "CUSTOMER"
+}
+
+###
+
+### HMAC-3: Direct to user-service — valid timestamp, wrong signature → 401 Invalid HMAC signature
+< {%
+  request.variables.set("nowMs", Date.now().toString());
+%}
+POST http://localhost:8081/api/users/signup
+Content-Type: application/json
+X-Bff-Timestamp: {{nowMs}}
+X-Bff-Signature: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+
+{
+  "email": "hmac-test@example.com",
+  "password": "password123",
+  "role": "CUSTOMER"
+}
+
+###
+
+### HMAC-4: Direct to user-service — expired timestamp → 401 Request expired
+POST http://localhost:8081/api/users/signup
+Content-Type: application/json
+X-Bff-Timestamp: 1000000000000
+X-Bff-Signature: anything
+
+{
+  "email": "hmac-test@example.com",
+  "password": "password123",
+  "role": "CUSTOMER"
 }

@@ -1,4 +1,4 @@
-@baseUrl = http://localhost:8083
+@baseUrl = http://localhost:8080
 @storeId = 2
 @cartId = 2
 @orderId = 2
@@ -140,3 +140,38 @@ Content-Type: application/json
   "month": 3,
   "timezone": "America/New_York"
 }
+
+###
+
+# =============================================================================
+# HMAC Verification — order-service :8083
+# =============================================================================
+
+### HMAC-1: Direct to backend — no headers → 401 Missing HMAC headers
+POST http://localhost:8083/api/carts/me
+Authorization: {{customerToken}}
+
+###
+
+### HMAC-2: Through BFF — signed automatically → 200
+POST http://localhost:8080/api/carts/me
+Authorization: {{customerToken}}
+
+###
+
+### HMAC-3: Direct to backend — valid timestamp, wrong signature → 401 Invalid HMAC signature
+< {%
+  request.variables.set("nowMs", Date.now().toString());
+%}
+POST http://localhost:8083/api/carts/me
+Authorization: {{customerToken}}
+X-Bff-Timestamp: {{nowMs}}
+X-Bff-Signature: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+
+###
+
+### HMAC-4: Direct to backend — expired timestamp → 401 Request expired
+POST http://localhost:8083/api/carts/me
+Authorization: {{customerToken}}
+X-Bff-Timestamp: 1000000000000
+X-Bff-Signature: anything

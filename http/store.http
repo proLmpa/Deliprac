@@ -1,4 +1,4 @@
-@baseUrl = http://localhost:8082
+@baseUrl = http://localhost:8080
 @storeId = 1
 
 ### List all stores — newest first (public)
@@ -109,3 +109,54 @@ Content-Type: application/json
 #{
 #  "id": {{storeId}}
 #}
+
+###
+
+# =============================================================================
+# HMAC Verification — store-service :8082
+# =============================================================================
+
+### HMAC-1: Direct to backend — no headers → 401 Missing HMAC headers
+POST http://localhost:8082/api/stores/list
+Content-Type: application/json
+
+{
+  "sortBy": "CREATED_AT"
+}
+
+###
+
+### HMAC-2: Through BFF — signed automatically → 200
+POST http://localhost:8080/api/stores/list
+Content-Type: application/json
+
+{
+  "sortBy": "CREATED_AT"
+}
+
+###
+
+### HMAC-3: Direct to backend — valid timestamp, wrong signature → 401 Invalid HMAC signature
+< {%
+  request.variables.set("nowMs", Date.now().toString());
+%}
+POST http://localhost:8082/api/stores/list
+Content-Type: application/json
+X-Bff-Timestamp: {{nowMs}}
+X-Bff-Signature: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+
+{
+  "sortBy": "CREATED_AT"
+}
+
+###
+
+### HMAC-4: Direct to backend — expired timestamp → 401 Request expired
+POST http://localhost:8082/api/stores/list
+Content-Type: application/json
+X-Bff-Timestamp: 1000000000000
+X-Bff-Signature: anything
+
+{
+  "sortBy": "CREATED_AT"
+}

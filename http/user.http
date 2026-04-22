@@ -1,5 +1,7 @@
+@baseUrl = http://localhost:8080
+
 ### Sign up - CUSTOMER
-POST http://localhost:8081/api/users/signup
+POST {{baseUrl}}/api/users/signup
 Content-Type: application/json
 
 {
@@ -9,7 +11,7 @@ Content-Type: application/json
 }
 
 ### Sign in - CUSTOMER
-POST http://localhost:8081/api/users/signin
+POST {{baseUrl}}/api/users/signin
 Content-Type: application/json
 
 {
@@ -22,7 +24,7 @@ client.global.set("customerToken", "Bearer " + response.body.accessToken);
 %}
 
 ### Sign up - OWNER (for Store domain)
-POST http://localhost:8081/api/users/signup
+POST {{baseUrl}}/api/users/signup
 Content-Type: application/json
 
 {
@@ -33,7 +35,7 @@ Content-Type: application/json
 }
 
 ### Sign in - OWNER
-POST http://localhost:8081/api/users/signin
+POST {{baseUrl}}/api/users/signin
 Content-Type: application/json
 
 {
@@ -46,7 +48,7 @@ client.global.set("ownerToken", "Bearer " + response.body.accessToken);
 %}
 
 ### Sign up - ADMIN
-POST http://localhost:8081/api/users/signup
+POST {{baseUrl}}/api/users/signup
 Content-Type: application/json
 
 {
@@ -57,7 +59,7 @@ Content-Type: application/json
 }
 
 ### Sign in - ADMIN
-POST http://localhost:8081/api/users/signin
+POST {{baseUrl}}/api/users/signin
 Content-Type: application/json
 
 {
@@ -70,7 +72,7 @@ client.global.set("adminToken", "Bearer " + response.body.accessToken);
 %}
 
 ### Suspend user (ADMIN only) — replace id with actual user ID
-#PUT http://localhost:8081/api/users/suspend
+#PUT {{baseUrl}}/api/users/suspend
 #Authorization: {{adminToken}}
 #Content-Type: application/json
 #
@@ -79,5 +81,64 @@ client.global.set("adminToken", "Bearer " + response.body.accessToken);
 #}
 
 ### Withdraw (self)
-#PUT http://localhost:8081/api/users/me/withdraw
+#PUT {{baseUrl}}/api/users/me/withdraw
 #Authorization: {{customerToken}}
+
+###
+
+# =============================================================================
+# HMAC Verification — user-service :8081
+# =============================================================================
+
+### HMAC-1: Direct to backend — no headers → 401 Missing HMAC headers
+POST http://localhost:8081/api/users/signup
+Content-Type: application/json
+
+{
+  "email": "hmac-test@example.com",
+  "password": "password123",
+  "role": "CUSTOMER"
+}
+
+###
+
+### HMAC-2: Through BFF — signed automatically → 201 (or 409 if already registered)
+POST http://localhost:8080/api/users/signup
+Content-Type: application/json
+
+{
+  "email": "hmac-test@example.com",
+  "password": "password123",
+  "role": "CUSTOMER"
+}
+
+###
+
+### HMAC-3: Direct to backend — valid timestamp, wrong signature → 401 Invalid HMAC signature
+< {%
+  request.variables.set("nowMs", Date.now().toString());
+%}
+POST http://localhost:8081/api/users/signup
+Content-Type: application/json
+X-Bff-Timestamp: {{nowMs}}
+X-Bff-Signature: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+
+{
+  "email": "hmac-test@example.com",
+  "password": "password123",
+  "role": "CUSTOMER"
+}
+
+###
+
+### HMAC-4: Direct to backend — expired timestamp → 401 Request expired
+POST http://localhost:8081/api/users/signup
+Content-Type: application/json
+X-Bff-Timestamp: 1000000000000
+X-Bff-Signature: anything
+
+{
+  "email": "hmac-test@example.com",
+  "password": "password123",
+  "role": "CUSTOMER"
+}

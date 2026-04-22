@@ -42,6 +42,8 @@ All client requests flow through the BFF, which aggregates cross-service calls a
 
 The JWT secret is shared across all services via configuration — user-service issues tokens, and store-service and order-service validate them independently using the same secret. No runtime call is made between services for authentication.
 
+Every BFF→backend call is signed with HMAC-SHA256. The BFF attaches `X-Bff-Timestamp` and `X-Bff-Signature` headers to each outgoing `RestClient` request; each backend service validates the signature before Spring Security runs, rejecting direct callers with `401 Unauthorized`. Each service has its own independent HMAC secret.
+
 Notifications are created synchronously by the BFF after order mutations. After a checkout the BFF looks up the store owner and calls notification-service to notify them; after marking an order sold or canceled it calls notification-service to notify the customer. The BFF calls `/internal/notifications` (no JWT) — notification-service treats the BFF as a trusted internal caller. Clients poll the REST endpoint to fetch and mark notifications.
 
 ### BFF Layer
@@ -297,6 +299,38 @@ Notifications are created by the BFF immediately after order mutations — no me
 **userId security:** `StoreResponse.userId` and `OrderResponse.userId` are annotated `@get:JsonIgnore` / `@param:JsonProperty` — deserialized from backend services, never serialized to the frontend. The recipient's `userId` only ever exists inside the BFF at request time.
 
 **Near-real-time delivery:** notifications are created synchronously during the BFF request, so they exist in the database before the API response returns. The frontend polls `/api/notifications/list` every 30 seconds; recipients see new notifications within one poll cycle.
+
+### BFF-to-backend HMAC signing
+
+All four `RestClient` beans in the BFF have an `HmacSigningInterceptor` that signs every outgoing request. The signature covers method, path, timestamp, and a SHA-256 hash of the request body:
+
+```
+signature = HMAC-SHA256(secret, METHOD + "\n" + PATH + "\n" + TIMESTAMP_MS + "\n" + SHA256(body))
+```
+
+The result is sent as two headers: `X-Bff-Timestamp` (epoch milliseconds) and `X-Bff-Signature` (hex). Each backend service runs `HmacRequestFilter` at `HIGHEST_PRECEDENCE` — before Spring Security — and rejects any request that fails the following checks:
+
+| Check | Response |
+|---|---|
+| `X-Bff-Timestamp` or `X-Bff-Signature` missing | `401 Missing HMAC headers` |
+| Timestamp outside ±30 s of server time | `401 Request expired` |
+| Signature mismatch | `401 Invalid HMAC signature` |
+
+Each service has its **own independent secret** (`bff.hmac.secret` in each backend, `bff.hmac.{service}.secret` in the BFF). A leaked secret for one service does not affect the others. In production, secrets are injected via environment variables (`BFF_HMAC_USER_SECRET`, `BFF_HMAC_STORE_SECRET`, etc.).
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant B as BFF :8080
+    participant S as Backend :808x
+
+    C->>B: POST /api/... (JWT)
+    Note over B: HmacSigningInterceptor<br/>adds X-Bff-Timestamp + X-Bff-Signature
+    B->>S: POST /api/... + HMAC headers
+    Note over S: HmacRequestFilter<br/>validates before Spring Security
+    S-->>B: 200 OK
+    B-->>C: 200 OK
+```
 
 ---
 
