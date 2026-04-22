@@ -1,0 +1,325 @@
+@baseUrl = http://localhost:8080
+
+# =============================================================================
+# Circuit Breaker Verification Scenario
+#
+# Prerequisites
+#   - scenario.http STEP 1-4 has been run at least once so that
+#     customerToken, ownerToken, storeId, product1Id globals exist.
+#     (OR run PHASE 0 sign-in steps below, then set storeId / product1Id manually.)
+#   - All four backend services and docker-compose DBs are running.
+#
+# CB config (notification instance)
+#   sliding-window-size:              10 calls
+#   minimum-number-of-calls:           5
+#   failure-rate-threshold:           50 %  (5/5 failures = 100 % → opens immediately)
+#   slow-call-duration-threshold:      3 s
+#   wait-duration-in-open-state:      30 s
+#   permitted-calls-in-half-open:      3
+#
+# Phases
+#   PHASE 0  Setup        — refresh tokens, prepare a cart for checkout tests
+#   PHASE 1  CLOSED       — notification-service UP, real responses
+#   PHASE 2  Trip the CB  — stop notification-service, run [2-1]…[2-5] in sequence
+#                           each call blocks ~3 s then fails; circuit opens after [2-5]
+#   PHASE 3  OPEN         — instant fallbacks, no network calls to notification-service
+#   PHASE 4  Recovery     — restart notification-service, circuit closes after 3 probes
+# =============================================================================
+
+
+# =============================================================================
+# PHASE 0 — Setup
+# =============================================================================
+
+### [0-1] Sign in — CUSTOMER  →  saves customerToken
+POST {{baseUrl}}/api/users/signin
+Content-Type: application/json
+
+{
+  "email": "mentee@example.com",
+  "password": "password123"
+}
+
+> {%
+client.global.set("customerToken", "Bearer " + response.body.accessToken);
+%}
+
+###
+
+### [0-2] Sign in — OWNER  →  saves ownerToken
+POST {{baseUrl}}/api/users/signin
+Content-Type: application/json
+
+{
+  "email": "mentor@example.com",
+  "password": "password123"
+}
+
+> {%
+client.global.set("ownerToken", "Bearer " + response.body.accessToken);
+%}
+
+###
+
+### [0-3] Add product to cart  →  saves cbCartId1 (used in PHASE 1 checkout)
+# Uses storeId and product1Id saved by scenario.http
+POST {{baseUrl}}/api/carts
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "productId": {{product1Id}},
+  "storeId": {{storeId}},
+  "quantity": 1
+}
+
+> {%
+client.global.set("cbCartId1", response.body.id);
+%}
+
+###
+
+### [0-4] Add product to cart  →  saves cbCartId2 (used in PHASE 3 checkout)
+# Previous cart is now active — will be reused if not yet checked out.
+# Run this AFTER PHASE 1 checkout so a new cart is created here.
+POST {{baseUrl}}/api/carts
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "productId": {{product1Id}},
+  "storeId": {{storeId}},
+  "quantity": 1
+}
+
+> {%
+client.global.set("cbCartId2", response.body.id);
+%}
+
+###
+
+
+# =============================================================================
+# PHASE 1 — CB CLOSED  (notification-service must be UP)
+#
+# Expected: all calls reach notification-service; real 200 responses.
+# =============================================================================
+
+### [1-1] List notifications — real response (200, [] if no data yet)
+# CB state: CLOSED
+POST {{baseUrl}}/api/notifications/list
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "unreadOnly": false
+}
+
+###
+
+### [1-2] Mark all read — real response (200)
+# CB state: CLOSED
+PUT {{baseUrl}}/api/notifications/read-all
+Authorization: {{customerToken}}
+
+###
+
+### [1-3] Checkout — 200; createNotification fires async and succeeds
+# CB state: CLOSED — notification is actually sent
+# Check notification-service logs: POST /internal/notifications 201
+PUT {{baseUrl}}/api/carts/checkout
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "cartId": {{cbCartId1}}
+}
+
+###
+
+
+# =============================================================================
+# PHASE 2 — Trip the circuit
+#
+# ACTION: Stop notification-service now (Ctrl+C in its terminal).
+#
+# Run [2-1] through [2-5] one by one.
+# Each call will block for ~3 s (read timeout), then return 200 via fallback.
+# The circuit breaker records each as a SLOW call (≥ 3 s threshold) or error.
+# After [2-5]: 5 calls recorded, 100 % failure/slow rate ≥ 50 % threshold → OPEN.
+#
+# Watch BFF logs for:
+#   [CB] listMyNotifications fallback: ...
+# =============================================================================
+
+### [2-1] List — slow/failure 1 of 5  (~3 s wait)
+POST {{baseUrl}}/api/notifications/list
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "unreadOnly": false
+}
+
+###
+
+### [2-2] List — slow/failure 2 of 5  (~3 s wait)
+POST {{baseUrl}}/api/notifications/list
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "unreadOnly": false
+}
+
+###
+
+### [2-3] List — slow/failure 3 of 5  (~3 s wait)
+POST {{baseUrl}}/api/notifications/list
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "unreadOnly": false
+}
+
+###
+
+### [2-4] List — slow/failure 4 of 5  (~3 s wait)
+POST {{baseUrl}}/api/notifications/list
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "unreadOnly": false
+}
+
+###
+
+### [2-5] List — slow/failure 5 of 5  (~3 s wait)  →  circuit opens after this
+POST {{baseUrl}}/api/notifications/list
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "unreadOnly": false
+}
+
+###
+
+
+# =============================================================================
+# PHASE 3 — CB OPEN  (notification-service still DOWN)
+#
+# All calls return instantly — no network attempt to notification-service.
+# BFF logs show [CB] fallback messages.
+# =============================================================================
+
+### [3-1] List — instant 200 []  (fallback, no timeout wait)
+# CB state: OPEN
+# Expected response: []
+# BFF log: [CB] listMyNotifications fallback: CircuitBreaker 'notification' is OPEN ...
+POST {{baseUrl}}/api/notifications/list
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "unreadOnly": false
+}
+
+###
+
+### [3-2] Mark all read — instant 200  (fallback)
+# CB state: OPEN
+PUT {{baseUrl}}/api/notifications/read-all
+Authorization: {{customerToken}}
+
+###
+
+### [3-3] Checkout — instant 200, no 3 s wait for notification
+# CB state: OPEN — createNotification fast-fails via CallNotPermittedException
+# Order is created normally; only the async notification is skipped
+# BFF log: [CB] createNotification skipped (CallNotPermittedException): ...
+PUT {{baseUrl}}/api/carts/checkout
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "cartId": {{cbCartId2}}
+}
+
+###
+
+
+# =============================================================================
+# PHASE 4 — Recovery
+#
+# ACTION: Wait 30 s (automatic OPEN → HALF_OPEN transition).
+# ACTION: Restart notification-service.
+#
+# The next 3 calls are probes in HALF_OPEN state.
+# All 3 succeed → circuit closes (CLOSED).
+# =============================================================================
+
+### [4-1] List — probe 1 of 3 (HALF_OPEN → if success, counts toward closing)
+# Expected: real response from notification-service (200, [])
+POST {{baseUrl}}/api/notifications/list
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "unreadOnly": false
+}
+
+###
+
+### [4-2] List — probe 2 of 3
+POST {{baseUrl}}/api/notifications/list
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "unreadOnly": false
+}
+
+###
+
+### [4-3] List — probe 3 of 3  →  circuit closes after this
+POST {{baseUrl}}/api/notifications/list
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "unreadOnly": false
+}
+
+###
+
+### [4-4] Confirm CB CLOSED — checkout creates order AND sends notification
+# BFF log: no [CB] fallback message → real notification delivered
+# notification-service log: POST /internal/notifications 201
+POST {{baseUrl}}/api/carts
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "productId": {{product1Id}},
+  "storeId": {{storeId}},
+  "quantity": 1
+}
+
+> {%
+client.global.set("cbCartId3", response.body.id);
+%}
+
+###
+
+PUT {{baseUrl}}/api/carts/checkout
+Authorization: {{customerToken}}
+Content-Type: application/json
+
+{
+  "cartId": {{cbCartId3}}
+}
+
+###
