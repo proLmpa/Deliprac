@@ -34,7 +34,7 @@ pipeline {
                     ]
                     for (svc in springServices) {
                         // Rename to app.jar so each Dockerfile has a fixed COPY target
-                        sh "find ${svc}/build/libs -name '*.jar' ! -name '*plain*' | head -1 | xargs -I{} cp {} ${svc}/build/libs/app.jar"
+                        sh "find ${svc}/build/libs -name '*.jar' ! -name '*plain*' ! -name 'app.jar' | head -1 | xargs -I{} cp {} ${svc}/build/libs/app.jar"
                         sh "docker build -t ${DOCKER_HUB_USER}/${svc}:${IMAGE_TAG} -t ${DOCKER_HUB_USER}/${svc}:latest ./${svc}"
                     }
                     // front-service: multi-stage Dockerfile handles npm build internally
