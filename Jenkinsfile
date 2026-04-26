@@ -55,6 +55,8 @@ pipeline {
                     for (svc in allServices) {
                         sh "docker push ${DOCKER_HUB_USER}/${svc}:${IMAGE_TAG}"
                         sh "docker push ${DOCKER_HUB_USER}/${svc}:latest"
+                        // Remove local image immediately after push — Jenkins doesn't need to keep it
+                        sh "docker rmi ${DOCKER_HUB_USER}/${svc}:${IMAGE_TAG} ${DOCKER_HUB_USER}/${svc}:latest || true"
                     }
                 }
             }
