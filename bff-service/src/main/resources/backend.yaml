@@ -19,13 +19,13 @@ spring:
       on-profile: "backend-test"
 backend:
   user-service:
-    url: http://localhost:8081
+    url: ${USER_SERVICE_URL}
   store-service:
-    url: http://localhost:8082
+    url: ${STORE_SERVICE_URL}
   order-service:
-    url: http://localhost:8083
+    url: ${ORDER_SERVICE_URL}
   notification-service:
-    url: http://localhost:8084
+    url: ${NOTIFICATION_SERVICE_URL}
 ---
 spring:
   config:

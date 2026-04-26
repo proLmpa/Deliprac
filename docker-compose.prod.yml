@@ -1,0 +1,181 @@
+services:
+
+  # ─── Databases ─────────────────────────────────────────────────────────────
+  # Ports are NOT exposed to the host — only accessible inside baemin-net.
+  # Schema files are mounted so PostgreSQL applies them automatically on
+  # first start (empty volume). On subsequent starts the mount is ignored.
+
+  user-db:
+    image: postgres:16
+    container_name: baemin_user_db
+    environment:
+      POSTGRES_DB:       userdb
+      POSTGRES_USER:     user_svc
+      POSTGRES_PASSWORD: userpass
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+      - /opt/baemin/schema/user.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    networks: [baemin-net]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_svc -d userdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  store-db:
+    image: postgres:16
+    container_name: baemin_store_db
+    environment:
+      POSTGRES_DB:       storedb
+      POSTGRES_USER:     store_svc
+      POSTGRES_PASSWORD: storepass
+    volumes:
+      - store_db_data:/var/lib/postgresql/data
+      - /opt/baemin/schema/store.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    networks: [baemin-net]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U store_svc -d storedb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  order-db:
+    image: postgres:16
+    container_name: baemin_order_db
+    environment:
+      POSTGRES_DB:       orderdb
+      POSTGRES_USER:     order_svc
+      POSTGRES_PASSWORD: orderpass
+    volumes:
+      - order_db_data:/var/lib/postgresql/data
+      - /opt/baemin/schema/order.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    networks: [baemin-net]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U order_svc -d orderdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  notification-db:
+    image: postgres:16
+    container_name: baemin_notification_db
+    environment:
+      POSTGRES_DB:       notificationdb
+      POSTGRES_USER:     notif_svc
+      POSTGRES_PASSWORD: notifpass
+    volumes:
+      - notification_db_data:/var/lib/postgresql/data
+      - /opt/baemin/schema/notification.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    networks: [baemin-net]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notif_svc -d notificationdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Application Services ──────────────────────────────────────────────────
+
+  user-service:
+    image: prolmpa/user-service:latest
+    container_name: baemin_user_service
+    environment:
+      DB_URL:               jdbc:postgresql://user-db:5432/userdb
+      DB_USERNAME:          user_svc
+      DB_PASSWORD:          userpass
+      JWT_SECRET:           baemin-jwt-secret-key-must-be-at-least-32-characters-long
+      BFF_HMAC_USER_SECRET: baemin-bff-user-hmac-secret-key-32chars+
+    depends_on:
+      user-db:
+        condition: service_healthy
+    networks: [baemin-net]
+    restart: unless-stopped
+
+  store-service:
+    image: prolmpa/store-service:latest
+    container_name: baemin_store_service
+    environment:
+      DB_URL:                jdbc:postgresql://store-db:5432/storedb
+      DB_USERNAME:           store_svc
+      DB_PASSWORD:           storepass
+      JWT_SECRET:            baemin-jwt-secret-key-must-be-at-least-32-characters-long
+      BFF_HMAC_STORE_SECRET: baemin-bff-store-hmac-secret-key-32chars+
+    depends_on:
+      store-db:
+        condition: service_healthy
+    networks: [baemin-net]
+    restart: unless-stopped
+
+  order-service:
+    image: prolmpa/order-service:latest
+    container_name: baemin_order_service
+    environment:
+      DB_URL:                jdbc:postgresql://order-db:5432/orderdb
+      DB_USERNAME:           order_svc
+      DB_PASSWORD:           orderpass
+      JWT_SECRET:            baemin-jwt-secret-key-must-be-at-least-32-characters-long
+      BFF_HMAC_ORDER_SECRET: baemin-bff-order-hmac-secret-key-32chars+
+    depends_on:
+      order-db:
+        condition: service_healthy
+    networks: [baemin-net]
+    restart: unless-stopped
+
+  notification-service:
+    image: prolmpa/notification-service:latest
+    container_name: baemin_notification_service
+    environment:
+      DB_URL:                jdbc:postgresql://notification-db:5432/notificationdb
+      DB_USERNAME:           notif_svc
+      DB_PASSWORD:           notifpass
+      JWT_SECRET:            baemin-jwt-secret-key-must-be-at-least-32-characters-long
+      BFF_HMAC_NOTIF_SECRET: baemin-bff-notif-hmac-secret-key-32chars+
+    depends_on:
+      notification-db:
+        condition: service_healthy
+    networks: [baemin-net]
+    restart: unless-stopped
+
+  bff-service:
+    image: prolmpa/bff-service:latest
+    container_name: baemin_bff_service
+    environment:
+      JWT_SECRET:                baemin-jwt-secret-key-must-be-at-least-32-characters-long
+      USER_SERVICE_URL:          http://user-service:8081
+      STORE_SERVICE_URL:         http://store-service:8082
+      ORDER_SERVICE_URL:         http://order-service:8083
+      NOTIFICATION_SERVICE_URL:  http://notification-service:8084
+      BFF_HMAC_USER_SECRET:      baemin-bff-user-hmac-secret-key-32chars+
+      BFF_HMAC_STORE_SECRET:     baemin-bff-store-hmac-secret-key-32chars+
+      BFF_HMAC_ORDER_SECRET:     baemin-bff-order-hmac-secret-key-32chars+
+      BFF_HMAC_NOTIF_SECRET:     baemin-bff-notif-hmac-secret-key-32chars+
+    depends_on:
+      - user-service
+      - store-service
+      - order-service
+      - notification-service
+    networks: [baemin-net]
+    restart: unless-stopped
+
+  front-service:
+    image: prolmpa/front-service:latest
+    container_name: baemin_front_service
+    ports:
+      - "80:80"
+    depends_on:
+      - bff-service
+    networks: [baemin-net]
+    restart: unless-stopped
+
+networks:
+  baemin-net:
+    driver: bridge
+
+volumes:
+  user_db_data:
+  store_db_data:
+  order_db_data:
+  notification_db_data:

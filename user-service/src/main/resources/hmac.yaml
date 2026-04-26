@@ -12,7 +12,7 @@ spring:
     activate:
       on-profile: "hmac-test"
 bff.hmac:
-  secret: "baemin-bff-user-hmac-secret-key-32chars+"
+  secret: ${BFF_HMAC_USER_SECRET}
   window-ms: 30000
 ---
 spring:

@@ -12,7 +12,7 @@ spring:
     activate:
       on-profile: "jwt-test"
 jwt:
-  secret: "baemin-jwt-secret-key-must-be-at-least-32-characters-long"
+  secret: ${JWT_SECRET}
   expiration-ms: 86400000
 ---
 spring:

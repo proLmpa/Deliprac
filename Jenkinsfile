@@ -1,98 +1,100 @@
 pipeline {
     agent any
 
+    environment {
+        DOCKER_HUB_USER = 'prolmpa'
+        DOCKER_HUB_CRED = credentials('docker-hub-cred')   // Username/password credential
+        APP_HOST        = 'front@192.168.160.100'
+        SSH_CRED        = 'deploy-ssh-key'
+        IMAGE_TAG       = "${BUILD_NUMBER}"
+        COMPOSE_DIR     = '/opt/baemin'
+    }
+
     stages {
 
-        // ── 1. Bring in sources ──────────────────────────────────────────────
+        // ── 1. Bring in sources ────────────────────────────────────────────
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/proLmpa/Deliprac.git',
+                    url: 'https://github.com/proLmpa/Baemin.git',
                     credentialsId: 'github-cred'
             }
         }
 
-        // ── 2. Build ─────────────────────────────────────────────────────────
-        stage('Build') {
+        // ── 2. Build container images ──────────────────────────────────────
+        stage('Build Images') {
             steps {
-                sh './gradlew build -x test'
-                nodejs('node-22') {
-                    sh 'cd front-service && npm ci && npm run build'
+                // Build all Spring Boot fat JARs in one Gradle invocation
+                sh './gradlew bootJar -x test'
+
+                script {
+                    def springServices = [
+                        'bff-service', 'user-service', 'store-service',
+                        'order-service', 'notification-service'
+                    ]
+                    for (svc in springServices) {
+                        // Rename to app.jar so each Dockerfile has a fixed COPY target
+                        sh "find ${svc}/build/libs -name '*.jar' ! -name '*plain*' | head -1 | xargs -I{} cp {} ${svc}/build/libs/app.jar"
+                        sh "docker build -t ${DOCKER_HUB_USER}/${svc}:${IMAGE_TAG} -t ${DOCKER_HUB_USER}/${svc}:latest ./${svc}"
+                    }
+                    // front-service: multi-stage Dockerfile handles npm build internally
+                    sh "docker build -t ${DOCKER_HUB_USER}/front-service:${IMAGE_TAG} -t ${DOCKER_HUB_USER}/front-service:latest ./front-service"
                 }
             }
         }
 
-        // ── 3. Copy  4. Stop  5. Start  (all services in parallel) ──────────
+        // ── 3. Push to Docker Hub ──────────────────────────────────────────
+        stage('Push Images') {
+            steps {
+                sh 'echo $DOCKER_HUB_CRED_PSW | docker login -u $DOCKER_HUB_CRED_USR --password-stdin'
+                script {
+                    def allServices = [
+                        'bff-service', 'user-service', 'store-service',
+                        'order-service', 'notification-service', 'front-service'
+                    ]
+                    for (svc in allServices) {
+                        sh "docker push ${DOCKER_HUB_USER}/${svc}:${IMAGE_TAG}"
+                        sh "docker push ${DOCKER_HUB_USER}/${svc}:latest"
+                    }
+                }
+            }
+        }
+
+        // ── 4. Terminate running containers ───────────────────────────────
+        stage('Terminate') {
+            steps {
+                sshagent(credentials: [SSH_CRED]) {
+                    sh "ssh -o StrictHostKeyChecking=no ${APP_HOST} 'cd ${COMPOSE_DIR} && docker compose down || true'"
+                }
+            }
+        }
+
+        // ── 5. Deploy — upload compose + schema, pull images, start ───────
         stage('Deploy') {
-            parallel {
-                stage('bff-service') {
-                    steps { script { deploy('bff-service', env.BFF_HOST) } }
-                }
-                stage('user-service') {
-                    steps { script { deploy('user-service', env.USER_HOST) } }
-                }
-                stage('store-service') {
-                    steps { script { deploy('store-service', env.STORE_HOST) } }
-                }
-                stage('order-service') {
-                    steps { script { deploy('order-service', env.ORDER_HOST) } }
-                }
-                stage('notification-service') {
-                    steps { script { deploy('notification-service', env.NOTIFICATION_HOST) } }
-                }
-                stage('front-service') {
-                    steps { script { deployFront(env.FRONT_HOST) } }
+            steps {
+                sshagent(credentials: [SSH_CRED]) {
+                    // Ensure target directories exist
+                    sh "ssh -o StrictHostKeyChecking=no ${APP_HOST} 'mkdir -p ${COMPOSE_DIR}/schema'"
+
+                    // Upload compose file (overwrites on every deploy)
+                    sh "scp -o StrictHostKeyChecking=no docker-compose.prod.yml ${APP_HOST}:${COMPOSE_DIR}/docker-compose.yml"
+
+                    // Upload schema files (PostgreSQL init-scripts; only used on first start)
+                    sh "scp -o StrictHostKeyChecking=no user-service/src/main/resources/db/schema.sql         ${APP_HOST}:${COMPOSE_DIR}/schema/user.sql"
+                    sh "scp -o StrictHostKeyChecking=no store-service/src/main/resources/db/schema.sql        ${APP_HOST}:${COMPOSE_DIR}/schema/store.sql"
+                    sh "scp -o StrictHostKeyChecking=no order-service/src/main/resources/db/schema.sql        ${APP_HOST}:${COMPOSE_DIR}/schema/order.sql"
+                    sh "scp -o StrictHostKeyChecking=no notification-service/src/main/resources/db/schema.sql ${APP_HOST}:${COMPOSE_DIR}/schema/notification.sql"
+
+                    // Pull updated images then start all containers
+                    sh "ssh -o StrictHostKeyChecking=no ${APP_HOST} 'cd ${COMPOSE_DIR} && docker compose pull && docker compose up -d'"
                 }
             }
         }
     }
 
     post {
+        always  { sh 'docker logout || true' }
         success { echo 'All services deployed successfully.' }
-        failure  { echo 'Deployment failed. Check the logs above.' }
-    }
-}
-
-// ── Front-service deploy function (static files via nginx) ──────────────────
-def deployFront(String host) {
-    def credId   = env.SSH_CRED
-    def frontDir = env.FRONT_DEPLOY_DIR
-
-    sshagent(credentials: [credId]) {
-        // Clear old build and copy new dist/
-        sh "ssh -o StrictHostKeyChecking=no ${host} 'rm -rf ${frontDir}/*'"
-        sh "scp -o StrictHostKeyChecking=no -r front-service/dist/. ${host}:${frontDir}/"
-        // Reload nginx to pick up new files
-        sh "ssh -o StrictHostKeyChecking=no ${host} 'sudo nginx -s reload' || true"
-    }
-}
-
-// ── Shared deploy function ───────────────────────────────────────────────────
-// Per service: (3) scp jar  →  (4) pkill old process  →  (5) start new jar
-def deploy(String service, String host) {
-    def credId  = env.SSH_CRED
-    def destDir = env.DEPLOY_DIR
-
-    def jar = sh(
-        script: "find ${service}/build/libs -name '*.jar' ! -name '*plain*' | head -1",
-        returnStdout: true
-    ).trim()
-
-    sshagent(credentials: [credId]) {
-        // 3. Copy build result to server
-        sh "scp -o StrictHostKeyChecking=no ${jar} ${host}:${destDir}/${service}.jar"
-
-        // 4. Terminate running server (ignore error if not running)
-        sh "ssh -o StrictHostKeyChecking=no ${host} 'pkill -f ${service}.jar' || true"
-        sh 'sleep 3'
-
-        // 5. Run newly copied server
-        sh """
-            ssh -o StrictHostKeyChecking=no ${host} \
-            'set -a; . /etc/environment; set +a; \
-             nohup java -jar ${destDir}/${service}.jar \
-                --spring.profiles.active=prod \
-                > ${destDir}/${service}.log 2>&1 < /dev/null &'
-        """
+        failure { echo 'Deployment failed — check the stage logs above.' }
     }
 }

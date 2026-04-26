@@ -13,9 +13,9 @@ spring:
     activate:
       on-profile: "pgsql-test"
   datasource:
-    url: jdbc:postgresql://localhost:5433/userdb
-    username: user_svc
-    password: userpass
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
 ---
 spring:
   config:
