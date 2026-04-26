@@ -16,7 +16,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/proLmpa/Baemin.git',
+                    url: 'https://github.com/proLmpa/Deliprac.git',
                     credentialsId: 'github-cred'
             }
         }
