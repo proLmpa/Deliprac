@@ -93,7 +93,10 @@ pipeline {
     }
 
     post {
-        always  { sh 'docker logout || true' }
+        always  {
+            sh 'docker logout || true'
+            sh 'docker image prune -f || true'
+        }
         success { echo 'All services deployed successfully.' }
         failure { echo 'Deployment failed — check the stage logs above.' }
     }
