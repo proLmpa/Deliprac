@@ -44,7 +44,7 @@ The JWT secret is shared across all services via configuration — user-service 
 
 Every BFF→backend call is signed with HMAC-SHA256. The BFF attaches `X-Bff-Timestamp` and `X-Bff-Signature` headers to each outgoing `RestClient` request; each backend service validates the signature before Spring Security runs, rejecting direct callers with `401 Unauthorized`. Each service has its own independent HMAC secret.
 
-Notifications are created synchronously by the BFF after order mutations. After a checkout the BFF looks up the store owner and calls notification-service to notify them; after marking an order sold or canceled it calls notification-service to notify the customer. The BFF calls `/internal/notifications` (no JWT) — notification-service treats the BFF as a trusted internal caller. Clients poll the REST endpoint to fetch and mark notifications.
+Notifications are created asynchronously (fire-and-forget) by the BFF after order mutations. After a checkout the BFF looks up the store owner and calls notification-service to notify them; after marking an order sold or canceled it calls notification-service to notify the customer. The BFF calls `/internal/notifications` (no JWT) — notification-service treats the BFF as a trusted internal caller. The notification call runs in a background thread (`CompletableFuture.runAsync`) so failures are silent and do not affect the API response. Clients poll the REST endpoint to fetch and mark notifications.
 
 ### BFF Layer
 
@@ -208,8 +208,9 @@ sequenceDiagram
     SS-->>BFF: StoreResponse (owner userId, name)
     BFF->>SS: POST /api/stores/products/list { storeId }
     SS-->>BFF: List[ProductResponse] (names)
-    BFF->>NS: POST /internal/notifications (NEW_ORDER → owner, items)
     BFF-->>Cu: OrderResponse (PENDING)
+    Note over BFF,NS: async — fire and forget
+    BFF-)NS: POST /internal/notifications (NEW_ORDER → owner, items)
 
     Cu->>BFF: POST /api/users/me/orders
     BFF-->>Cu: List[OrderResponse]
@@ -240,9 +241,10 @@ sequenceDiagram
     SS-->>BFF: StoreResponse (name)
     BFF->>SS: POST /api/stores/products/list { storeId }
     SS-->>BFF: List[ProductResponse] (names)
-    BFF->>NS: POST /internal/notifications (ORDER_SOLD → customer, items)
     BFF-->>Ow: OrderResponse (SOLD)
-    NS--)Cu: notification visible on next poll (≤ 30 s)
+    Note over BFF,NS: async — fire and forget
+    BFF-)NS: POST /internal/notifications (ORDER_SOLD → customer, items)
+    NS--)Cu: notification visible on next poll
 
     Ow->>BFF: PUT /api/stores/products/popularity { storeId, productId, delta: 1 }
     BFF-->>Ow: ProductResponse
@@ -287,7 +289,7 @@ Monthly aggregates compute UTC epoch-millis boundaries from a caller-supplied ti
 ZonedDateTime.of(year, month, 1, 0, 0, 0, 0, zoneId).toInstant().toEpochMilli()
 ```
 
-### BFF-triggered synchronous notifications
+### BFF-triggered fire-and-forget notifications
 Notifications are created by the BFF immediately after order mutations — no message broker is involved. Every notification includes a full item snapshot (product name, unit price, quantity) and the store name.
 
 | BFF action | Recipient | Type | Item source |
@@ -298,7 +300,7 @@ Notifications are created by the BFF immediately after order mutations — no me
 
 **userId security:** `StoreResponse.userId` and `OrderResponse.userId` are annotated `@get:JsonIgnore` / `@param:JsonProperty` — deserialized from backend services, never serialized to the frontend. The recipient's `userId` only ever exists inside the BFF at request time.
 
-**Near-real-time delivery:** notifications are created synchronously during the BFF request, so they exist in the database before the API response returns. The frontend polls `/api/notifications/list` every 30 seconds; recipients see new notifications within one poll cycle.
+**Delivery:** notifications are created in a background thread (`CompletableFuture.runAsync`) after the BFF returns its response to the client. Failures are swallowed silently and do not affect the API caller. The frontend polls `/api/notifications/list` every 30 seconds; recipients see new notifications within one poll cycle assuming the async call succeeds.
 
 ### BFF-to-backend HMAC signing
 
@@ -342,7 +344,7 @@ erDiagram
     users {
         bigserial id PK
         varchar   email
-        varchar   password
+        varchar   password_hash
         varchar   phone
         varchar   role        "CUSTOMER | OWNER | ADMIN"
         varchar   status      "ACTIVE | SUSPENDED | WITHDRAWN"
@@ -353,10 +355,17 @@ erDiagram
     %% ── storedb :5434 (store-service) ──────────────────────
     stores {
         bigserial id PK
-        bigint    user_id     "* cross-service ref — no FK"
+        bigint    user_id              "* cross-service ref — no FK"
         varchar   name
         varchar   address
-        varchar   status      "ACTIVE | INACTIVE"
+        varchar   phone
+        text      content
+        varchar   status               "ACTIVE | INACTIVE"
+        varchar   store_picture_url    "nullable"
+        bigint    product_created_time
+        bigint    opened_time
+        bigint    closed_time
+        varchar   closed_days
         bigint    created_at
         bigint    updated_at
     }
@@ -366,6 +375,7 @@ erDiagram
         varchar   name
         text      description
         bigint    price
+        varchar   product_picture_url "nullable"
         bigint    popularity
         boolean   status
         bigint    created_at
@@ -415,8 +425,8 @@ erDiagram
         varchar   type        "NEW_ORDER | ORDER_SOLD | ORDER_CANCELED"
         varchar   title
         text      content
-        bigint    store_id    "snapshot — no FK"
-        varchar   store_name  "snapshot"
+        bigint    store_id    "nullable snapshot — no FK"
+        varchar   store_name  "nullable snapshot"
         text      items       "JSON array snapshot"
         boolean   is_read
         bigint    issued_at
@@ -442,22 +452,24 @@ erDiagram
 ```mermaid
 flowchart LR
     GH["GitHub\n(main branch)"]
+    DH["Docker Hub\nprolmpa/*"]
 
     subgraph jenkins ["Jenkins Server"]
         CO["1. Checkout"]
-        BU["2. Build\n./gradlew build -x test"]
+        BI["2. Build Images\n./gradlew bootJar\ndocker build × 6"]
+        PI["3. Push Images\ndocker push × 6"]
+        TM["4. Terminate\ndocker compose down"]
+        DP["5. Deploy\ndocker compose pull\ndocker compose up -d"]
     end
 
-    subgraph vms ["Deploy — parallel"]
-        V0["VM :100\nbff-service"]
-        V1["VM :101\nuser-service"]
-        V2["VM :102\nstore-service"]
-        V3["VM :103\norder-service"]
-        V4["VM :104\nnotification-service"]
+    subgraph vm ["Single Deploy VM"]
+        DC["docker-compose.prod.yml\n(all services + DBs)"]
     end
 
-    GH -->|push| CO --> BU
-    BU -->|"3. scp + pkill + nohup"| V0 & V1 & V2 & V3 & V4
+    GH -->|push| CO --> BI --> PI --> TM --> DP
+    PI --> DH
+    DH --> DP
+    DP --> DC
 ```
 
 ### Stages
@@ -465,43 +477,24 @@ flowchart LR
 | Stage | What happens |
 |---|---|
 | **Checkout** | Pulls `main` branch from GitHub |
-| **Build** | `./gradlew build -x test` — produces executable JARs for all 5 services |
-| **Deploy** | 5 branches in parallel, one per service |
+| **Build Images** | `./gradlew bootJar -x test` — produces fat JARs; `docker build` for all 6 services (5 Spring + `front-service`); each image tagged with `BUILD_NUMBER` and `latest` |
+| **Push Images** | `docker login` with `docker-hub-cred`; pushes both tags for all 6 images to Docker Hub; removes local images immediately after push to prevent disk exhaustion |
+| **Terminate** | SSH into the deploy VM; runs `docker compose down` to stop all running containers |
+| **Deploy** | SSH into the deploy VM; uploads `docker-compose.prod.yml` → `/opt/baemin/docker-compose.yml` and all four schema SQL files → `/opt/baemin/schema/`; runs `docker compose pull && docker compose up -d` |
 
-Each parallel deploy branch runs three steps in sequence:
+All services and databases run on a single VM inside a shared `baemin-net` bridge network. Database ports are not exposed to the host — services reach each other via container names (e.g. `jdbc:postgresql://user-db:5432/userdb`). Only `front-service` exposes port `80`.
 
-```
-scp  JAR → VM                           # copy build artifact
-ssh  pkill -f service.jar  || true      # stop old process (no-op if not running)
-sleep 3                                  # wait for port to free
-ssh  nohup java -jar service.jar ... &  # start new process in background
-```
+Schema files are mounted into the PostgreSQL containers as init-scripts (`/docker-entrypoint-initdb.d/schema.sql`) — applied automatically on first start when the volume is empty; ignored on subsequent starts.
 
-The start command sources `/etc/environment` on the VM to inject Spring `prod` profile variables before launching the JAR:
+### Jenkins Credentials
 
-```bash
-set -a; . /etc/environment; set +a
-nohup java -jar /opt/baemin/service.jar \
-    --spring.profiles.active=prod \
-    > /opt/baemin/service.log 2>&1 < /dev/null &
-```
+All secrets are stored as Jenkins credentials — no IPs, usernames, or secrets appear in the `Jenkinsfile`.
 
-### Jenkins Server Configuration
-
-All infrastructure details are kept off the public repo as **Global Environment Variables**:
-**Manage Jenkins → Configure System → Global Properties → Environment variables**
-
-| Key | Value |
-|---|---|
-| `BFF_HOST` | `<user>@<bff-vm-ip>` |
-| `USER_HOST` | `<user>@<user-vm-ip>` |
-| `STORE_HOST` | `<user>@<store-vm-ip>` |
-| `ORDER_HOST` | `<user>@<order-vm-ip>` |
-| `NOTIFICATION_HOST` | `<user>@<notification-vm-ip>` |
-| `DEPLOY_DIR` | `/opt/baemin` |
-| `SSH_CRED` | Jenkins credential ID for the deploy SSH private key |
-
-The SSH private key itself is stored as a Jenkins **SSH Username with private key** credential and injected at runtime via `sshagent`. The `Jenkinsfile` in the repo contains no IPs, usernames, or secrets.
+| Credential ID | Type | Used for |
+|---|---|---|
+| `github-cred` | Username/password | Checkout from GitHub |
+| `docker-hub-cred` | Username/password | `docker login` to Docker Hub |
+| `deploy-ssh-key` | SSH private key | `sshagent` for SSH/SCP to deploy VM |
 
 ---
 
