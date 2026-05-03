@@ -12,6 +12,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("io.github.resilience4j:resilience4j-spring-boot3:2.3.0")
     implementation("org.aspectj:aspectjweaver")
+    implementation("io.github.oshai:kotlin-logging-jvm:7.0.3")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 }

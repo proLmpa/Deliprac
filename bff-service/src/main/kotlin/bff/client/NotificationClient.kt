@@ -3,8 +3,8 @@ package bff.client
 import bff.dto.ListNotificationRequest
 import bff.dto.MarkReadRequest
 import bff.dto.NotificationResponse
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
-import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.stereotype.Component
@@ -27,7 +27,7 @@ data class CreateNotificationRequest(
 @Component
 class NotificationClient(@Qualifier("notificationRestClient") private val client: RestClient) {
 
-    private val log = LoggerFactory.getLogger(NotificationClient::class.java)
+    private val log = KotlinLogging.logger {}
 
     @CircuitBreaker(name = "notification", fallbackMethod = "createNotificationFallback")
     fun createNotification(request: CreateNotificationRequest) {
@@ -39,7 +39,7 @@ class NotificationClient(@Qualifier("notificationRestClient") private val client
     }
 
     private fun createNotificationFallback(request: CreateNotificationRequest, ex: Throwable) {
-        log.warn("[CB] createNotification skipped ({}): {}", ex.javaClass.simpleName, ex.message)
+        log.warn { "${"[CB] createNotification skipped ({}): {}"} ${ex.javaClass.simpleName} ${ex.message}" }
     }
 
     @CircuitBreaker(name = "notification", fallbackMethod = "listMyNotificationsFallback")
@@ -52,7 +52,7 @@ class NotificationClient(@Qualifier("notificationRestClient") private val client
             .body(object : ParameterizedTypeReference<List<NotificationResponse>>() {})!!
 
     private fun listMyNotificationsFallback(request: ListNotificationRequest, token: String, ex: Throwable): List<NotificationResponse> {
-        log.warn("[CB] listMyNotifications fallback: {}", ex.message)
+        log.warn { "${"[CB] listMyNotifications fallback: {}"} ${ex.message}" }
         return emptyList()
     }
 
@@ -67,7 +67,7 @@ class NotificationClient(@Qualifier("notificationRestClient") private val client
             .let {}
 
     private fun markReadFallback(request: MarkReadRequest, token: String, ex: Throwable) {
-        log.warn("[CB] markRead fallback: {}", ex.message)
+        log.warn { "${"[CB] markRead fallback: {}"} ${ex.message}" }
     }
 
     @CircuitBreaker(name = "notification", fallbackMethod = "markAllReadFallback")
@@ -80,6 +80,6 @@ class NotificationClient(@Qualifier("notificationRestClient") private val client
             .let {}
 
     private fun markAllReadFallback(token: String, ex: Throwable) {
-        log.warn("[CB] markAllRead fallback: {}", ex.message)
+        log.warn { "${"[CB] markAllRead fallback: {}"} ${ex.message}" }
     }
 }
