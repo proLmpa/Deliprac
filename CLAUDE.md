@@ -5,6 +5,10 @@
 **Never `git push` without explicit user instruction.**
 Commit changes freely, but always stop at commit. The user decides when and what to push.
 
+## JDK
+
+**Always use JDK 24.** Do not use any other JDK version. (Kotlin does not yet support JDK 25 bytecode.)
+
 ## Build & Run
 
 ```bash
