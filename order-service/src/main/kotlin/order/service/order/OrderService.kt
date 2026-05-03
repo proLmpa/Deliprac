@@ -21,18 +21,18 @@ class OrderService(
     @Transactional(readOnly = true)
     fun listByStore(storeId: Long, role: UserRole): List<OrderResponse> {
         if (role != UserRole.OWNER)
-            throw ForbiddenException("Only OWNER can view store orders")
+            throw ForbiddenException("Forbidden")
 
         return orderRepository.findAllByStoreId(storeId).map { OrderResponse.of(it) }
     }
 
     @Transactional
     fun markSold(storeId: Long, orderId: Long, role: UserRole): OrderResponse {
-        if (role != UserRole.OWNER) throw ForbiddenException("Only OWNER can update orders")
+        if (role != UserRole.OWNER) throw ForbiddenException("Forbidden")
 
-        val order = orderRepository.findById(orderId).orThrow("Order not found")
-        if (order.storeId != storeId) throw NotFoundException("Order not found in this store")
-        if (order.status != OrderStatus.PENDING) throw ConflictException("Order cannot be marked as sold")
+        val order = orderRepository.findById(orderId).orThrow("Not found")
+        if (order.storeId != storeId) throw NotFoundException("Not found")
+        if (order.status != OrderStatus.PENDING) throw ConflictException("Invalid operation")
 
         order.status = OrderStatus.SOLD
         val saved = orderRepository.save(order)
@@ -42,11 +42,11 @@ class OrderService(
 
     @Transactional
     fun markCanceled(storeId: Long, orderId: Long, role: UserRole): OrderResponse {
-        if (role != UserRole.OWNER) throw ForbiddenException("Only OWNER can update orders")
+        if (role != UserRole.OWNER) throw ForbiddenException("Forbidden")
 
-        val order = orderRepository.findById(orderId).orThrow("Order not found")
-        if (order.storeId != storeId) throw NotFoundException("Order not found in this store")
-        if (order.status != OrderStatus.PENDING) throw ConflictException("Order cannot be canceled")
+        val order = orderRepository.findById(orderId).orThrow("Not found")
+        if (order.storeId != storeId) throw NotFoundException("Not found")
+        if (order.status != OrderStatus.PENDING) throw ConflictException("Invalid operation")
 
         order.status = OrderStatus.CANCELED
         val saved = orderRepository.save(order)
@@ -60,5 +60,5 @@ class OrderService(
 
     @Transactional(readOnly = true)
     fun getById(orderId: Long): OrderResponse =
-        OrderResponse.of(orderRepository.findById(orderId).orThrow("Order not found"))
+        OrderResponse.of(orderRepository.findById(orderId).orThrow("Not found"))
 }

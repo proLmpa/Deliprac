@@ -40,7 +40,7 @@ class NotificationService(private val notificationRepository: NotificationReposi
 
     @Transactional
     fun markRead(userId: Long, notificationId: Long): NotificationResponse {
-        val notification = notificationRepository.findById(notificationId).orThrow("Notification not found")
+        val notification = notificationRepository.findById(notificationId).orThrow("Not found")
         if (notification.userId != userId) throw ForbiddenException("Forbidden")
         notification.isRead = true
         return NotificationResponse.of(notificationRepository.save(notification))

@@ -42,7 +42,7 @@ class StoreController(private val storeService: StoreService) {
     @PostMapping("/api/stores/list")
     fun listAll(@RequestBody request: ListStoreRequest): List<StoreResponse> {
         val sort = try { StoreSortBy.valueOf(request.sortBy) }
-                   catch (e: IllegalArgumentException) { throw IllegalArgumentException("Invalid sortBy: must be CREATED_AT or RATING") }
+                   catch (e: IllegalArgumentException) { throw IllegalArgumentException("Invalid request") }
         return storeService.listAll(sort).map { StoreResponse.of(it) }
     }
 

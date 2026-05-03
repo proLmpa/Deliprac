@@ -48,14 +48,14 @@ class CartService(
     @Transactional(readOnly = true)
     fun getMyCart(userId: Long): CartResponse {
         val cart = cartRepository.findByUserIdAndIsOrderedFalse(userId)
-            ?: throw NotFoundException("Cart not found")
+            ?: throw NotFoundException("Not found")
 
         return CartResponse.of(cart, cartProductRepository.findAllByCartId(cart.id))
     }
 
     @Transactional
     fun removeItem(cartId: Long, productId: Long, userId: Long) {
-        val cart = cartRepository.findById(cartId).orThrow("Cart not found")
+        val cart = cartRepository.findById(cartId).orThrow("Not found")
         if (cart.userId != userId) throw ForbiddenException("Forbidden")
 
         cartProductRepository.deleteByCartIdAndProductId(cartId, productId)
@@ -64,7 +64,7 @@ class CartService(
 
     @Transactional
     fun clearCart(cartId: Long, userId: Long) {
-        val cart = cartRepository.findById(cartId).orThrow("Cart not found")
+        val cart = cartRepository.findById(cartId).orThrow("Not found")
         if (cart.userId != userId) throw ForbiddenException("Forbidden")
 
         cartProductRepository.deleteByCartId(cartId)
@@ -73,12 +73,12 @@ class CartService(
 
     @Transactional
     fun checkout(cartId: Long, userId: Long): OrderResponse {
-        val cart = cartRepository.findById(cartId).orThrow("Cart not found")
+        val cart = cartRepository.findById(cartId).orThrow("Not found")
         if (cart.userId != userId) throw ForbiddenException("Forbidden")
-        if (cart.isOrdered or orderRepository.existsByCartId(cartId)) throw ConflictException("Cart already checked out")
+        if (cart.isOrdered or orderRepository.existsByCartId(cartId)) throw ConflictException("Invalid operation")
 
         val items = cartProductRepository.findAllByCartId(cartId)
-        if (items.isEmpty()) throw ConflictException("Cart is empty")
+        if (items.isEmpty()) throw ConflictException("Invalid operation")
 
         val order = orderRepository.save(
             Order(0L, cartId, userId, cart.storeId, items.sumOf { it.unitPrice * it.quantity }, OrderStatus.PENDING)

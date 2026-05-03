@@ -25,14 +25,14 @@ class UserService(
 
     @Transactional
     fun register(command: RegisterCommand): Long {
-        if (!emailRegex.matches(command.email)) throw IllegalArgumentException("Invalid email format")
+        if (!emailRegex.matches(command.email)) throw IllegalArgumentException("Invalid request")
 
         if (userRepository.existsByEmail(command.email)) {
-            throw ConflictException("Email already exists")
+            throw ConflictException("Invalid request")
         }
 
         val role = runCatching { UserRole.valueOf(command.role) }
-            .getOrElse { throw IllegalArgumentException("Invalid role: ${command.role}") }
+            .getOrElse { throw IllegalArgumentException("Invalid request") }
 
         val user = User(
             id = 0L,
@@ -55,7 +55,7 @@ class UserService(
         }
 
         if (user.status != UserStatus.ACTIVE) {
-            throw ConflictException("Account is not active")
+            throw IllegalArgumentException("Invalid email or password")
         }
 
         return jwtProvider.generateToken(user.id, user.email, user.role.name)
@@ -65,16 +65,16 @@ class UserService(
     fun suspend(targetUserId: Long, role: UserRole) {
         if (role != UserRole.ADMIN) throw ForbiddenException("Forbidden")
 
-        val user = userRepository.findById(targetUserId).orThrow("User not found")
-        if (user.status != UserStatus.ACTIVE) throw ConflictException("User is not active")
+        val user = userRepository.findById(targetUserId).orThrow("Not found")
+        if (user.status != UserStatus.ACTIVE) throw ConflictException("Invalid operation")
 
         user.status = UserStatus.SUSPENDED
     }
 
     @Transactional
     fun withdraw(userId: Long) {
-        val user = userRepository.findById(userId).orThrow("User not found")
-        if (user.status != UserStatus.ACTIVE) throw ConflictException("User is not active")
+        val user = userRepository.findById(userId).orThrow("Not found")
+        if (user.status != UserStatus.ACTIVE) throw ConflictException("Invalid operation")
 
         user.status = UserStatus.WITHDRAWN
     }

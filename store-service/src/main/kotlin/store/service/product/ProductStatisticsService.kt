@@ -18,9 +18,9 @@ class ProductStatisticsService(
 
     @Transactional(readOnly = true)
     fun getPopularProducts(storeId: Long, principal: UserPrincipal): List<ProductInfo> {
-        if (principal.role != UserRole.OWNER) throw ForbiddenException("Only OWNER can view store statistics")
+        if (principal.role != UserRole.OWNER) throw ForbiddenException("Forbidden")
 
-        val store = storeRepository.findById(storeId).orThrow("Store not found")
+        val store = storeRepository.findById(storeId).orThrow("Not found")
         if (store.userId != principal.id) throw ForbiddenException("Forbidden")
 
         return productRepository.findTopByStoreIdOrderByPopularityDesc(storeId, 5)

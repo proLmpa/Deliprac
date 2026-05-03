@@ -25,10 +25,10 @@ class StoreService(
     @Transactional
     fun create(command: CreateStoreCommand, principal: UserPrincipal): StoreInfo {
         if (principal.role != UserRole.OWNER) {
-            throw ForbiddenException("Only OWNER can create a store")
+            throw ForbiddenException("Forbidden")
         }
         if (storeRepository.existsByUserIdAndName(principal.id, command.name)) {
-            throw ConflictException("Store with that name already exists")
+            throw ConflictException("Conflict")
         }
 
         val store = Store(
@@ -67,7 +67,7 @@ class StoreService(
 
     @Transactional(readOnly = true)
     fun findById(id: Long): StoreInfo {
-        val store = storeRepository.findById(id).orThrow("Store not found")
+        val store = storeRepository.findById(id).orThrow("Not found")
         val rating = reviewRepository.calculateAverageRatingByStoreId(id)
         return StoreInfo.of(store, rating)
     }
@@ -75,7 +75,7 @@ class StoreService(
     @Transactional(readOnly = true)
     fun findMine(principal: UserPrincipal): List<StoreInfo> {
         if (principal.role != UserRole.OWNER) {
-            throw ForbiddenException("Only OWNER can access this")
+            throw ForbiddenException("Forbidden")
         }
 
         val stores = storeRepository.findByUserId(principal.id)
@@ -87,7 +87,7 @@ class StoreService(
 
     @Transactional
     fun update(id: Long, command: UpdateStoreCommand, userId: Long): StoreInfo {
-        val store = storeRepository.findById(id).orThrow("Store not found")
+        val store = storeRepository.findById(id).orThrow("Not found")
         if (store.userId != userId) {
             throw ForbiddenException("Forbidden")
         }
@@ -108,7 +108,7 @@ class StoreService(
 
     @Transactional
     fun deactivate(id: Long, userId: Long) {
-        val store = storeRepository.findById(id).orThrow("Store not found")
+        val store = storeRepository.findById(id).orThrow("Not found")
         if (store.userId != userId) {
             throw ForbiddenException("Forbidden")
         }

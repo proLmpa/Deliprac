@@ -21,5 +21,5 @@ class StatisticsController(private val statisticsService: StatisticsService) {
     }
 
     private fun parseZoneId(timezone: String): ZoneId =
-        try { ZoneId.of(timezone) } catch (e: DateTimeException) { throw IllegalArgumentException("Invalid timezone: $timezone") }
+        try { ZoneId.of(timezone) } catch (e: DateTimeException) { throw IllegalArgumentException("Invalid request") }
 }

@@ -22,10 +22,10 @@ class ReviewService(
 
     @Transactional
     fun create(storeId: Long, request: CreateReviewRequest, principal: UserPrincipal): ReviewInfo {
-        if (principal.role != UserRole.CUSTOMER) throw ForbiddenException("Only CUSTOMER can create reviews")
-        if (request.rating !in 1 .. 5) throw IllegalArgumentException("Rating must be between 1 and 5")
+        if (principal.role != UserRole.CUSTOMER) throw ForbiddenException("Forbidden")
+        if (request.rating !in 1 .. 5) throw IllegalArgumentException("Invalid request")
 
-        storeRepository.findById(storeId).orThrow("Store not found")
+        storeRepository.findById(storeId).orThrow("Not found")
 
         val review = Review(
             id      = 0L,
@@ -44,8 +44,8 @@ class ReviewService(
 
     @Transactional
     fun delete(storeId: Long, reviewId: Long, principal: UserPrincipal) {
-        val review = reviewRepository.findById(reviewId).orThrow("Review not found")
-        if (review.storeId != storeId) throw NotFoundException("Review not found in this store")
+        val review = reviewRepository.findById(reviewId).orThrow("Not found")
+        if (review.storeId != storeId) throw NotFoundException("Not found")
         if ((review.userId != principal.id) and (principal.role != UserRole.ADMIN)) throw ForbiddenException("Forbidden")
 
         reviewRepository.delete(review)
