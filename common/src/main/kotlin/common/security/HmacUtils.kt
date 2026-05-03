@@ -5,6 +5,9 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
 object HmacUtils {
+    const val TIMESTAMP_HEADER = "X-Bff-Timestamp"
+    const val SIGNATURE_HEADER = "X-Bff-Signature"
+
     private const val ALGORITHM = "HmacSHA256"
 
     fun sign(secret: String, method: String, path: String, timestampMs: Long, body: ByteArray): String {

@@ -15,8 +15,8 @@ class HmacSigningInterceptor(private val secret: String) : ClientHttpRequestInte
     ): ClientHttpResponse {
         val ts = System.currentTimeMillis()
         val sig = HmacUtils.sign(secret, request.method.name(), request.uri.path, ts, body)
-        request.headers["X-Bff-Timestamp"] = ts.toString()
-        request.headers["X-Bff-Signature"] = sig
+        request.headers[HmacUtils.TIMESTAMP_HEADER] = ts.toString()
+        request.headers[HmacUtils.SIGNATURE_HEADER] = sig
         return execution.execute(request, body)
     }
 }

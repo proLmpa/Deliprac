@@ -15,8 +15,8 @@ class HmacRequestFilter(
 ) : OncePerRequestFilter() {
 
     override fun doFilterInternal(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
-        val timestampHeader = req.getHeader("X-Bff-Timestamp")
-        val signatureHeader = req.getHeader("X-Bff-Signature")
+        val timestampHeader = req.getHeader(HmacUtils.TIMESTAMP_HEADER)
+        val signatureHeader = req.getHeader(HmacUtils.SIGNATURE_HEADER)
 
         if (timestampHeader == null || signatureHeader == null) {
             res.reject("Missing HMAC headers")
