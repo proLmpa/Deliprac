@@ -2,12 +2,10 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_HUB_USER = 'prolmpa'
-        DOCKER_HUB_CRED = credentials('docker-hub-cred')   // Username/password credential
-        APP_HOST        = 'front@192.168.160.100'
-        SSH_CRED        = 'deploy-ssh-key'
-        IMAGE_TAG       = "${BUILD_NUMBER}"
-        COMPOSE_DIR     = '/opt/baemin'
+        DOCKER_HUB_USER   = 'prolmpa'
+        DOCKER_HUB_CRED   = credentials('docker-hub-cred')
+        SSH_CRED          = 'deploy-ssh-key'
+        IMAGE_TAG         = "${BUILD_NUMBER}"
     }
 
     stages {
@@ -24,7 +22,6 @@ pipeline {
         // ── 2. Build container images ──────────────────────────────────────
         stage('Build Images') {
             steps {
-                // Build all Spring Boot fat JARs in one Gradle invocation
                 sh './gradlew bootJar -x test'
 
                 script {
@@ -62,40 +59,141 @@ pipeline {
             }
         }
 
-        // ── 4. Terminate running containers ───────────────────────────────
-        stage('Terminate') {
-            steps {
-                sshagent(credentials: [SSH_CRED]) {
-                    sh "ssh -o StrictHostKeyChecking=no ${APP_HOST} 'cd ${COMPOSE_DIR} && docker compose down || true'"
+        // ── 4. Provision environment variables on every VM ────────────────
+        stage('Provision') {
+            parallel {
+                stage('vm-front') {
+                    steps {
+                        sshagent(credentials: [SSH_CRED]) {
+                            sh "ssh -o StrictHostKeyChecking=no ${BFF_HOST} 'grep -qxF SPRING_PROFILES_ACTIVE=prod /etc/environment || echo SPRING_PROFILES_ACTIVE=prod | sudo tee -a /etc/environment'"
+                        }
+                    }
+                }
+                stage('vm-user') {
+                    steps {
+                        sshagent(credentials: [SSH_CRED]) {
+                            sh "ssh -o StrictHostKeyChecking=no ${USER_HOST} 'grep -qxF SPRING_PROFILES_ACTIVE=prod /etc/environment || echo SPRING_PROFILES_ACTIVE=prod | sudo tee -a /etc/environment'"
+                        }
+                    }
+                }
+                stage('vm-store') {
+                    steps {
+                        sshagent(credentials: [SSH_CRED]) {
+                            sh "ssh -o StrictHostKeyChecking=no ${STORE_HOST} 'grep -qxF SPRING_PROFILES_ACTIVE=prod /etc/environment || echo SPRING_PROFILES_ACTIVE=prod | sudo tee -a /etc/environment'"
+                        }
+                    }
+                }
+                stage('vm-order') {
+                    steps {
+                        sshagent(credentials: [SSH_CRED]) {
+                            sh "ssh -o StrictHostKeyChecking=no ${ORDER_HOST} 'grep -qxF SPRING_PROFILES_ACTIVE=prod /etc/environment || echo SPRING_PROFILES_ACTIVE=prod | sudo tee -a /etc/environment'"
+                        }
+                    }
+                }
+                stage('vm-notification') {
+                    steps {
+                        sshagent(credentials: [SSH_CRED]) {
+                            sh "ssh -o StrictHostKeyChecking=no ${NOTIFICATION_HOST} 'grep -qxF SPRING_PROFILES_ACTIVE=prod /etc/environment || echo SPRING_PROFILES_ACTIVE=prod | sudo tee -a /etc/environment'"
+                        }
+                    }
                 }
             }
         }
 
-        // ── 5. Deploy — upload compose + schema, pull images, start ───────
+        // ── 5. Deploy each service to its own VM in parallel ──────────────
         stage('Deploy') {
-            steps {
-                sshagent(credentials: [SSH_CRED]) {
-                    // Ensure target directories exist
-                    sh "ssh -o StrictHostKeyChecking=no ${APP_HOST} 'mkdir -p ${COMPOSE_DIR}/schema'"
+            parallel {
 
-                    // Upload compose file (overwrites on every deploy)
-                    sh "scp -o StrictHostKeyChecking=no docker-compose.prod.yml ${APP_HOST}:${COMPOSE_DIR}/docker-compose.yml"
+                // vm-front: bff-service + front-service (Nginx)
+                stage('vm-front') {
+                    steps {
+                        sshagent(credentials: [SSH_CRED]) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no ${BFF_HOST} '
+                                    docker pull ${DOCKER_HUB_USER}/bff-service:latest
+                                    docker stop bff-service || true
+                                    docker rm   bff-service || true
+                                    docker run -d --name bff-service --network host --env-file /etc/environment --restart unless-stopped ${DOCKER_HUB_USER}/bff-service:latest
 
-                    // Upload schema files (PostgreSQL init-scripts; only used on first start)
-                    sh "scp -o StrictHostKeyChecking=no user-service/src/main/resources/db/schema.sql         ${APP_HOST}:${COMPOSE_DIR}/schema/user.sql"
-                    sh "scp -o StrictHostKeyChecking=no store-service/src/main/resources/db/schema.sql        ${APP_HOST}:${COMPOSE_DIR}/schema/store.sql"
-                    sh "scp -o StrictHostKeyChecking=no order-service/src/main/resources/db/schema.sql        ${APP_HOST}:${COMPOSE_DIR}/schema/order.sql"
-                    sh "scp -o StrictHostKeyChecking=no notification-service/src/main/resources/db/schema.sql ${APP_HOST}:${COMPOSE_DIR}/schema/notification.sql"
+                                    docker pull ${DOCKER_HUB_USER}/front-service:latest
+                                    docker stop front-service || true
+                                    docker rm   front-service || true
+                                    docker run -d --name front-service --network host --restart unless-stopped ${DOCKER_HUB_USER}/front-service:latest
+                                '
+                            """
+                        }
+                    }
+                }
 
-                    // Pull updated images then start all containers
-                    sh "ssh -o StrictHostKeyChecking=no ${APP_HOST} 'cd ${COMPOSE_DIR} && docker compose pull && docker compose up -d'"
+                // vm-user: user-service (DB is a separate container already running on this VM)
+                stage('vm-user') {
+                    steps {
+                        sshagent(credentials: [SSH_CRED]) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no ${USER_HOST} '
+                                    docker pull ${DOCKER_HUB_USER}/user-service:latest
+                                    docker stop user-service || true
+                                    docker rm   user-service || true
+                                    docker run -d --name user-service --network host --env-file /etc/environment --restart unless-stopped ${DOCKER_HUB_USER}/user-service:latest
+                                '
+                            """
+                        }
+                    }
+                }
+
+                // vm-store: store-service
+                stage('vm-store') {
+                    steps {
+                        sshagent(credentials: [SSH_CRED]) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no ${STORE_HOST} '
+                                    docker pull ${DOCKER_HUB_USER}/store-service:latest
+                                    docker stop store-service || true
+                                    docker rm   store-service || true
+                                    docker run -d --name store-service --network host --env-file /etc/environment --restart unless-stopped ${DOCKER_HUB_USER}/store-service:latest
+                                '
+                            """
+                        }
+                    }
+                }
+
+                // vm-order: order-service
+                stage('vm-order') {
+                    steps {
+                        sshagent(credentials: [SSH_CRED]) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no ${ORDER_HOST} '
+                                    docker pull ${DOCKER_HUB_USER}/order-service:latest
+                                    docker stop order-service || true
+                                    docker rm   order-service || true
+                                    docker run -d --name order-service --network host --env-file /etc/environment --restart unless-stopped ${DOCKER_HUB_USER}/order-service:latest
+                                '
+                            """
+                        }
+                    }
+                }
+
+                // vm-notification: notification-service
+                stage('vm-notification') {
+                    steps {
+                        sshagent(credentials: [SSH_CRED]) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no ${NOTIFICATION_HOST} '
+                                    docker pull ${DOCKER_HUB_USER}/notification-service:latest
+                                    docker stop notification-service || true
+                                    docker rm   notification-service || true
+                                    docker run -d --name notification-service --network host --env-file /etc/environment --restart unless-stopped ${DOCKER_HUB_USER}/notification-service:latest
+                                '
+                            """
+                        }
+                    }
                 }
             }
         }
     }
 
     post {
-        always  {
+        always {
             sh 'docker logout || true'
             sh 'docker image prune -f || true'
         }
