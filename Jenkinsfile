@@ -113,7 +113,7 @@ pipeline {
                                     docker pull ${DOCKER_HUB_USER}/bff-service:latest
                                     docker stop bff-service || true
                                     docker rm   bff-service || true
-                                    docker run -d --name bff-service --network host --env-file /etc/environment --restart unless-stopped ${DOCKER_HUB_USER}/bff-service:latest
+                                    docker run -d --name bff-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/bff-service:latest
 
                                     docker pull ${DOCKER_HUB_USER}/front-service:latest
                                     docker stop front-service || true
@@ -134,7 +134,7 @@ pipeline {
                                     docker pull ${DOCKER_HUB_USER}/user-service:latest
                                     docker stop user-service || true
                                     docker rm   user-service || true
-                                    docker run -d --name user-service --network host --env-file /etc/environment --restart unless-stopped ${DOCKER_HUB_USER}/user-service:latest
+                                    docker run -d --name user-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/user-service:latest
                                 '
                             """
                         }
@@ -150,7 +150,7 @@ pipeline {
                                     docker pull ${DOCKER_HUB_USER}/store-service:latest
                                     docker stop store-service || true
                                     docker rm   store-service || true
-                                    docker run -d --name store-service --network host --env-file /etc/environment --restart unless-stopped ${DOCKER_HUB_USER}/store-service:latest
+                                    docker run -d --name store-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/store-service:latest
                                 '
                             """
                         }
@@ -166,7 +166,7 @@ pipeline {
                                     docker pull ${DOCKER_HUB_USER}/order-service:latest
                                     docker stop order-service || true
                                     docker rm   order-service || true
-                                    docker run -d --name order-service --network host --env-file /etc/environment --restart unless-stopped ${DOCKER_HUB_USER}/order-service:latest
+                                    docker run -d --name order-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/order-service:latest
                                 '
                             """
                         }
@@ -182,7 +182,7 @@ pipeline {
                                     docker pull ${DOCKER_HUB_USER}/notification-service:latest
                                     docker stop notification-service || true
                                     docker rm   notification-service || true
-                                    docker run -d --name notification-service --network host --env-file /etc/environment --restart unless-stopped ${DOCKER_HUB_USER}/notification-service:latest
+                                    docker run -d --name notification-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/notification-service:latest
                                 '
                             """
                         }
