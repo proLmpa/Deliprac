@@ -43,6 +43,9 @@ out/
 ### Kotlin ###
 .kotlin
 
+### Monitoring ###
+monitoring/.generated/
+
 ### Frontend ###
 front-service/node_modules/
 front-service/dist/
