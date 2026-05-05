@@ -1,3 +1,17 @@
+// ── Helper: pull → stop → rm → run for a single-service VM ──────────────────
+def deployService(String host, String svc) {
+    sshagent(credentials: [env.SSH_CRED]) {
+        sh """
+            ssh -o StrictHostKeyChecking=no ${host} '
+                docker pull ${env.DOCKER_HUB_USER}/${svc}:${env.IMAGE_TAG}
+                docker stop ${svc} || true
+                docker rm   ${svc} || true
+                docker run -d --name ${svc} --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${env.DOCKER_HUB_USER}/${svc}:${env.IMAGE_TAG}
+            '
+        """
+    }
+}
+
 pipeline {
     agent any
 
@@ -63,40 +77,21 @@ pipeline {
 
         // ── 4. Provision environment variables on every VM ────────────────
         stage('Provision') {
-            parallel {
-                stage('vm-front') {
-                    steps {
-                        sshagent(credentials: [SSH_CRED]) {
-                            sh "ssh -o StrictHostKeyChecking=no ${BFF_HOST} 'grep -qxF SPRING_PROFILES_ACTIVE=prod /etc/environment || echo SPRING_PROFILES_ACTIVE=prod | sudo tee -a /etc/environment'"
-                        }
-                    }
-                }
-                stage('vm-user') {
-                    steps {
-                        sshagent(credentials: [SSH_CRED]) {
-                            sh "ssh -o StrictHostKeyChecking=no ${USER_HOST} 'grep -qxF SPRING_PROFILES_ACTIVE=prod /etc/environment || echo SPRING_PROFILES_ACTIVE=prod | sudo tee -a /etc/environment'"
-                        }
-                    }
-                }
-                stage('vm-store') {
-                    steps {
-                        sshagent(credentials: [SSH_CRED]) {
-                            sh "ssh -o StrictHostKeyChecking=no ${STORE_HOST} 'grep -qxF SPRING_PROFILES_ACTIVE=prod /etc/environment || echo SPRING_PROFILES_ACTIVE=prod | sudo tee -a /etc/environment'"
-                        }
-                    }
-                }
-                stage('vm-order') {
-                    steps {
-                        sshagent(credentials: [SSH_CRED]) {
-                            sh "ssh -o StrictHostKeyChecking=no ${ORDER_HOST} 'grep -qxF SPRING_PROFILES_ACTIVE=prod /etc/environment || echo SPRING_PROFILES_ACTIVE=prod | sudo tee -a /etc/environment'"
-                        }
-                    }
-                }
-                stage('vm-notification') {
-                    steps {
-                        sshagent(credentials: [SSH_CRED]) {
-                            sh "ssh -o StrictHostKeyChecking=no ${NOTIFICATION_HOST} 'grep -qxF SPRING_PROFILES_ACTIVE=prod /etc/environment || echo SPRING_PROFILES_ACTIVE=prod | sudo tee -a /etc/environment'"
-                        }
+            steps {
+                script {
+                    def vmHosts = [
+                        'vm-front':        env.BFF_HOST,
+                        'vm-user':         env.USER_HOST,
+                        'vm-store':        env.STORE_HOST,
+                        'vm-order':        env.ORDER_HOST,
+                        'vm-notification': env.NOTIFICATION_HOST
+                    ]
+                    parallel vmHosts.collectEntries { name, host ->
+                        [(name): {
+                            sshagent(credentials: [env.SSH_CRED]) {
+                                sh "ssh -o StrictHostKeyChecking=no ${host} 'grep -qxF SPRING_PROFILES_ACTIVE=prod /etc/environment || echo SPRING_PROFILES_ACTIVE=prod | sudo tee -a /etc/environment'"
+                            }
+                        }]
                     }
                 }
             }
@@ -104,121 +99,65 @@ pipeline {
 
         // ── 5. Deploy each service to its own VM in parallel ──────────────
         stage('Deploy') {
-            parallel {
+            steps {
+                script {
+                    def tasks = [:]
 
-                // vm-front: bff-service + front-service (Nginx)
-                stage('vm-front') {
-                    steps {
-                        sshagent(credentials: [SSH_CRED]) {
+                    // vm-front: two services on the same host
+                    tasks['vm-front'] = {
+                        sshagent(credentials: [env.SSH_CRED]) {
                             sh """
-                                ssh -o StrictHostKeyChecking=no ${BFF_HOST} '
-                                    docker pull ${DOCKER_HUB_USER}/bff-service:${IMAGE_TAG}
+                                ssh -o StrictHostKeyChecking=no ${env.BFF_HOST} '
+                                    docker pull ${env.DOCKER_HUB_USER}/bff-service:${env.IMAGE_TAG}
                                     docker stop bff-service || true
                                     docker rm   bff-service || true
-                                    docker run -d --name bff-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/bff-service:${IMAGE_TAG}
+                                    docker run -d --name bff-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${env.DOCKER_HUB_USER}/bff-service:${env.IMAGE_TAG}
 
-                                    docker pull ${DOCKER_HUB_USER}/front-service:${IMAGE_TAG}
+                                    docker pull ${env.DOCKER_HUB_USER}/front-service:${env.IMAGE_TAG}
                                     docker stop front-service || true
                                     docker rm   front-service || true
-                                    docker run -d --name front-service --network host --restart unless-stopped ${DOCKER_HUB_USER}/front-service:${IMAGE_TAG}
+                                    docker run -d --name front-service --network host --restart unless-stopped ${env.DOCKER_HUB_USER}/front-service:${env.IMAGE_TAG}
                                 '
                             """
                         }
                     }
-                }
 
-                // vm-user: user-service (DB is a separate container already running on this VM)
-                stage('vm-user') {
-                    steps {
-                        sshagent(credentials: [SSH_CRED]) {
-                            sh """
-                                ssh -o StrictHostKeyChecking=no ${USER_HOST} '
-                                    docker pull ${DOCKER_HUB_USER}/user-service:${IMAGE_TAG}
-                                    docker stop user-service || true
-                                    docker rm   user-service || true
-                                    docker run -d --name user-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/user-service:${IMAGE_TAG}
-                                '
-                            """
-                        }
+                    // single-service backend VMs — identical pattern, different host/service
+                    def backendVMs = [
+                        [name: 'vm-user',         host: env.USER_HOST,         svc: 'user-service'],
+                        [name: 'vm-store',        host: env.STORE_HOST,        svc: 'store-service'],
+                        [name: 'vm-order',        host: env.ORDER_HOST,        svc: 'order-service'],
+                        [name: 'vm-notification', host: env.NOTIFICATION_HOST, svc: 'notification-service']
+                    ]
+                    for (vm in backendVMs) {
+                        def name = vm.name
+                        def host = vm.host
+                        def svc  = vm.svc
+                        tasks[name] = { deployService(host, svc) }
                     }
-                }
 
-                // vm-store: store-service
-                stage('vm-store') {
-                    steps {
-                        sshagent(credentials: [SSH_CRED]) {
-                            sh """
-                                ssh -o StrictHostKeyChecking=no ${STORE_HOST} '
-                                    docker pull ${DOCKER_HUB_USER}/store-service:${IMAGE_TAG}
-                                    docker stop store-service || true
-                                    docker rm   store-service || true
-                                    docker run -d --name store-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/store-service:${IMAGE_TAG}
-                                '
-                            """
-                        }
-                    }
-                }
-
-                // vm-order: order-service
-                stage('vm-order') {
-                    steps {
-                        sshagent(credentials: [SSH_CRED]) {
-                            sh """
-                                ssh -o StrictHostKeyChecking=no ${ORDER_HOST} '
-                                    docker pull ${DOCKER_HUB_USER}/order-service:${IMAGE_TAG}
-                                    docker stop order-service || true
-                                    docker rm   order-service || true
-                                    docker run -d --name order-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/order-service:${IMAGE_TAG}
-                                '
-                            """
-                        }
-                    }
-                }
-
-                // vm-notification: notification-service
-                stage('vm-notification') {
-                    steps {
-                        sshagent(credentials: [SSH_CRED]) {
-                            sh """
-                                ssh -o StrictHostKeyChecking=no ${NOTIFICATION_HOST} '
-                                    docker pull ${DOCKER_HUB_USER}/notification-service:${IMAGE_TAG}
-                                    docker stop notification-service || true
-                                    docker rm   notification-service || true
-                                    docker run -d --name notification-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/notification-service:${IMAGE_TAG}
-                                '
-                            """
-                        }
-                    }
-                }
-
-                // vm-monitoring: prometheus + alertmanager + grafana
-                stage('vm-monitoring') {
-                    steps {
+                    // vm-monitoring: distinct — config substitution + scp + 3 containers
+                    tasks['vm-monitoring'] = {
                         withCredentials([
                             string(credentialsId: 'telegram-bot-token', variable: 'TELEGRAM_BOT_TOKEN'),
                             string(credentialsId: 'telegram-chat-id',   variable: 'TELEGRAM_CHAT_ID')
                         ]) {
-                            sshagent(credentials: [SSH_CRED]) {
-                                // Substitute VM hostnames + Telegram credentials into config templates
+                            sshagent(credentials: [env.SSH_CRED]) {
                                 sh """
                                     envsubst < monitoring/prometheus.yml   > /tmp/baemin-prometheus.yml
                                     envsubst < monitoring/alertmanager.yml > /tmp/baemin-alertmanager.yml
                                 """
-
-                                // Copy all config files to the monitoring VM
                                 sh """
-                                    ssh -o StrictHostKeyChecking=no ${MONITORING_HOST} 'mkdir -p /opt/monitoring/grafana/provisioning/datasources /opt/monitoring/grafana/provisioning/dashboards /opt/monitoring/grafana/dashboards'
-                                    scp -o StrictHostKeyChecking=no /tmp/baemin-prometheus.yml                                           ${MONITORING_HOST}:/opt/monitoring/prometheus.yml
-                                    scp -o StrictHostKeyChecking=no /tmp/baemin-alertmanager.yml                                         ${MONITORING_HOST}:/opt/monitoring/alertmanager.yml
-                                    scp -o StrictHostKeyChecking=no monitoring/alerting-rules.yml                                        ${MONITORING_HOST}:/opt/monitoring/alerting-rules.yml
-                                    scp -o StrictHostKeyChecking=no monitoring/grafana/provisioning/datasources/prometheus.yml            ${MONITORING_HOST}:/opt/monitoring/grafana/provisioning/datasources/prometheus.yml
-                                    scp -o StrictHostKeyChecking=no monitoring/grafana/provisioning/dashboards/dashboard.yml              ${MONITORING_HOST}:/opt/monitoring/grafana/provisioning/dashboards/dashboard.yml
-                                    scp -o StrictHostKeyChecking=no monitoring/grafana/dashboards/baemin.json                            ${MONITORING_HOST}:/opt/monitoring/grafana/dashboards/baemin.json
+                                    ssh -o StrictHostKeyChecking=no ${env.MONITORING_HOST} 'mkdir -p /opt/monitoring/grafana/provisioning/datasources /opt/monitoring/grafana/provisioning/dashboards /opt/monitoring/grafana/dashboards'
+                                    scp -o StrictHostKeyChecking=no /tmp/baemin-prometheus.yml                                        ${env.MONITORING_HOST}:/opt/monitoring/prometheus.yml
+                                    scp -o StrictHostKeyChecking=no /tmp/baemin-alertmanager.yml                                      ${env.MONITORING_HOST}:/opt/monitoring/alertmanager.yml
+                                    scp -o StrictHostKeyChecking=no monitoring/alerting-rules.yml                                     ${env.MONITORING_HOST}:/opt/monitoring/alerting-rules.yml
+                                    scp -o StrictHostKeyChecking=no monitoring/grafana/provisioning/datasources/prometheus.yml         ${env.MONITORING_HOST}:/opt/monitoring/grafana/provisioning/datasources/prometheus.yml
+                                    scp -o StrictHostKeyChecking=no monitoring/grafana/provisioning/dashboards/dashboard.yml           ${env.MONITORING_HOST}:/opt/monitoring/grafana/provisioning/dashboards/dashboard.yml
+                                    scp -o StrictHostKeyChecking=no monitoring/grafana/dashboards/baemin.json                         ${env.MONITORING_HOST}:/opt/monitoring/grafana/dashboards/baemin.json
                                 """
-
-                                // Recreate containers
                                 sh """
-                                    ssh -o StrictHostKeyChecking=no ${MONITORING_HOST} '
+                                    ssh -o StrictHostKeyChecking=no ${env.MONITORING_HOST} '
                                         docker network create monitoring 2>/dev/null || true
 
                                         docker stop prometheus alertmanager grafana || true
@@ -245,6 +184,8 @@ pipeline {
                             }
                         }
                     }
+
+                    parallel tasks
                 }
             }
         }
