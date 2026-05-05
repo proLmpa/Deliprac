@@ -5,7 +5,6 @@ pipeline {
         DOCKER_HUB_USER   = 'prolmpa'
         DOCKER_HUB_CRED   = credentials('docker-hub-cred')
         SSH_CRED          = 'deploy-ssh-key'
-        IMAGE_TAG         = "${BUILD_NUMBER}"
     }
 
     stages {
@@ -22,6 +21,9 @@ pipeline {
         // ── 2. Build container images ──────────────────────────────────────
         stage('Build Images') {
             steps {
+                script {
+                    env.IMAGE_TAG = sh(script: 'git rev-parse --short=12 HEAD', returnStdout: true).trim()
+                }
                 sh './gradlew bootJar -x test'
 
                 script {
@@ -110,15 +112,15 @@ pipeline {
                         sshagent(credentials: [SSH_CRED]) {
                             sh """
                                 ssh -o StrictHostKeyChecking=no ${BFF_HOST} '
-                                    docker pull ${DOCKER_HUB_USER}/bff-service:latest
+                                    docker pull ${DOCKER_HUB_USER}/bff-service:${IMAGE_TAG}
                                     docker stop bff-service || true
                                     docker rm   bff-service || true
-                                    docker run -d --name bff-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/bff-service:latest
+                                    docker run -d --name bff-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/bff-service:${IMAGE_TAG}
 
-                                    docker pull ${DOCKER_HUB_USER}/front-service:latest
+                                    docker pull ${DOCKER_HUB_USER}/front-service:${IMAGE_TAG}
                                     docker stop front-service || true
                                     docker rm   front-service || true
-                                    docker run -d --name front-service --network host --restart unless-stopped ${DOCKER_HUB_USER}/front-service:latest
+                                    docker run -d --name front-service --network host --restart unless-stopped ${DOCKER_HUB_USER}/front-service:${IMAGE_TAG}
                                 '
                             """
                         }
@@ -131,10 +133,10 @@ pipeline {
                         sshagent(credentials: [SSH_CRED]) {
                             sh """
                                 ssh -o StrictHostKeyChecking=no ${USER_HOST} '
-                                    docker pull ${DOCKER_HUB_USER}/user-service:latest
+                                    docker pull ${DOCKER_HUB_USER}/user-service:${IMAGE_TAG}
                                     docker stop user-service || true
                                     docker rm   user-service || true
-                                    docker run -d --name user-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/user-service:latest
+                                    docker run -d --name user-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/user-service:${IMAGE_TAG}
                                 '
                             """
                         }
@@ -147,10 +149,10 @@ pipeline {
                         sshagent(credentials: [SSH_CRED]) {
                             sh """
                                 ssh -o StrictHostKeyChecking=no ${STORE_HOST} '
-                                    docker pull ${DOCKER_HUB_USER}/store-service:latest
+                                    docker pull ${DOCKER_HUB_USER}/store-service:${IMAGE_TAG}
                                     docker stop store-service || true
                                     docker rm   store-service || true
-                                    docker run -d --name store-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/store-service:latest
+                                    docker run -d --name store-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/store-service:${IMAGE_TAG}
                                 '
                             """
                         }
@@ -163,10 +165,10 @@ pipeline {
                         sshagent(credentials: [SSH_CRED]) {
                             sh """
                                 ssh -o StrictHostKeyChecking=no ${ORDER_HOST} '
-                                    docker pull ${DOCKER_HUB_USER}/order-service:latest
+                                    docker pull ${DOCKER_HUB_USER}/order-service:${IMAGE_TAG}
                                     docker stop order-service || true
                                     docker rm   order-service || true
-                                    docker run -d --name order-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/order-service:latest
+                                    docker run -d --name order-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/order-service:${IMAGE_TAG}
                                 '
                             """
                         }
@@ -179,10 +181,10 @@ pipeline {
                         sshagent(credentials: [SSH_CRED]) {
                             sh """
                                 ssh -o StrictHostKeyChecking=no ${NOTIFICATION_HOST} '
-                                    docker pull ${DOCKER_HUB_USER}/notification-service:latest
+                                    docker pull ${DOCKER_HUB_USER}/notification-service:${IMAGE_TAG}
                                     docker stop notification-service || true
                                     docker rm   notification-service || true
-                                    docker run -d --name notification-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/notification-service:latest
+                                    docker run -d --name notification-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${DOCKER_HUB_USER}/notification-service:${IMAGE_TAG}
                                 '
                             """
                         }
