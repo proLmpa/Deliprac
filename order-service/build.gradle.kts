@@ -21,6 +21,8 @@ dependencies {
     kapt("com.querydsl:querydsl-apt:5.1.0:jakarta")
     kapt("jakarta.persistence:jakarta.persistence-api")
     kapt("jakarta.annotation:jakarta.annotation-api")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    runtimeOnly("io.micrometer:micrometer-registry-prometheus")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 }

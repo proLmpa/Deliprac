@@ -1,0 +1,178 @@
+{
+  "title": "Baemin Services",
+  "uid": "baemin-overview",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "15s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(jvm_memory_used_bytes, application)",
+        "multi": true,
+        "includeAll": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP Request Rate (req/s)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=~\"$service\"}[1m])) by (application)",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "HTTP P99 Latency (s)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{application=~\"$service\"}[1m])) by (le, application))",
+          "legendFormat": "{{application}} p99"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "HTTP Error Rate (5xx req/s)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=~\"$service\", status=~\"5..\"}[1m])) by (application)",
+          "legendFormat": "{{application}} 5xx"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "JVM Heap Used (bytes)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{application=~\"$service\", area=\"heap\"}",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "CPU Usage",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "process_cpu_usage{application=~\"$service\"}",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Live Threads",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "jvm_threads_live_threads{application=~\"$service\"}",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Circuit Breaker State  (0=CLOSED  1=OPEN  2=HALF_OPEN)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "red",   "value": 1 },
+              { "color": "yellow","value": 2 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(resilience4j_circuitbreaker_state{state=\"open\"}) by (name, application) * 1 + max(resilience4j_circuitbreaker_state{state=\"half_open\"}) by (name, application) * 2",
+          "legendFormat": "{{application}} / {{name}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Circuit Breaker Failure Rate (%)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "resilience4j_circuitbreaker_failure_rate{application=~\"$service\"}",
+          "legendFormat": "{{application}} / {{name}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Circuit Breaker Call Outcomes (calls/s)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(resilience4j_circuitbreaker_calls_seconds_count{application=~\"$service\"}[1m])) by (application, name, kind)",
+          "legendFormat": "{{application}} / {{name}} / {{kind}}"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "GC Pause Rate (pauses/s)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 40, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(jvm_gc_pause_seconds_count{application=~\"$service\"}[1m])) by (application)",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "JVM Non-Heap Used (bytes)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 40, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{application=~\"$service\", area=\"nonheap\"}",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    }
+  ]
+}

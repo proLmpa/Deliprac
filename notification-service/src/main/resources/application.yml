@@ -22,3 +22,12 @@ spring:
       - "pgsql.yaml"
       - "jwt.yaml"
       - "hmac.yaml"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}

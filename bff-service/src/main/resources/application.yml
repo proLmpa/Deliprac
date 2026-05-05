@@ -24,10 +24,20 @@ spring:
       - "backend.yaml"
       - "hmac.yaml"
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
 resilience4j:
   circuitbreaker:
     instances:
       notification:
+        register-health-indicator: true
         sliding-window-type: COUNT_BASED
         sliding-window-size: 10
         minimum-number-of-calls: 5

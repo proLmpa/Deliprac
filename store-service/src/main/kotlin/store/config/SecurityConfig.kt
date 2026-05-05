@@ -46,6 +46,7 @@ class SecurityConfig(
                     "/api/stores/products/find",
                     "/api/stores/reviews/list"
                 ).permitAll()
+                it.requestMatchers("/actuator/**").permitAll()
                 it.anyRequest().authenticated()
             }
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)

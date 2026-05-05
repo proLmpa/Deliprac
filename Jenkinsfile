@@ -190,6 +190,62 @@ pipeline {
                         }
                     }
                 }
+
+                // vm-monitoring: prometheus + alertmanager + grafana
+                stage('vm-monitoring') {
+                    steps {
+                        withCredentials([
+                            string(credentialsId: 'telegram-bot-token', variable: 'TELEGRAM_BOT_TOKEN'),
+                            string(credentialsId: 'telegram-chat-id',   variable: 'TELEGRAM_CHAT_ID')
+                        ]) {
+                            sshagent(credentials: [SSH_CRED]) {
+                                // Substitute VM hostnames + Telegram credentials into config templates
+                                sh """
+                                    envsubst < monitoring/prometheus.yml   > /tmp/baemin-prometheus.yml
+                                    envsubst < monitoring/alertmanager.yml > /tmp/baemin-alertmanager.yml
+                                """
+
+                                // Copy all config files to the monitoring VM
+                                sh """
+                                    ssh -o StrictHostKeyChecking=no ${MONITORING_HOST} 'mkdir -p /opt/monitoring/grafana/provisioning/datasources /opt/monitoring/grafana/provisioning/dashboards /opt/monitoring/grafana/dashboards'
+                                    scp -o StrictHostKeyChecking=no /tmp/baemin-prometheus.yml                                           ${MONITORING_HOST}:/opt/monitoring/prometheus.yml
+                                    scp -o StrictHostKeyChecking=no /tmp/baemin-alertmanager.yml                                         ${MONITORING_HOST}:/opt/monitoring/alertmanager.yml
+                                    scp -o StrictHostKeyChecking=no monitoring/alerting-rules.yml                                        ${MONITORING_HOST}:/opt/monitoring/alerting-rules.yml
+                                    scp -o StrictHostKeyChecking=no monitoring/grafana/provisioning/datasources/prometheus.yml            ${MONITORING_HOST}:/opt/monitoring/grafana/provisioning/datasources/prometheus.yml
+                                    scp -o StrictHostKeyChecking=no monitoring/grafana/provisioning/dashboards/dashboard.yml              ${MONITORING_HOST}:/opt/monitoring/grafana/provisioning/dashboards/dashboard.yml
+                                    scp -o StrictHostKeyChecking=no monitoring/grafana/dashboards/baemin.json                            ${MONITORING_HOST}:/opt/monitoring/grafana/dashboards/baemin.json
+                                """
+
+                                // Recreate containers
+                                sh """
+                                    ssh -o StrictHostKeyChecking=no ${MONITORING_HOST} '
+                                        docker network create monitoring 2>/dev/null || true
+
+                                        docker stop prometheus alertmanager grafana || true
+                                        docker rm   prometheus alertmanager grafana || true
+
+                                        docker run -d --name prometheus --network monitoring --restart unless-stopped \\
+                                            -p 9090:9090 \\
+                                            -v /opt/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro \\
+                                            -v /opt/monitoring/alerting-rules.yml:/etc/prometheus/alerting-rules.yml:ro \\
+                                            prom/prometheus:v2.53.4
+
+                                        docker run -d --name alertmanager --network monitoring --restart unless-stopped \\
+                                            -p 9093:9093 \\
+                                            -v /opt/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro \\
+                                            prom/alertmanager:v0.27.0
+
+                                        docker run -d --name grafana --network monitoring --restart unless-stopped \\
+                                            -p 3000:3000 \\
+                                            -v /opt/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro \\
+                                            -v /opt/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro \\
+                                            grafana/grafana:11.4.0
+                                    '
+                                """
+                            }
+                        }
+                    }
+                }
             }
         }
     }
