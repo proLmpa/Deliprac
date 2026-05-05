@@ -14,6 +14,9 @@ class HmacRequestFilter(
     private val windowMs: Long = 30_000L
 ) : OncePerRequestFilter() {
 
+    override fun shouldNotFilter(request: HttpServletRequest): Boolean =
+        request.requestURI.startsWith("/actuator/")
+
     override fun doFilterInternal(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
         val timestampHeader = req.getHeader(HmacUtils.TIMESTAMP_HEADER)
         val signatureHeader = req.getHeader(HmacUtils.SIGNATURE_HEADER)
