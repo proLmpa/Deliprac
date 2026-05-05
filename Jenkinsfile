@@ -1,12 +1,15 @@
 // ── Helper: pull → stop → rm → run for a single-service VM ──────────────────
-def deployService(String host, String svc) {
+def deployService(String host, String svc, String extraEnv = '') {
     sshagent(credentials: [env.SSH_CRED]) {
         sh """
             ssh -o StrictHostKeyChecking=no ${host} '
                 docker pull ${env.DOCKER_HUB_USER}/${svc}:${env.IMAGE_TAG}
                 docker stop ${svc} || true
                 docker rm   ${svc} || true
-                docker run -d --name ${svc} --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${env.DOCKER_HUB_USER}/${svc}:${env.IMAGE_TAG}
+                docker run -d --name ${svc} --network host \
+                    -e SPRING_PROFILES_ACTIVE=prod \
+                    ${extraEnv} \
+                    --restart unless-stopped ${env.DOCKER_HUB_USER}/${svc}:${env.IMAGE_TAG}
             '
         """
     }
@@ -111,7 +114,17 @@ pipeline {
                                     docker pull ${env.DOCKER_HUB_USER}/bff-service:${env.IMAGE_TAG}
                                     docker stop bff-service || true
                                     docker rm   bff-service || true
-                                    docker run -d --name bff-service --network host -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped ${env.DOCKER_HUB_USER}/bff-service:${env.IMAGE_TAG}
+                                    docker run -d --name bff-service --network host \
+                                        -e SPRING_PROFILES_ACTIVE=prod \
+                                        -e USER_SERVICE_URL=${env.USER_SERVICE_URL} \
+                                        -e STORE_SERVICE_URL=${env.STORE_SERVICE_URL} \
+                                        -e ORDER_SERVICE_URL=${env.ORDER_SERVICE_URL} \
+                                        -e NOTIFICATION_SERVICE_URL=${env.NOTIFICATION_SERVICE_URL} \
+                                        -e BFF_HMAC_USER_SECRET=${env.BFF_HMAC_USER_SECRET} \
+                                        -e BFF_HMAC_STORE_SECRET=${env.BFF_HMAC_STORE_SECRET} \
+                                        -e BFF_HMAC_ORDER_SECRET=${env.BFF_HMAC_ORDER_SECRET} \
+                                        -e BFF_HMAC_NOTIF_SECRET=${env.BFF_HMAC_NOTIF_SECRET} \
+                                        --restart unless-stopped ${env.DOCKER_HUB_USER}/bff-service:${env.IMAGE_TAG}
 
                                     docker pull ${env.DOCKER_HUB_USER}/front-service:${env.IMAGE_TAG}
                                     docker stop front-service || true
@@ -124,16 +137,21 @@ pipeline {
 
                     // single-service backend VMs — identical pattern, different host/service
                     def backendVMs = [
-                        [name: 'vm-user',         host: env.USER_HOST,         svc: 'user-service'],
-                        [name: 'vm-store',        host: env.STORE_HOST,        svc: 'store-service'],
-                        [name: 'vm-order',        host: env.ORDER_HOST,        svc: 'order-service'],
-                        [name: 'vm-notification', host: env.NOTIFICATION_HOST, svc: 'notification-service']
+                        [name: 'vm-user',         host: env.USER_HOST,         svc: 'user-service',
+                         extraEnv: "-e DB_URL=${env.USER_DB_URL} -e DB_USERNAME=${env.USER_DB_USERNAME} -e DB_PASSWORD=${env.USER_DB_PASSWORD} -e JWT_SECRET=${env.JWT_SECRET} -e BFF_HMAC_USER_SECRET=${env.BFF_HMAC_USER_SECRET}"],
+                        [name: 'vm-store',        host: env.STORE_HOST,        svc: 'store-service',
+                         extraEnv: "-e DB_URL=${env.STORE_DB_URL} -e DB_USERNAME=${env.STORE_DB_USERNAME} -e DB_PASSWORD=${env.STORE_DB_PASSWORD} -e JWT_SECRET=${env.JWT_SECRET} -e BFF_HMAC_STORE_SECRET=${env.BFF_HMAC_STORE_SECRET}"],
+                        [name: 'vm-order',        host: env.ORDER_HOST,        svc: 'order-service',
+                         extraEnv: "-e DB_URL=${env.ORDER_DB_URL} -e DB_USERNAME=${env.ORDER_DB_USERNAME} -e DB_PASSWORD=${env.ORDER_DB_PASSWORD} -e JWT_SECRET=${env.JWT_SECRET} -e BFF_HMAC_ORDER_SECRET=${env.BFF_HMAC_ORDER_SECRET}"],
+                        [name: 'vm-notification', host: env.NOTIFICATION_HOST, svc: 'notification-service',
+                         extraEnv: "-e DB_URL=${env.NOTIF_DB_URL} -e DB_USERNAME=${env.NOTIF_DB_USERNAME} -e DB_PASSWORD=${env.NOTIF_DB_PASSWORD} -e JWT_SECRET=${env.JWT_SECRET} -e BFF_HMAC_NOTIF_SECRET=${env.BFF_HMAC_NOTIF_SECRET}"]
                     ]
                     for (vm in backendVMs) {
-                        def name = vm.name
-                        def host = vm.host
-                        def svc  = vm.svc
-                        tasks[name] = { deployService(host, svc) }
+                        def name     = vm.name
+                        def host     = vm.host
+                        def svc      = vm.svc
+                        def extraEnv = vm.extraEnv
+                        tasks[name] = { deployService(host, svc, extraEnv) }
                     }
 
                     // vm-monitoring: distinct — config substitution + scp + 3 containers
