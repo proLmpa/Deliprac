@@ -22,21 +22,22 @@ New-Item -ItemType Directory -Force -Path ($genDir -replace '/', '\') | Out-Null
 
 # Substitute placeholders in config templates
 $hosts = @{
-    '${BFF_HOST}'          = 'host.docker.internal'
-    '${USER_HOST}'         = 'host.docker.internal'
-    '${STORE_HOST}'        = 'host.docker.internal'
-    '${ORDER_HOST}'        = 'host.docker.internal'
-    '${NOTIFICATION_HOST}' = 'host.docker.internal'
+    '${BFF_IP}'          = 'host.docker.internal'
+    '${USER_IP}'         = 'host.docker.internal'
+    '${STORE_IP}'        = 'host.docker.internal'
+    '${ORDER_IP}'        = 'host.docker.internal'
+    '${NOTIFICATION_IP}' = 'host.docker.internal'
 }
 
 $prometheusConfig = Get-Content "$scriptDir/prometheus.yml" -Raw
 foreach ($k in $hosts.Keys) { $prometheusConfig = $prometheusConfig.Replace($k, $hosts[$k]) }
 $genDirWin = $genDir -replace '/', '\'
-[System.IO.File]::WriteAllText("$genDirWin\prometheus.yml",   $prometheusConfig,   [System.Text.Encoding]::UTF8)
+$utf8NoBom = New-Object System.Text.Encoding.UTF8Encoding $false
+[System.IO.File]::WriteAllText("$genDirWin\prometheus.yml",   $prometheusConfig,   $utf8NoBom)
 
 $alertmanagerConfig = Get-Content "$scriptDir/alertmanager.yml" -Raw
 $alertmanagerConfig = $alertmanagerConfig.Replace('${TELEGRAM_BOT_TOKEN}', $token).Replace('${TELEGRAM_CHAT_ID}', $chatId)
-[System.IO.File]::WriteAllText("$genDirWin\alertmanager.yml", $alertmanagerConfig, [System.Text.Encoding]::UTF8)
+[System.IO.File]::WriteAllText("$genDirWin\alertmanager.yml", $alertmanagerConfig, $utf8NoBom)
 
 # Create shared network
 docker network create monitoring 2>$null
