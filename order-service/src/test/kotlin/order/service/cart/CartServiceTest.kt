@@ -51,7 +51,7 @@ class CartServiceTest {
     @Test
     fun `addItem - creates new cart when no active cart exists`() {
         val newCart = makeCart()
-        given(cartRepository.findByUserIdAndIsOrderedFalse(userId)).willReturn(null)
+        given(cartRepository.findFirstByUserIdAndIsOrderedFalse(userId)).willReturn(null)
         given(cartRepository.save(any(Cart::class.java))).willReturn(newCart)
         given(cartProductRepository.findByCartIdAndProductId(cartId, productId)).willReturn(null)
         given(cartProductRepository.save(any(CartProduct::class.java))).willReturn(makeCartProduct())
@@ -66,7 +66,7 @@ class CartServiceTest {
     @Test
     fun `addItem - reuses active cart with same store`() {
         val activeCart = makeCart()
-        given(cartRepository.findByUserIdAndIsOrderedFalse(userId)).willReturn(activeCart)
+        given(cartRepository.findFirstByUserIdAndIsOrderedFalse(userId)).willReturn(activeCart)
         given(cartProductRepository.findByCartIdAndProductId(cartId, productId)).willReturn(null)
         given(cartProductRepository.save(any(CartProduct::class.java))).willReturn(makeCartProduct())
         given(cartProductRepository.findAllByCartId(cartId)).willReturn(listOf(makeCartProduct()))
@@ -80,7 +80,7 @@ class CartServiceTest {
     fun `addItem - resets cart when product is from a different store`() {
         val activeCart = makeCart(storeId = 999L)
         val resetCart = makeCart()
-        given(cartRepository.findByUserIdAndIsOrderedFalse(userId)).willReturn(activeCart)
+        given(cartRepository.findFirstByUserIdAndIsOrderedFalse(userId)).willReturn(activeCart)
         given(cartRepository.save(any(Cart::class.java))).willReturn(resetCart)
         given(cartProductRepository.findByCartIdAndProductId(cartId, productId)).willReturn(null)
         given(cartProductRepository.save(any(CartProduct::class.java))).willReturn(makeCartProduct())
@@ -95,7 +95,7 @@ class CartServiceTest {
     fun `addItem - increments quantity when item already in cart`() {
         val existingItem = makeCartProduct()
         val activeCart = makeCart()
-        given(cartRepository.findByUserIdAndIsOrderedFalse(userId)).willReturn(activeCart)
+        given(cartRepository.findFirstByUserIdAndIsOrderedFalse(userId)).willReturn(activeCart)
         given(cartProductRepository.findByCartIdAndProductId(cartId, productId)).willReturn(existingItem)
         given(cartProductRepository.save(any(CartProduct::class.java))).willReturn(existingItem)
         given(cartProductRepository.findAllByCartId(cartId)).willReturn(listOf(existingItem))
@@ -109,7 +109,7 @@ class CartServiceTest {
 
     @Test
     fun `getMyCart - returns active cart info`() {
-        given(cartRepository.findByUserIdAndIsOrderedFalse(userId)).willReturn(makeCart())
+        given(cartRepository.findFirstByUserIdAndIsOrderedFalse(userId)).willReturn(makeCart())
         given(cartProductRepository.findAllByCartId(cartId)).willReturn(listOf(makeCartProduct()))
 
         val result = cartService.getMyCart(userId)
@@ -120,7 +120,7 @@ class CartServiceTest {
 
     @Test
     fun `getMyCart - no active cart throws IllegalArgumentException`() {
-        given(cartRepository.findByUserIdAndIsOrderedFalse(userId)).willReturn(null)
+        given(cartRepository.findFirstByUserIdAndIsOrderedFalse(userId)).willReturn(null)
 
         assertThatThrownBy { cartService.getMyCart(userId) }
             .isInstanceOf(NotFoundException::class.java)

@@ -26,7 +26,7 @@ class CartService(
 
     @Transactional
     fun addItem(request: AddCartItemRequest, userId: Long): CartResponse {
-        val activeCart = cartRepository.findByUserIdAndIsOrderedFalse(userId)
+        val activeCart = cartRepository.findFirstByUserIdAndIsOrderedFalse(userId)
 
         val cart: Cart = when {
             activeCart == null                    -> createCart(userId, request.storeId)
@@ -47,7 +47,7 @@ class CartService(
 
     @Transactional(readOnly = true)
     fun getMyCart(userId: Long): CartResponse {
-        val cart = cartRepository.findByUserIdAndIsOrderedFalse(userId)
+        val cart = cartRepository.findFirstByUserIdAndIsOrderedFalse(userId)
             ?: throw NotFoundException("Not found")
 
         return CartResponse.of(cart, cartProductRepository.findAllByCartId(cart.id))
