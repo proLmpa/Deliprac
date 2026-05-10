@@ -18,7 +18,7 @@ export default function NotificationsPage() {
     mutationFn: markRead,
     onSuccess: (_, notificationId) => {
       queryClient.setQueryData(['notifications'], (old: NotificationResponse[] | undefined) =>
-        old?.map((n) => (n.id === notificationId ? { ...n, read: true } : n)) ?? []
+        old?.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n)) ?? []
       )
     },
   })
@@ -27,13 +27,13 @@ export default function NotificationsPage() {
     mutationFn: markAllRead,
     onSuccess: () => {
       queryClient.setQueryData(['notifications'], (old: NotificationResponse[] | undefined) =>
-        old?.map((n) => ({ ...n, read: true })) ?? []
+        old?.map((n) => ({ ...n, isRead: true })) ?? []
       )
     },
   })
 
   function handleNotificationClick(n: NotificationResponse) {
-    if (!n.read) markReadMutation.mutate(n.id)
+    if (!n.isRead) markReadMutation.mutate(n.id)
     if (n.type === 'NEW_ORDER' && n.storeId !== null) {
       navigate(`/owner/stores/${n.storeId}/orders`)
     } else if (n.type === 'ORDER_SOLD' || n.type === 'ORDER_CANCELED') {
@@ -51,7 +51,7 @@ export default function NotificationsPage() {
           variant="secondary"
           size="sm"
           onClick={() => markAllReadMutation.mutate()}
-          disabled={notifications.every((n) => n.read)}
+          disabled={notifications.every((n) => n.isRead)}
         >
           Mark all read
         </Button>
@@ -66,21 +66,21 @@ export default function NotificationsPage() {
               key={n.id}
               onClick={() => handleNotificationClick(n)}
               className={`p-4 rounded-lg border flex items-start justify-between gap-4 cursor-pointer hover:brightness-95 ${
-                n.read ? 'bg-gray-100 border-gray-200' : 'bg-orange-50 border-orange-200'
+                n.isRead ? 'bg-gray-100 border-gray-200' : 'bg-orange-50 border-orange-200'
               }`}
             >
               <div className="flex-1 min-w-0">
-                <p className={`font-semibold ${n.read ? 'text-gray-400' : 'text-gray-900'}`}>
+                <p className={`font-semibold ${n.isRead ? 'text-gray-400' : 'text-gray-900'}`}>
                   {n.title}
                 </p>
-                <div className={`text-sm mt-0.5 ${n.read ? 'text-gray-400' : 'text-gray-600'}`}>
+                <div className={`text-sm mt-0.5 ${n.isRead ? 'text-gray-400' : 'text-gray-600'}`}>
                   {n.items.length > 0 ? (
                     <table className="text-sm w-full mt-1">
                       <tbody>
                         {n.items.map((item, i) => (
                           <tr key={i}>
                             <td className="pr-3">{item.productName}</td>
-                            <td className={`pr-3 ${n.read ? 'text-gray-400' : 'text-gray-500'}`}>₩{item.unitPrice.toLocaleString()}</td>
+                            <td className={`pr-3 ${n.isRead ? 'text-gray-400' : 'text-gray-500'}`}>₩{item.unitPrice.toLocaleString()}</td>
                             <td>× {item.quantity}</td>
                           </tr>
                         ))}
@@ -99,9 +99,9 @@ export default function NotificationsPage() {
                     <p className="text-xs text-gray-500 mt-0.5">{n.storeName}</p>
                   )}
                 </div>
-                <p className={`text-xs mt-1 ${n.read ? 'text-gray-300' : 'text-gray-400'}`}>{format(n.issuedAt, 'yyyy-MM-dd HH:mm')}</p>
+                <p className={`text-xs mt-1 ${n.isRead ? 'text-gray-300' : 'text-gray-400'}`}>{format(n.issuedAt, 'yyyy-MM-dd HH:mm')}</p>
               </div>
-              {!n.read && (
+              {!n.isRead && (
                 <Button
                   variant="ghost"
                   size="sm"
