@@ -349,7 +349,7 @@ markAllRead()                    PUT  /api/notifications/read-all (no body)
   content: string
   storeId: number | null
   storeName: string | null
-  read: boolean         // ⚠ Java bean convention: Kotlin `isRead` → JSON `"read"`
+  isRead: boolean
   issuedAt: number      // epoch millis
   expiry: number        // epoch millis
   createdAt: number     // epoch millis
@@ -361,11 +361,6 @@ markAllRead()                    PUT  /api/notifications/read-all (no body)
 ---
 
 ## Known Patterns & Pitfalls
-
-### ⚠ API modules need rewriting
-The existing `src/api/*.ts` files use REST-style GET/PUT/DELETE with path variables.
-The BFF uses POST+body for all reads and IDs in the body for mutations.
-Every API module must be rewritten to match the BFF API Reference above.
 
 ### DELETE with JSON body
 `removeCartItem` and `clearCart` and `deleteReview` send a JSON body on DELETE requests.

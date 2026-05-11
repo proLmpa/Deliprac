@@ -16,6 +16,7 @@ flowchart TB
     end
 
     subgraph svc ["Backend Services"]
+        direction LR
         US["user-service :8081\nAuth · JWT issue"]
         SS["store-service :8082\nStores · Products · Reviews · Statistics"]
         OS["order-service :8083\nCart · Orders · Statistics"]
@@ -23,10 +24,17 @@ flowchart TB
     end
 
     subgraph db ["PostgreSQL Databases"]
+        direction LR
         UD[("userdb\n:5433")]
         SD[("storedb\n:5434")]
         OD[("orderdb\n:5435")]
         ND[("notificationdb\n:5436")]
+    end
+
+    subgraph mon ["Monitoring"]
+        direction LR
+        PR["Prometheus :9090"] --> AM["Alertmanager :9093"] --> TG(["Telegram"])
+        PR --> GF["Grafana :3000"]
     end
 
     C --> BFF
@@ -36,6 +44,8 @@ flowchart TB
     SS --> SD
     OS --> OD
     NS --> ND
+
+    US & SS & OS & NS -->|metrics| PR
 ```
 
 All client requests flow through the BFF, which aggregates cross-service calls and forwards them to the appropriate backend service. There are no direct service-to-service calls between backend services. Each service owns its own PostgreSQL database. Foreign-key-like references across services (e.g. `store_id` in `orders`) are plain `BIGINT` columns — no ORM join, no FK constraint across DB boundaries.
@@ -66,10 +76,12 @@ The BFF (Backend for Frontend) sits between the client and the four backend serv
 | Security | Spring Security 7, JWT (jjwt 0.12) |
 | Persistence | Spring Data JPA, Hibernate, QueryDSL 5.1 |
 | Database | PostgreSQL 16 |
+| Resilience | Resilience4j 2.3 (circuit breaker) |
+| Observability | Spring Boot Actuator, Micrometer, Prometheus, Grafana, Alertmanager |
 | Build | Gradle 9 (Kotlin DSL), kapt |
 | Java | JDK 24 |
 | Testing | JUnit 5, Mockito 5, MockMvc |
-| Infrastructure | Docker Compose |
+| Infrastructure | Docker, Jenkins |
 
 ---
 
@@ -302,6 +314,24 @@ Notifications are created by the BFF immediately after order mutations — no me
 
 **Delivery:** notifications are created in a background thread (`CompletableFuture.runAsync`) after the BFF returns its response to the client. Failures are swallowed silently and do not affect the API caller. The frontend polls `/api/notifications/list` every 30 seconds; recipients see new notifications within one poll cycle assuming the async call succeeds.
 
+### Resilience4j circuit breaker on NotificationClient
+
+All four `NotificationClient` methods are annotated `@CircuitBreaker(name = "notification")`. Configuration (COUNT_BASED): sliding window 10, minimum calls 5, 50% failure threshold, 30 s open wait, 3 permitted calls in half-open, auto-transition enabled.
+
+**Fallback behaviour:** the fire-and-forget `createNotification` logs a warning and returns silently; user-facing methods (`listMyNotifications`, `markRead`, `markAllRead`) return empty results or `Unit` so the API caller is unaffected. The circuit breaker state is exposed via `/actuator/prometheus` and triggers the Alertmanager `CircuitBreakerOpen` alert.
+
+### Monitoring — Prometheus, Grafana, Alertmanager
+
+All five services expose Prometheus metrics at `/actuator/prometheus` (Spring Boot Actuator + Micrometer). A dedicated `vm-monitoring` VM runs three containers in a shared `monitoring` Docker network:
+
+| Container | Image | Port | Role |
+|---|---|---|---|
+| `prometheus` | `prom/prometheus:v2.53.4` | 9090 | Scrapes `/actuator/prometheus` from all 5 services every 15 s |
+| `alertmanager` | `prom/alertmanager:v0.27.0` | 9093 | Routes firing alerts to Telegram |
+| `grafana` | `grafana/grafana:11.4.0` | 3000 | Dashboard provisioned from `monitoring/grafana/` |
+
+Alert rule: `CircuitBreakerOpen` — fires immediately when `resilience4j_circuitbreaker_state{state="open"} == 1`, sending a Telegram message via Alertmanager. Config files (`prometheus.yml`, `alertmanager.yml`) are templates with `${VAR}` placeholders substituted by `envsubst` on the Jenkins agent before being copied to the monitoring VM.
+
 ### BFF-to-backend HMAC signing
 
 All four `RestClient` beans in the BFF have an `HmacSigningInterceptor` that signs every outgoing request. The signature covers method, path, timestamp, and a SHA-256 hash of the request body:
@@ -310,7 +340,7 @@ All four `RestClient` beans in the BFF have an `HmacSigningInterceptor` that sig
 signature = HMAC-SHA256(secret, METHOD + "\n" + PATH + "\n" + TIMESTAMP_MS + "\n" + SHA256(body))
 ```
 
-The result is sent as two headers: `X-Bff-Timestamp` (epoch milliseconds) and `X-Bff-Signature` (hex). Each backend service runs `HmacRequestFilter` at `HIGHEST_PRECEDENCE` — before Spring Security — and rejects any request that fails the following checks:
+The result is sent as two headers: `X-Bff-Timestamp` (epoch milliseconds) and `X-Bff-Signature` (hex). Each backend service runs `HmacRequestFilter` at `HIGHEST_PRECEDENCE` — before Spring Security — and rejects any request that fails the following checks. `/actuator/**` paths are exempt from HMAC validation to allow Prometheus scraping without authentication.
 
 | Check | Response |
 |---|---|
@@ -458,18 +488,23 @@ flowchart LR
         CO["1. Checkout"]
         BI["2. Build Images\n./gradlew bootJar\ndocker build × 6"]
         PI["3. Push Images\ndocker push × 6"]
-        TM["4. Terminate\ndocker compose down"]
-        DP["5. Deploy\ndocker compose pull\ndocker compose up -d"]
+        PV["4. Provision\nSPRING_PROFILES_ACTIVE=prod\n→ /etc/environment (parallel)"]
+        DP["5. Deploy\ndocker run (parallel)"]
     end
 
-    subgraph vm ["Single Deploy VM"]
-        DC["docker-compose.prod.yml\n(all services + DBs)"]
+    subgraph vms ["Dedicated VMs"]
+        VF["vm-front\nbff-service + front-service"]
+        VU["vm-user\nuser-service"]
+        VS["vm-store\nstore-service"]
+        VO["vm-order\norder-service"]
+        VN["vm-notification\nnotification-service"]
+        VM["vm-monitoring\nPrometheus · Alertmanager · Grafana"]
     end
 
-    GH -->|push| CO --> BI --> PI --> TM --> DP
+    GH -->|push| CO --> BI --> PI --> PV --> DP
     PI --> DH
     DH --> DP
-    DP --> DC
+    DP --> VF & VU & VS & VO & VN & VM
 ```
 
 ### Stages
@@ -477,24 +512,26 @@ flowchart LR
 | Stage | What happens |
 |---|---|
 | **Checkout** | Pulls `main` branch from GitHub |
-| **Build Images** | `./gradlew bootJar -x test` — produces fat JARs; `docker build` for all 6 services (5 Spring + `front-service`); each image tagged with `BUILD_NUMBER` and `latest` |
+| **Build Images** | `./gradlew bootJar -x test` — produces fat JARs; `docker build` for all 6 services (5 Spring + `front-service`); each image tagged with a 12-char git SHA and `latest` |
 | **Push Images** | `docker login` with `docker-hub-cred`; pushes both tags for all 6 images to Docker Hub; removes local images immediately after push to prevent disk exhaustion |
-| **Terminate** | SSH into the deploy VM; runs `docker compose down` to stop all running containers |
-| **Deploy** | SSH into the deploy VM; uploads `docker-compose.prod.yml` → `/opt/baemin/docker-compose.yml` and all four schema SQL files → `/opt/baemin/schema/`; runs `docker compose pull && docker compose up -d` |
+| **Provision** | Parallel SSH to all 5 service VMs; idempotently appends `SPRING_PROFILES_ACTIVE=prod` to `/etc/environment` if not already present |
+| **Deploy** | Fully parallel `docker pull` + `docker run` to each dedicated VM; DB URLs, JWT secret, and HMAC secrets injected via `-e`; vm-monitoring recreates Prometheus, Alertmanager, and Grafana with config files substituted by `envsubst` and copied via SCP |
 
-All services and databases run on a single VM inside a shared `baemin-net` bridge network. Database ports are not exposed to the host — services reach each other via container names (e.g. `jdbc:postgresql://user-db:5432/userdb`). Only `front-service` exposes port `80`.
+Each backend service runs in its own Docker container on a dedicated VM using `--network host` and `--restart unless-stopped`. Runtime secrets (DB connection strings, JWT secret, HMAC secrets) are injected as environment variables — no secrets appear in the `Jenkinsfile` or images. vm-front hosts both `bff-service` (port 8080) and `front-service` (Nginx, port 80). vm-monitoring runs Prometheus, Alertmanager, and Grafana in a shared `monitoring` Docker network.
 
-Schema files are mounted into the PostgreSQL containers as init-scripts (`/docker-entrypoint-initdb.d/schema.sql`) — applied automatically on first start when the volume is empty; ignored on subsequent starts.
+### Jenkins Credentials & Global Env Vars
 
-### Jenkins Credentials
-
-All secrets are stored as Jenkins credentials — no IPs, usernames, or secrets appear in the `Jenkinsfile`.
+Credentials stored in Jenkins — no values appear in the `Jenkinsfile`:
 
 | Credential ID | Type | Used for |
 |---|---|---|
 | `github-cred` | Username/password | Checkout from GitHub |
 | `docker-hub-cred` | Username/password | `docker login` to Docker Hub |
-| `deploy-ssh-key` | SSH private key | `sshagent` for SSH/SCP to deploy VM |
+| `deploy-ssh-key` | SSH private key | `sshagent` for SSH/SCP to all deploy VMs |
+| `telegram-bot-token` | Secret text | Alertmanager webhook to Telegram |
+| `telegram-chat-id` | Secret text | Alertmanager webhook to Telegram |
+
+VM host addresses (`BFF_HOST`, `USER_HOST`, `STORE_HOST`, `ORDER_HOST`, `NOTIFICATION_HOST`, `MONITORING_HOST`), service URLs, DB connection strings, JWT secret, and HMAC secrets are stored as Jenkins Global Environment Variables.
 
 ---
 

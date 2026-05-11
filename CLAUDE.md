@@ -70,7 +70,7 @@ order-service/         ← port 8083 — carts, orders, order statistics
 notification-service/  ← port 8084 — per-user notifications (created by BFF, read by frontend via BFF)
 ```
 
-**Tech stack:** Kotlin 2.x, Spring Boot 4, Spring Security, Spring Data JPA + QueryDSL 5.1, PostgreSQL, jjwt 0.12, JUnit 5
+**Tech stack:** Kotlin 2.x, Spring Boot 4, Spring Security, Spring Data JPA + QueryDSL 5.1, PostgreSQL, jjwt 0.12, Resilience4j 2.3 (circuit breaker), Spring Boot Actuator + Micrometer (Prometheus metrics), JUnit 5
 
 ---
 
@@ -104,6 +104,10 @@ Each response includes `type` (`https://baemin.com/problems/{slug}`), `instance`
 ```kotlin
 fun <T> Optional<T>.orThrow(msg: String): T = orElseThrow { NotFoundException(msg) }
 ```
+
+**`HmacRequestFilter`** (`common/src/main/kotlin/common/security/HmacRequestFilter.kt`)
+
+Validates `X-Bff-Timestamp` + `X-Bff-Signature` headers on every inbound request before Spring Security runs. Rejects direct (non-BFF) callers with `401`. Checks: headers present, timestamp within ±30 s, HMAC-SHA256 matches. `/actuator/**` is exempt via `shouldNotFilter` to allow Prometheus scraping without authentication.
 
 ---
 
@@ -280,6 +284,8 @@ fun jwtAuthFilterRegistration(jwtAuthFilter: JwtAuthenticationFilter): FilterReg
 
 **Client wrappers** (`client/` package): one `RestClient`-based class per backend service (`UserClient`, `StoreClient`, `OrderClient`, `NotificationClient`). Each method maps to one backend endpoint and forwards the JWT header. `NotificationClient.createNotification` calls `/internal/notifications` without a JWT (BFF is the trusted caller).
 
+**Resilience4j circuit breaker** (`NotificationClient`): all four methods are annotated `@CircuitBreaker(name = "notification")`. Configuration: COUNT_BASED sliding window of 10, minimum 5 calls, 50% failure threshold, 30 s open wait, 3 permitted calls in half-open, auto-transition enabled. Fire-and-forget fallback (`createNotification`) logs a warning silently; user-facing fallbacks return empty results so the caller is unaffected. The CB state is exposed via `/actuator/prometheus` and triggers the `CircuitBreakerOpen` Alertmanager alert.
+
 **Does not use `common` security filter** — the BFF is not a resource server. It does not validate JWT tokens itself; it only forwards them.
 
 ---
@@ -437,6 +443,7 @@ PUT   /api/notifications/read-all    → mark all read (any auth)
 
 ## JPA Notes
 
+- `open-in-view: false` — explicitly disabled in all backend services to avoid keeping a database connection open for the full HTTP request lifecycle
 - `ddl-auto: validate` — schema must exist before startup; Hibernate never creates tables
 - Primary keys: `Long` with `@GeneratedValue(strategy = GenerationType.IDENTITY)`; pass `0L` for new entities
 - All entities must be `open class` — required for Hibernate proxy generation (`allOpen` plugin in root `build.gradle.kts`)
