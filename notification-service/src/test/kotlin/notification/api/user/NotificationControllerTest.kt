@@ -1,4 +1,4 @@
-package notification.api
+package notification.api.user
 
 import common.exception.ForbiddenException
 import common.exception.NotFoundException
@@ -6,11 +6,11 @@ import common.security.UserRole
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
 import notification.config.SecurityConfig
-import notification.dto.CreateNotificationRequest
-import notification.dto.NotificationResponse
-import notification.entity.Notification
-import notification.entity.NotificationType
-import notification.service.NotificationService
+import notification.dto.user.CreateNotificationRequest
+import notification.dto.user.NotificationResponse
+import notification.entity.user.Notification
+import notification.entity.user.NotificationType
+import notification.service.user.NotificationService
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.willDoNothing

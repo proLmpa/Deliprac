@@ -1,12 +1,12 @@
-package notification.service
+package notification.service.user
 
 import common.exception.ForbiddenException
 import common.orThrow
-import notification.dto.CreateNotificationRequest
-import notification.dto.NotificationResponse
-import notification.entity.Notification
-import notification.entity.NotificationItemData
-import notification.repository.NotificationRepository
+import notification.dto.user.CreateNotificationRequest
+import notification.dto.user.NotificationResponse
+import notification.entity.user.Notification
+import notification.entity.user.NotificationItemData
+import notification.repository.user.NotificationRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -40,7 +40,7 @@ class NotificationService(private val notificationRepository: NotificationReposi
 
     @Transactional
     fun markRead(userId: Long, notificationId: Long): NotificationResponse {
-        val notification = notificationRepository.findById(notificationId).orThrow("Not found")
+        val notification = notificationRepository.findById(notificationId).orThrow("Notification not found")
         if (notification.userId != userId) throw ForbiddenException("Forbidden")
         notification.isRead = true
         return NotificationResponse.of(notificationRepository.save(notification))

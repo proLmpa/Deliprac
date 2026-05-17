@@ -1,4 +1,4 @@
-package notification.entity
+package notification.entity.user
 
 import jakarta.persistence.Column
 import jakarta.persistence.Convert

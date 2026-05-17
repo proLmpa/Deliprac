@@ -1,4 +1,4 @@
-package notification.entity
+package notification.entity.user
 
 data class NotificationItemData(
     val productName: String = "",

@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
@@ -41,6 +42,8 @@ class SecurityConfig(
             .authorizeHttpRequests {
                 it.requestMatchers("/internal/**").permitAll()
                 it.requestMatchers("/actuator/**").permitAll()
+                it.requestMatchers(HttpMethod.POST, "/api/public-notifications").hasAuthority("ADMIN")
+                it.requestMatchers("/api/public-notifications/deactivate").hasAuthority("ADMIN")
                 it.anyRequest().authenticated()
             }
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)

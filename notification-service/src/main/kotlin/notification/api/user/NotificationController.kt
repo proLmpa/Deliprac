@@ -1,11 +1,11 @@
-package notification.api
+package notification.api.user
 
 import common.security.currentUser
-import notification.dto.CreateNotificationRequest
-import notification.dto.ListNotificationRequest
-import notification.dto.MarkReadRequest
-import notification.dto.NotificationResponse
-import notification.service.NotificationService
+import notification.dto.user.CreateNotificationRequest
+import notification.dto.user.ListNotificationRequest
+import notification.dto.user.MarkReadRequest
+import notification.dto.user.NotificationResponse
+import notification.service.user.NotificationService
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping

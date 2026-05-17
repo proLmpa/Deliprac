@@ -1,4 +1,4 @@
-package notification.entity
+package notification.entity.user
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import jakarta.persistence.AttributeConverter

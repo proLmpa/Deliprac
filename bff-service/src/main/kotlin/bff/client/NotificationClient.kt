@@ -1,8 +1,11 @@
 package bff.client
 
+import bff.dto.CreatePublicNotificationRequest
+import bff.dto.DeactivatePublicNotificationRequest
 import bff.dto.ListNotificationRequest
 import bff.dto.MarkReadRequest
 import bff.dto.NotificationResponse
+import bff.dto.PublicNotificationResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import org.springframework.beans.factory.annotation.Qualifier
@@ -81,5 +84,47 @@ class NotificationClient(@Qualifier("notificationRestClient") private val client
 
     private fun markAllReadFallback(token: String, ex: Throwable) {
         log.warn { "${"[CB] markAllRead fallback: {}"} ${ex.message}" }
+    }
+
+    @CircuitBreaker(name = "notification", fallbackMethod = "listPublicNotificationsFallback")
+    fun listPublicNotifications(token: String): List<PublicNotificationResponse> =
+        client.post()
+            .uri("/api/public-notifications/list")
+            .header("Authorization", token)
+            .retrieve()
+            .body(object : ParameterizedTypeReference<List<PublicNotificationResponse>>() {})!!
+
+    private fun listPublicNotificationsFallback(token: String, ex: Throwable): List<PublicNotificationResponse> {
+        log.warn { "[CB] listPublicNotifications fallback: ${ex.message}" }
+        return emptyList()
+    }
+
+    @CircuitBreaker(name = "notification", fallbackMethod = "createPublicNotificationFallback")
+    fun createPublicNotification(request: CreatePublicNotificationRequest, token: String): PublicNotificationResponse =
+        client.post()
+            .uri("/api/public-notifications")
+            .header("Authorization", token)
+            .body(request)
+            .retrieve()
+            .body(PublicNotificationResponse::class.java)!!
+
+    private fun createPublicNotificationFallback(request: CreatePublicNotificationRequest, token: String, ex: Throwable): PublicNotificationResponse {
+        log.warn { "[CB] createPublicNotification fallback: ${ex.message}" }
+        throw ex
+    }
+
+    @CircuitBreaker(name = "notification", fallbackMethod = "deactivatePublicNotificationFallback")
+    fun deactivatePublicNotification(request: DeactivatePublicNotificationRequest, token: String): Unit =
+        client.put()
+            .uri("/api/public-notifications/deactivate")
+            .header("Authorization", token)
+            .body(request)
+            .retrieve()
+            .toBodilessEntity()
+            .let {}
+
+    private fun deactivatePublicNotificationFallback(request: DeactivatePublicNotificationRequest, token: String, ex: Throwable) {
+        log.warn { "[CB] deactivatePublicNotification fallback: ${ex.message}" }
+        throw ex
     }
 }

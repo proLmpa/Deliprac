@@ -15,14 +15,15 @@ spring:
   profiles:
     default: dev
     group:
-      dev:  [pgsql-dev,  jwt-dev,  hmac-dev]
-      test: [pgsql-test, jwt-test, hmac-test]
-      prod: [pgsql-prod, jwt-prod, hmac-prod]
+      dev:  [pgsql-dev,  jwt-dev,  hmac-dev,  redis-dev]
+      test: [pgsql-test, jwt-test, hmac-test, redis-test]
+      prod: [pgsql-prod, jwt-prod, hmac-prod, redis-prod]
   config:
     import:
       - "pgsql.yaml"
       - "jwt.yaml"
       - "hmac.yaml"
+      - "redis.yaml"
 
 management:
   endpoints:

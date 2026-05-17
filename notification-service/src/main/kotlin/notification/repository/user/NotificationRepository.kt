@@ -1,6 +1,6 @@
-package notification.repository
+package notification.repository.user
 
-import notification.entity.Notification
+import notification.entity.user.Notification
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface NotificationRepository : JpaRepository<Notification, Long> {

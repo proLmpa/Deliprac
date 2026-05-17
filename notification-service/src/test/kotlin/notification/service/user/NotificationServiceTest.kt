@@ -1,11 +1,11 @@
-package notification.service
+package notification.service.user
 
 import common.exception.ForbiddenException
 import common.exception.NotFoundException
-import notification.dto.CreateNotificationRequest
-import notification.entity.Notification
-import notification.entity.NotificationType
-import notification.repository.NotificationRepository
+import notification.dto.user.CreateNotificationRequest
+import notification.entity.user.Notification
+import notification.entity.user.NotificationType
+import notification.repository.user.NotificationRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test

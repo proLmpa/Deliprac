@@ -1,7 +1,7 @@
-package notification.dto
+package notification.dto.user
 
-import notification.entity.Notification
-import notification.entity.NotificationType
+import notification.entity.user.Notification
+import notification.entity.user.NotificationType
 
 data class NotificationItemResponse(
     val productName: String,

@@ -21,3 +21,14 @@ ALTER TABLE notifications ADD COLUMN IF NOT EXISTS store_name VARCHAR(255);
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS items      TEXT         NOT NULL DEFAULT '[]';
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS issued_at  BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS expiry     BIGINT NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS public_notifications (
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    title      VARCHAR(255) NOT NULL,
+    content    TEXT         NOT NULL,
+    is_active  BOOLEAN      NOT NULL DEFAULT TRUE,
+    issued_at  BIGINT       NOT NULL,
+    expires_at BIGINT       NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_public_notifications_is_active ON public_notifications(is_active);
