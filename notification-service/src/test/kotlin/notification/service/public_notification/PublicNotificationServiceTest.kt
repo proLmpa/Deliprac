@@ -48,7 +48,7 @@ class PublicNotificationServiceTest {
     @BeforeEach
     fun setUp() {
         given(stringRedisTemplate.opsForValue()).willReturn(valueOperations)
-        service = PublicNotificationService(repository, caffeineCache, stringRedisTemplate)
+        service = PublicNotificationService(repository, caffeineCache, stringRedisTemplate, CACHE_KEY, 10L)
     }
 
     private fun makeEntity(): PublicNotification {

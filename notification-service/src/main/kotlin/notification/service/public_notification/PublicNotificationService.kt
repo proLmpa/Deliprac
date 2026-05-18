@@ -9,6 +9,7 @@ import notification.dto.public_notification.DeactivatePublicNotificationRequest
 import notification.dto.public_notification.PublicNotificationResponse
 import notification.entity.public_notification.PublicNotification
 import notification.repository.public_notification.PublicNotificationRepository
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -19,35 +20,32 @@ class PublicNotificationService(
     private val repository: PublicNotificationRepository,
     private val caffeineCache: Cache<String, Any>,
     private val stringRedisTemplate: StringRedisTemplate,
+    @Value("\${notification.cache.key}") private val cacheKey: String,
+    @Value("\${notification.cache.redis-ttl-minutes}") private val redisTtlMinutes: Long,
 ) {
     private val objectMapper = jacksonObjectMapper()
 
-    companion object {
-        private const val CACHE_KEY = "public-notifications:active"
-        private const val REDIS_TTL_MINUTES = 10L
-    }
-
     @Transactional(readOnly = true)
     fun listActive(): List<PublicNotificationResponse> {
-        caffeineCache.getIfPresent(CACHE_KEY)?.let {
+        caffeineCache.getIfPresent(cacheKey)?.let {
             @Suppress("UNCHECKED_CAST")
             return it as List<PublicNotificationResponse>
         }
 
-        stringRedisTemplate.opsForValue().get(CACHE_KEY)?.let { json ->
+        stringRedisTemplate.opsForValue().get(cacheKey)?.let { json ->
             val data = objectMapper.readValue<List<PublicNotificationResponse>>(json)
-            caffeineCache.put(CACHE_KEY, data)
+            caffeineCache.put(cacheKey, data)
             return data
         }
 
         val data = repository.findAllByIsActiveTrue().map { PublicNotificationResponse.of(it) }
         stringRedisTemplate.opsForValue().set(
-            CACHE_KEY,
+            cacheKey,
             objectMapper.writeValueAsString(data),
-            REDIS_TTL_MINUTES,
+            redisTtlMinutes,
             TimeUnit.MINUTES,
         )
-        caffeineCache.put(CACHE_KEY, data)
+        caffeineCache.put(cacheKey, data)
         return data
     }
 
@@ -74,7 +72,7 @@ class PublicNotificationService(
     }
 
     private fun evictCache() {
-        stringRedisTemplate.delete(CACHE_KEY)
-        caffeineCache.invalidate(CACHE_KEY)
+        stringRedisTemplate.delete(cacheKey)
+        caffeineCache.invalidate(cacheKey)
     }
 }

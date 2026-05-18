@@ -1,3 +1,9 @@
+notification:
+  cache:
+    key: "public-notifications:active"
+    redis-ttl-minutes: 10
+    caffeine-max-size: 100
+    caffeine-ttl-minutes: 1
 ---
 spring:
   config:
