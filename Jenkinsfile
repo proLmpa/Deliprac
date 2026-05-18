@@ -144,7 +144,7 @@ pipeline {
                         [name: 'vm-order',        host: env.ORDER_HOST,        svc: 'order-service',
                          extraEnv: "-e DB_URL=${env.ORDER_DB_URL} -e DB_USERNAME=${env.ORDER_DB_USERNAME} -e DB_PASSWORD=${env.ORDER_DB_PASSWORD} -e JWT_SECRET=${env.JWT_SECRET} -e BFF_HMAC_ORDER_SECRET=${env.BFF_HMAC_ORDER_SECRET}"],
                         [name: 'vm-notification', host: env.NOTIFICATION_HOST, svc: 'notification-service',
-                         extraEnv: "-e DB_URL=${env.NOTIF_DB_URL} -e DB_USERNAME=${env.NOTIF_DB_USERNAME} -e DB_PASSWORD=${env.NOTIF_DB_PASSWORD} -e JWT_SECRET=${env.JWT_SECRET} -e BFF_HMAC_NOTIF_SECRET=${env.BFF_HMAC_NOTIF_SECRET}"]
+                         extraEnv: "-e DB_URL=${env.NOTIF_DB_URL} -e DB_USERNAME=${env.NOTIF_DB_USERNAME} -e DB_PASSWORD=${env.NOTIF_DB_PASSWORD} -e JWT_SECRET=${env.JWT_SECRET} -e BFF_HMAC_NOTIF_SECRET=${env.BFF_HMAC_NOTIF_SECRET} -e REDIS_HOST=${env.REDIS_HOST} -e REDIS_PORT=${env.REDIS_PORT}"]
                     ]
                     for (vm in backendVMs) {
                         def name     = vm.name
