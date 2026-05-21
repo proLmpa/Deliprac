@@ -18,6 +18,9 @@ import SpendingStats from './pages/customer/SpendingStats'
 // Shared pages
 import NotificationsPage from './pages/NotificationsPage'
 
+// Admin pages
+import PublicNotificationsAdmin from './pages/admin/PublicNotificationsAdmin'
+
 // Owner pages
 import MyStores from './pages/owner/MyStores'
 import StoreForm from './pages/owner/StoreForm'
@@ -87,6 +90,12 @@ export default function App() {
           <Route
             path="/owner/stores/:id/revenue"
             element={<RequireAuth role="OWNER"><RevenueStats /></RequireAuth>}
+          />
+
+          {/* Admin only */}
+          <Route
+            path="/admin/public-notifications"
+            element={<RequireAuth role="ADMIN"><PublicNotificationsAdmin /></RequireAuth>}
           />
 
           {/* Default */}

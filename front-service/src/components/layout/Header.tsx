@@ -50,6 +50,11 @@ export default function Header() {
               </Link>
             </>
           )}
+          {token && role === 'ADMIN' && (
+            <Link to="/admin/public-notifications" className="hover:underline">
+              Announcements
+            </Link>
+          )}
           {token && (
             <Link to="/notifications" className="relative hover:underline">
               🔔

@@ -42,6 +42,7 @@ class SecurityConfig(
             .authorizeHttpRequests {
                 it.requestMatchers("/internal/**").permitAll()
                 it.requestMatchers("/actuator/**").permitAll()
+                it.requestMatchers(HttpMethod.POST, "/api/public-notifications/list").permitAll()
                 it.requestMatchers(HttpMethod.POST, "/api/public-notifications").hasAuthority("ADMIN")
                 it.requestMatchers("/api/public-notifications/deactivate").hasAuthority("ADMIN")
                 it.anyRequest().authenticated()
