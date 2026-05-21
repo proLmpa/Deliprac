@@ -76,6 +76,7 @@ The BFF (Backend for Frontend) sits between the client and the four backend serv
 | Security | Spring Security 7, JWT (jjwt 0.12) |
 | Persistence | Spring Data JPA, Hibernate, QueryDSL 5.1 |
 | Database | PostgreSQL 16 |
+| Caching | Caffeine (L1, in-process) + Redis (L2, shared) |
 | Resilience | Resilience4j 2.3 (circuit breaker) |
 | Observability | Spring Boot Actuator, Micrometer, Prometheus, Grafana, Alertmanager |
 | Build | Gradle 9 (Kotlin DSL), kapt |
@@ -172,6 +173,8 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 
 ### notification-service · `:8084`
 
+#### User Notifications
+
 | Method | Path | Auth | Body / Notes |
 |--------|------|------|--------------|
 | `POST` | `/api/notifications/list` | Any | `{ unreadOnly: Boolean }` → `List<NotificationResponse>` |
@@ -179,6 +182,14 @@ All read operations use `POST` with a JSON request body. Mutation operations use
 | `PUT`  | `/api/notifications/read-all` | Any | *(no body)* — mark all as read |
 
 `/internal/notifications` (no JWT) is called by the BFF to create notifications — it is not exposed to clients.
+
+#### Public Notifications
+
+| Method | Path | Auth | Body / Notes |
+|--------|------|------|--------------|
+| `POST` | `/api/public-notifications/list` | Public | *(no body)* → `List<PublicNotificationResponse>` — served from two-level cache |
+| `POST` | `/api/public-notifications` | ADMIN | `{ title, content, expiresAt }` → `201 Created` |
+| `PUT`  | `/api/public-notifications/deactivate` | ADMIN | `{ notificationId }` — soft-deactivate |
 
 ---
 
@@ -313,6 +324,48 @@ Notifications are created by the BFF immediately after order mutations — no me
 **userId security:** `StoreResponse.userId` and `OrderResponse.userId` are annotated `@get:JsonIgnore` / `@param:JsonProperty` — deserialized from backend services, never serialized to the frontend. The recipient's `userId` only ever exists inside the BFF at request time.
 
 **Delivery:** notifications are created in a background thread (`CompletableFuture.runAsync`) after the BFF returns its response to the client. Failures are swallowed silently and do not affect the API caller. The frontend polls `/api/notifications/list` every 30 seconds; recipients see new notifications within one poll cycle assuming the async call succeeds.
+
+### Two-level cache for public notifications (Caffeine + Redis)
+
+`POST /api/public-notifications/list` is called on every page load — including by unauthenticated visitors — making it the highest-frequency read endpoint in the system. To avoid a database hit on every request, notification-service uses a two-level read-through cache with write-through eviction.
+
+**Read path (`listActive`)**
+
+```
+Request
+  │
+  ├─ L1 hit  → Caffeine (in-process, TTL 1 min)  ──────────────────────► return
+  │
+  ├─ L1 miss → Redis (shared, TTL 10 min) ──► repopulate Caffeine ──────► return
+  │
+  └─ L2 miss → PostgreSQL ──► write to Redis + Caffeine ─────────────────► return
+```
+
+**Write path (create / deactivate)**
+
+Both mutations call `evictCache()` immediately after the DB write, invalidating both layers atomically:
+
+```kotlin
+private fun evictCache() {
+    stringRedisTemplate.delete(cacheKey)   // evict Redis
+    caffeineCache.invalidate(cacheKey)     // evict Caffeine
+}
+```
+
+The next read after any mutation falls all the way through to the DB and repopulates both layers, ensuring stale data is never served after a change.
+
+**Cache parameters**
+
+| Layer | Implementation | TTL | Scope |
+|---|---|---|---|
+| L1 | Caffeine (`Cache<String, Any>`) | 1 minute | Per JVM instance |
+| L2 | Redis (`StringRedisTemplate`, JSON) | 10 minutes | Shared across all instances |
+
+The Caffeine TTL is intentionally shorter than Redis so that in a multi-instance deployment, stale L1 entries expire quickly while Redis continues to absorb DB traffic.
+
+**Cache key:** `public-notifications:active` — the entire active list is stored as a single JSON array under one key. Invalidation is therefore O(1) regardless of how many notifications exist.
+
+---
 
 ### Resilience4j circuit breaker on NotificationClient
 
@@ -462,6 +515,14 @@ erDiagram
         bigint    issued_at
         bigint    expiry
         bigint    created_at
+    }
+    public_notifications {
+        bigserial id PK
+        varchar   title
+        text      content
+        boolean   is_active   "indexed — list query filters by this"
+        bigint    issued_at
+        bigint    expires_at
     }
 
     %% relationships within storedb
