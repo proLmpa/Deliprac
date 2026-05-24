@@ -23,20 +23,29 @@ pipeline {
                 script {
                     env.IMAGE_TAG = sh(script: 'git rev-parse --short=12 HEAD', returnStdout: true).trim()
                 }
-                sh './gradlew bootJar -x test'
+                sh './gradlew bootJar -x test --parallel --build-cache'
 
                 script {
                     def springServices = [
                         'bff-service', 'user-service', 'store-service',
                         'order-service', 'notification-service'
                     ]
+                    // Copy jars first (sequential — fast)
                     for (svc in springServices) {
-                        // Rename to app.jar so each Dockerfile has a fixed COPY target
                         sh "find ${svc}/build/libs -name '*.jar' ! -name '*plain*' ! -name 'app.jar' | head -1 | xargs -I{} cp {} ${svc}/build/libs/app.jar"
-                        sh "docker build -t ${DOCKER_HUB_USER}/${svc}:${IMAGE_TAG} -t ${DOCKER_HUB_USER}/${svc}:latest ./${svc}"
                     }
-                    // front-service: multi-stage Dockerfile handles npm build internally
-                    sh "docker build -t ${DOCKER_HUB_USER}/front-service:${IMAGE_TAG} -t ${DOCKER_HUB_USER}/front-service:latest ./front-service"
+                    // Build all images in parallel
+                    def buildTasks = [:]
+                    for (svc in springServices) {
+                        def s = svc
+                        buildTasks[s] = {
+                            sh "docker build -t ${DOCKER_HUB_USER}/${s}:${IMAGE_TAG} -t ${DOCKER_HUB_USER}/${s}:latest ./${s}"
+                        }
+                    }
+                    buildTasks['front-service'] = {
+                        sh "docker build -t ${DOCKER_HUB_USER}/front-service:${IMAGE_TAG} -t ${DOCKER_HUB_USER}/front-service:latest ./front-service"
+                    }
+                    parallel buildTasks
                 }
             }
         }
@@ -50,12 +59,16 @@ pipeline {
                         'bff-service', 'user-service', 'store-service',
                         'order-service', 'notification-service', 'front-service'
                     ]
+                    def pushTasks = [:]
                     for (svc in allServices) {
-                        sh "docker push ${DOCKER_HUB_USER}/${svc}:${IMAGE_TAG}"
-                        sh "docker push ${DOCKER_HUB_USER}/${svc}:latest"
-                        // Remove local image immediately after push — Jenkins doesn't need to keep it
-                        sh "docker rmi ${DOCKER_HUB_USER}/${svc}:${IMAGE_TAG} ${DOCKER_HUB_USER}/${svc}:latest || true"
+                        def s = svc
+                        pushTasks[s] = {
+                            sh "docker push ${DOCKER_HUB_USER}/${s}:${IMAGE_TAG}"
+                            sh "docker push ${DOCKER_HUB_USER}/${s}:latest"
+                            sh "docker rmi ${DOCKER_HUB_USER}/${s}:${IMAGE_TAG} ${DOCKER_HUB_USER}/${s}:latest || true"
+                        }
                     }
+                    parallel pushTasks
                 }
             }
         }
@@ -117,10 +130,15 @@ pipeline {
                                 sh "kubectl -n baemin set image deployment/${svc} ${svc}=${env.DOCKER_HUB_USER}/${svc}:${env.IMAGE_TAG}"
                             }
 
-                            // Wait for rollouts
+                            // Wait for rollouts in parallel
+                            def rolloutTasks = [:]
                             for (svc in allServices) {
-                                sh "kubectl -n baemin rollout status deployment/${svc} --timeout=180s"
+                                def s = svc
+                                rolloutTasks[s] = {
+                                    sh "kubectl -n baemin rollout status deployment/${s} --timeout=180s"
+                                }
                             }
+                            parallel rolloutTasks
                         }
                     }
 
