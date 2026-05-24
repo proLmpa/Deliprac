@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: front-service
+  namespace: baemin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: front-service
+  template:
+    metadata:
+      labels:
+        app: front-service
+    spec:
+      containers:
+        - name: front-service
+          image: prolmpa/front-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80

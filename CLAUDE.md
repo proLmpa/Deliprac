@@ -70,7 +70,31 @@ order-service/         ← port 8083 — carts, orders, order statistics
 notification-service/  ← port 8084 — per-user notifications (created by BFF, read by frontend via BFF)
 ```
 
-**Tech stack:** Kotlin 2.x, Spring Boot 4, Spring Security, Spring Data JPA + QueryDSL 5.1, PostgreSQL, jjwt 0.12, Resilience4j 2.3 (circuit breaker), Spring Boot Actuator + Micrometer (Prometheus metrics), JUnit 5
+**Kubernetes manifests (`k8s/`):**
+
+```
+k8s/
+├── namespace.yaml                     ← baemin namespace
+├── configmaps/
+│   ├── db-config.yaml                 ← JDBC URLs → dedicated DB VM IPs (192.168.160.101–104:5432)
+│   ├── redis-config.yaml              ← REDIS_HOST=192.168.160.104, REDIS_PORT=6379
+│   └── backend-urls.yaml              ← BFF → ClusterIP DNS for all 4 backends
+├── secrets/                           ← templates (changeme placeholders — real values injected by Jenkins)
+│   ├── common-secret.yaml             ← JWT_SECRET
+│   ├── bff-secret.yaml                ← BFF_HMAC_*_SECRET × 4
+│   ├── user-secret.yaml
+│   ├── store-secret.yaml
+│   ├── order-secret.yaml
+│   └── notification-secret.yaml
+├── deployments/                       ← one Deployment per service (replicas: 1, imagePullPolicy: Always)
+│   └── {service}-deployment.yaml × 6
+└── services/                          ← NodePort Services
+    └── {service}-service.yaml × 6     ← ports 30000, 30080–30084
+```
+
+Services are deployed to a minikube cluster. Each backend service's PostgreSQL runs natively on a dedicated VM (192.168.160.101–104, port 5432); Redis runs natively on vm-notification (192.168.160.104:6379). BFF reaches backends via in-cluster ClusterIP DNS (`http://user-service:8081`, etc.).
+
+**Tech stack:** Kotlin 2.x, Spring Boot 4, Spring Security, Spring Data JPA + QueryDSL 5.1, PostgreSQL, jjwt 0.12, Resilience4j 2.3 (circuit breaker), Spring Boot Actuator + Micrometer (Prometheus metrics), JUnit 5, Kubernetes (minikube)
 
 ---
 

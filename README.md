@@ -82,7 +82,7 @@ The BFF (Backend for Frontend) sits between the client and the four backend serv
 | Build | Gradle 9 (Kotlin DSL), kapt |
 | Java | JDK 24 |
 | Testing | JUnit 5, Mockito 5, MockMvc |
-| Infrastructure | Docker, Jenkins |
+| Infrastructure | Docker, Kubernetes (minikube), Jenkins |
 
 ---
 
@@ -375,15 +375,15 @@ All four `NotificationClient` methods are annotated `@CircuitBreaker(name = "not
 
 ### Monitoring — Prometheus, Grafana, Alertmanager
 
-All five services expose Prometheus metrics at `/actuator/prometheus` (Spring Boot Actuator + Micrometer). A dedicated `vm-monitoring` VM runs three containers in a shared `monitoring` Docker network:
+All five services expose Prometheus metrics at `/actuator/prometheus` (Spring Boot Actuator + Micrometer). A dedicated `vm-monitoring` VM runs all three tools natively as systemd services:
 
-| Container | Image | Port | Role |
+| Service | Package | Port | Role |
 |---|---|---|---|
-| `prometheus` | `prom/prometheus:v2.53.4` | 9090 | Scrapes `/actuator/prometheus` from all 5 services every 15 s |
-| `alertmanager` | `prom/alertmanager:v0.27.0` | 9093 | Routes firing alerts to Telegram |
-| `grafana` | `grafana/grafana:11.4.0` | 3000 | Dashboard provisioned from `monitoring/grafana/` |
+| `prometheus` | `prometheus` (apt) | 9090 | Scrapes `/actuator/prometheus` via minikube NodePorts every 15 s |
+| `prometheus-alertmanager` | `prometheus-alertmanager` (apt) | 9093 | Routes firing alerts to Telegram |
+| `grafana-server` | `grafana` (Grafana apt repo) | 3000 | Dashboard provisioned from `monitoring/grafana/` |
 
-Alert rule: `CircuitBreakerOpen` — fires immediately when `resilience4j_circuitbreaker_state{state="open"} == 1`, sending a Telegram message via Alertmanager. Config files (`prometheus.yml`, `alertmanager.yml`) are templates with `${VAR}` placeholders substituted by `envsubst` on the Jenkins agent before being copied to the monitoring VM.
+Alert rule: `CircuitBreakerOpen` — fires immediately when `resilience4j_circuitbreaker_state{state="open"} == 1`, sending a Telegram message via Alertmanager. Config files (`prometheus.yml`, `alertmanager.yml`) are templates with `${VAR}` placeholders substituted by `envsubst` on the Jenkins agent, then SCP'd to `/opt/monitoring/` on vm-monitoring. Jenkins reloads the services via `sudo systemctl reload`; no process restart is required for config-only changes.
 
 ### BFF-to-backend HMAC signing
 
@@ -547,25 +547,28 @@ flowchart LR
 
     subgraph jenkins ["Jenkins Server"]
         CO["1. Checkout"]
-        BI["2. Build Images\n./gradlew bootJar\ndocker build × 6"]
-        PI["3. Push Images\ndocker push × 6"]
-        PV["4. Provision\nSPRING_PROFILES_ACTIVE=prod\n→ /etc/environment (parallel)"]
-        DP["5. Deploy\ndocker run (parallel)"]
+        BI["2. Build Images\n./gradlew bootJar\ndocker build x 6"]
+        PI["3. Push Images\ndocker push x 6"]
+        DP["4. Deploy\nkubectl + SSH (parallel)"]
     end
 
-    subgraph vms ["Dedicated VMs"]
-        VF["vm-front\nbff-service + front-service"]
-        VU["vm-user\nuser-service"]
-        VS["vm-store\nstore-service"]
-        VO["vm-order\norder-service"]
-        VN["vm-notification\nnotification-service"]
-        VM["vm-monitoring\nPrometheus · Alertmanager · Grafana"]
+    subgraph k8s ["minikube cluster (baemin namespace)"]
+        direction LR
+        BFF["bff-service :30080"]
+        US["user-service :30081"]
+        SS["store-service :30082"]
+        OS["order-service :30083"]
+        NS["notification-service :30084"]
+        FS["front-service :30000"]
     end
 
-    GH -->|push| CO --> BI --> PI --> PV --> DP
+    VM["vm-monitoring\nPrometheus · Alertmanager · Grafana"]
+
+    GH -->|push| CO --> BI --> PI --> DP
     PI --> DH
     DH --> DP
-    DP --> VF & VU & VS & VO & VN & VM
+    DP --> k8s
+    DP -->|SSH| VM
 ```
 
 ### Stages
@@ -575,10 +578,9 @@ flowchart LR
 | **Checkout** | Pulls `main` branch from GitHub |
 | **Build Images** | `./gradlew bootJar -x test` — produces fat JARs; `docker build` for all 6 services (5 Spring + `front-service`); each image tagged with a 12-char git SHA and `latest` |
 | **Push Images** | `docker login` with `docker-hub-cred`; pushes both tags for all 6 images to Docker Hub; removes local images immediately after push to prevent disk exhaustion |
-| **Provision** | Parallel SSH to all 5 service VMs; idempotently appends `SPRING_PROFILES_ACTIVE=prod` to `/etc/environment` if not already present |
-| **Deploy** | Fully parallel `docker pull` + `docker run` to each dedicated VM; DB URLs, JWT secret, and HMAC secrets injected via `-e`; vm-monitoring recreates Prometheus, Alertmanager, and Grafana with config files substituted by `envsubst` and copied via SCP |
+| **Deploy** | Two parallel tasks: (1) **k8s** — applies the `baemin` namespace, injects Kubernetes Secrets from Jenkins credentials (never stored in git), applies ConfigMaps/Deployments/Services from `k8s/`, rolls out the new image tag across all 6 Deployments, and waits for each rollout; (2) **vm-monitoring** — `envsubst` substitutes `${MINIKUBE_IP}` and Telegram credentials into config templates, copies via SCP, and recreates Prometheus, Alertmanager, and Grafana containers |
 
-Each backend service runs in its own Docker container on a dedicated VM using `--network host` and `--restart unless-stopped`. Runtime secrets (DB connection strings, JWT secret, HMAC secrets) are injected as environment variables — no secrets appear in the `Jenkinsfile` or images. vm-front hosts both `bff-service` (port 8080) and `front-service` (Nginx, port 80). vm-monitoring runs Prometheus, Alertmanager, and Grafana in a shared `monitoring` Docker network.
+All 6 services run as Kubernetes Deployments in the `baemin` namespace, exposed via NodePort Services. ConfigMaps supply non-sensitive configuration (JDBC URLs pointing to `host.minikube.internal`, Redis host, backend service URLs). Kubernetes Secrets supply credentials — Jenkins creates them at deploy time using `--dry-run=client | kubectl apply -f -` so no secrets appear in the repo. Prometheus scrapes metrics via minikube NodePorts. The monitoring stack deploys identically to before, only the scrape targets change.
 
 ### Jenkins Credentials & Global Env Vars
 
@@ -588,11 +590,13 @@ Credentials stored in Jenkins — no values appear in the `Jenkinsfile`:
 |---|---|---|
 | `github-cred` | Username/password | Checkout from GitHub |
 | `docker-hub-cred` | Username/password | `docker login` to Docker Hub |
-| `deploy-ssh-key` | SSH private key | `sshagent` for SSH/SCP to all deploy VMs |
+| `deploy-ssh-key` | SSH private key | `sshagent` for SSH/SCP to vm-monitoring |
+| `minikube-kubeconfig` | Secret file | `withKubeConfig` — kubeconfig for the minikube cluster |
 | `telegram-bot-token` | Secret text | Alertmanager webhook to Telegram |
 | `telegram-chat-id` | Secret text | Alertmanager webhook to Telegram |
+| `MINIKUBE_IP` | Secret text | `minikube ip` output — Prometheus NodePort scrape targets |
 
-VM host addresses (`BFF_HOST`, `USER_HOST`, `STORE_HOST`, `ORDER_HOST`, `NOTIFICATION_HOST`, `MONITORING_HOST`), service URLs, DB connection strings, JWT secret, and HMAC secrets are stored as Jenkins Global Environment Variables.
+`MONITORING_HOST`, DB connection strings, JWT secret, and HMAC secrets are stored as Jenkins Global Environment Variables. `MONITORING_HOST` is used for SSH to vm-monitoring; the rest are injected into Kubernetes Secrets at deploy time.
 
 ---
 

@@ -14,24 +14,24 @@ scrape_configs:
   - job_name: bff-service
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ["${BFF_IP}:8080"]
+      - targets: ["${MINIKUBE_IP}:30080"]
 
   - job_name: user-service
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ["${USER_IP}:8081"]
+      - targets: ["${MINIKUBE_IP}:30081"]
 
   - job_name: store-service
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ["${STORE_IP}:8082"]
+      - targets: ["${MINIKUBE_IP}:30082"]
 
   - job_name: order-service
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ["${ORDER_IP}:8083"]
+      - targets: ["${MINIKUBE_IP}:30083"]
 
   - job_name: notification-service
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ["${NOTIFICATION_IP}:8084"]
+      - targets: ["${MINIKUBE_IP}:30084"]
