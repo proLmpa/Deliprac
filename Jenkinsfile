@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
     environment {
         DOCKER_HUB_USER   = 'prolmpa'
         DOCKER_HUB_CRED   = credentials('docker-hub-cred')
@@ -184,8 +188,11 @@ pipeline {
 
     post {
         always {
-            sh 'docker logout || true'
-            sh 'docker image prune -f || true'
+            node('') {
+                sh 'docker logout || true'
+                sh 'docker image prune -af || true'
+                cleanWs()
+            }
         }
         success { echo 'All services deployed successfully.' }
         failure { echo 'Deployment failed — check the stage logs above.' }
