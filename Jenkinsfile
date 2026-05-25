@@ -151,7 +151,8 @@ pipeline {
                         withCredentials([
                             string(credentialsId: 'telegram-bot-token', variable: 'TELEGRAM_BOT_TOKEN'),
                             string(credentialsId: 'telegram-chat-id',   variable: 'TELEGRAM_CHAT_ID'),
-                            string(credentialsId: 'MINIKUBE_IP',        variable: 'MINIKUBE_IP')
+                            string(credentialsId: 'MINIKUBE_IP',        variable: 'MINIKUBE_IP'),
+                            string(credentialsId: 'monitoring-host',    variable: 'MONITORING_HOST')
                         ]) {
                             sshagent(credentials: ['deploy-ssh-key']) {
                                 sh """
@@ -167,12 +168,26 @@ pipeline {
                                     scp -o StrictHostKeyChecking=no monitoring/grafana/provisioning/dashboards/dashboard.yml           ${env.MONITORING_HOST}:/opt/monitoring/grafana/provisioning/dashboards/dashboard.yml
                                     scp -o StrictHostKeyChecking=no monitoring/grafana/dashboards/baemin.json                         ${env.MONITORING_HOST}:/opt/monitoring/grafana/dashboards/baemin.json
                                 """
+                                // Copy staged files to the locations each native service reads from
+                                sh """
+                                    ssh -o StrictHostKeyChecking=no ${env.MONITORING_HOST} '
+                                        sudo cp /opt/monitoring/prometheus.yml              /etc/prometheus/prometheus.yml
+                                        sudo cp /opt/monitoring/alerting-rules.yml          /etc/prometheus/alerting-rules.yml
+                                        sudo mkdir -p /etc/alertmanager
+                                        sudo cp /opt/monitoring/alertmanager.yml            /etc/alertmanager/alertmanager.yml
+                                        sudo mkdir -p /etc/grafana/provisioning/datasources /etc/grafana/provisioning/dashboards /var/lib/grafana/dashboards
+                                        sudo cp /opt/monitoring/grafana/provisioning/datasources/prometheus.yml /etc/grafana/provisioning/datasources/prometheus.yml
+                                        sudo cp /opt/monitoring/grafana/provisioning/dashboards/dashboard.yml   /etc/grafana/provisioning/dashboards/dashboard.yml
+                                        sudo cp /opt/monitoring/grafana/dashboards/baemin.json                  /var/lib/grafana/dashboards/baemin.json
+                                        sudo chown grafana:grafana /var/lib/grafana/dashboards/baemin.json
+                                    '
+                                """
                                 // Reload Prometheus and Alertmanager (config-only reload — no restart needed)
                                 // Restart Grafana to pick up provisioning changes
                                 sh """
                                     ssh -o StrictHostKeyChecking=no ${env.MONITORING_HOST} '
                                         sudo systemctl reload prometheus
-                                        sudo systemctl reload prometheus-alertmanager
+                                        sudo systemctl reload alertmanager
                                         sudo systemctl restart grafana-server
                                     '
                                 """
