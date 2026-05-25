@@ -559,7 +559,7 @@ flowchart LR
         SS["store-service :30082"]
         OS["order-service :30083"]
         NS["notification-service :30084"]
-        FS["front-service :30000"]
+        FS["front-service :9090"]
     end
 
     VM["vm-monitoring\nPrometheus · Alertmanager · Grafana"]

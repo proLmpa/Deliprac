@@ -89,7 +89,7 @@ k8s/
 ├── deployments/                       ← one Deployment per service (replicas: 1, imagePullPolicy: Always)
 │   └── {service}-deployment.yaml × 6
 └── services/                          ← NodePort Services
-    └── {service}-service.yaml × 6     ← ports 30000, 30080–30084
+    └── {service}-service.yaml × 6     ← ports 9090, 30080–30084
 ```
 
 Services are deployed to a minikube cluster. Each backend service's PostgreSQL runs natively on a dedicated VM (192.168.160.101–104, port 5432); Redis runs natively on vm-notification (192.168.160.104:6379). BFF reaches backends via in-cluster ClusterIP DNS (`http://user-service:8081`, etc.).
