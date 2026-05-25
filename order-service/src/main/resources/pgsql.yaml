@@ -25,3 +25,7 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+    hikari:
+      keepalive-time: 30000
+      max-lifetime: 600000
+      connection-timeout: 10000

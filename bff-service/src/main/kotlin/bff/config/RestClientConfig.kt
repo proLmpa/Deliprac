@@ -27,17 +27,17 @@ class RestClientConfig(
 
     @Bean
     fun userRestClient(@Value("\${backend.user-service.url}") url: String): RestClient =
-        RestClient.builder().baseUrl(url).requestFactory(factory(3, 5))
+        RestClient.builder().baseUrl(url).requestFactory(factory(3, 30))
             .requestInterceptor(HmacSigningInterceptor(userSecret)).build()
 
     @Bean
     fun storeRestClient(@Value("\${backend.store-service.url}") url: String): RestClient =
-        RestClient.builder().baseUrl(url).requestFactory(factory(3, 5))
+        RestClient.builder().baseUrl(url).requestFactory(factory(3, 30))
             .requestInterceptor(HmacSigningInterceptor(storeSecret)).build()
 
     @Bean
     fun orderRestClient(@Value("\${backend.order-service.url}") url: String): RestClient =
-        RestClient.builder().baseUrl(url).requestFactory(factory(3, 5))
+        RestClient.builder().baseUrl(url).requestFactory(factory(3, 30))
             .requestInterceptor(HmacSigningInterceptor(orderSecret)).build()
 
     @Bean
