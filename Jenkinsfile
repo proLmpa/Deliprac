@@ -12,6 +12,15 @@ pipeline {
 
     stages {
 
+        // ── 0. Pre-build cleanup ───────────────────────────────────────────
+        stage('Pre-cleanup') {
+            steps {
+                sh 'docker image prune -af || true'
+                sh 'docker container prune -f || true'
+                sh 'docker volume prune -f || true'
+            }
+        }
+
         // ── 1. Bring in sources ────────────────────────────────────────────
         stage('Checkout') {
             steps {
