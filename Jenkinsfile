@@ -182,8 +182,7 @@ pipeline {
                                     ssh -o StrictHostKeyChecking=no $MONITORING_HOST '
                                         sudo cp /opt/monitoring/prometheus.yml              /etc/prometheus/prometheus.yml
                                         sudo cp /opt/monitoring/alerting-rules.yml          /etc/prometheus/alerting-rules.yml
-                                        sudo mkdir -p /etc/alertmanager
-                                        sudo cp /opt/monitoring/alertmanager.yml            /etc/alertmanager/alertmanager.yml
+                                        sudo cp /opt/monitoring/alertmanager.yml            /etc/prometheus/alertmanager.yml
                                         sudo mkdir -p /etc/grafana/provisioning/datasources /etc/grafana/provisioning/dashboards /var/lib/grafana/dashboards
                                         sudo cp /opt/monitoring/grafana/provisioning/datasources/prometheus.yml /etc/grafana/provisioning/datasources/prometheus.yml
                                         sudo cp /opt/monitoring/grafana/provisioning/dashboards/dashboard.yml   /etc/grafana/provisioning/dashboards/dashboard.yml
@@ -196,7 +195,7 @@ pipeline {
                                 sh '''
                                     ssh -o StrictHostKeyChecking=no $MONITORING_HOST '
                                         sudo systemctl reload prometheus
-                                        sudo systemctl reload alertmanager
+                                        sudo systemctl reload prometheus-alertmanager
                                         sudo systemctl restart grafana-server
                                     '
                                 '''
