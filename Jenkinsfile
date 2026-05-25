@@ -152,7 +152,7 @@ pipeline {
                             string(credentialsId: 'telegram-bot-token', variable: 'TELEGRAM_BOT_TOKEN'),
                             string(credentialsId: 'telegram-chat-id',   variable: 'TELEGRAM_CHAT_ID'),
                             string(credentialsId: 'MINIKUBE_IP',        variable: 'MINIKUBE_IP'),
-                            string(credentialsId: 'monitoring-host',    variable: 'MONITORING_HOST')
+                            string(credentialsId: 'MONITORING_HOST',    variable: 'MONITORING_HOST')
                         ]) {
                             sshagent(credentials: ['deploy-ssh-key']) {
                                 sh """
