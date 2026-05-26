@@ -4,39 +4,27 @@ spring:
     activate:
       on-profile: "backend-dev"
 backend:
-  user-service:
-    url: http://localhost:8081
-  store-service:
-    url: http://localhost:8082
-  order-service:
-    url: http://localhost:8083
-  notification-service:
-    url: http://localhost:8084
+  user-url:         http://localhost:8081
+  store-url:        http://localhost:8082
+  order-url:        http://localhost:8083
+  notification-url: http://localhost:8084
 ---
 spring:
   config:
     activate:
       on-profile: "backend-test"
 backend:
-  user-service:
-    url: ${USER_SERVICE_URL}
-  store-service:
-    url: ${STORE_SERVICE_URL}
-  order-service:
-    url: ${ORDER_SERVICE_URL}
-  notification-service:
-    url: ${NOTIFICATION_SERVICE_URL}
+  user-url:         ${USER_SERVICE_URL}
+  store-url:        ${STORE_SERVICE_URL}
+  order-url:        ${ORDER_SERVICE_URL}
+  notification-url: ${NOTIFICATION_SERVICE_URL}
 ---
 spring:
   config:
     activate:
       on-profile: "backend-prod"
 backend:
-  user-service:
-    url: ${USER_SERVICE_URL}
-  store-service:
-    url: ${STORE_SERVICE_URL}
-  order-service:
-    url: ${ORDER_SERVICE_URL}
-  notification-service:
-    url: ${NOTIFICATION_SERVICE_URL}
+  user-url:         ${USER_SERVICE_URL}
+  store-url:        ${STORE_SERVICE_URL}
+  order-url:        ${ORDER_SERVICE_URL}
+  notification-url: ${NOTIFICATION_SERVICE_URL}

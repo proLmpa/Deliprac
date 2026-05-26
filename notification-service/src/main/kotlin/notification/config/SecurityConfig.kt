@@ -4,7 +4,6 @@ import common.security.JwtAuthenticationFilter
 import io.jsonwebtoken.JwtParser
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -18,12 +17,12 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 class SecurityConfig(
-    @Value("\${jwt.secret}") private val secret: String
+    private val jwtProperties: JwtProperties
 ) {
 
     @Bean
     fun jwtParser(): JwtParser = Jwts.parser()
-        .verifyWith(Keys.hmacShaKeyFor(secret.toByteArray(Charsets.UTF_8)))
+        .verifyWith(Keys.hmacShaKeyFor(jwtProperties.secret.toByteArray(Charsets.UTF_8)))
         .build()
 
     @Bean
