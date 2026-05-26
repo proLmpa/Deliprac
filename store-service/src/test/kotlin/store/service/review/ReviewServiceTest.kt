@@ -68,7 +68,7 @@ class ReviewServiceTest {
     fun `create - non-CUSTOMER role throws IllegalStateException`() {
         assertThatThrownBy { reviewService.create(storeId, makeCreateRequest(), ownerPrincipal) }
             .isInstanceOf(ForbiddenException::class.java)
-            .hasMessage("Only CUSTOMER can create reviews")
+            .hasMessage("Forbidden")
     }
 
     @Test
@@ -77,7 +77,7 @@ class ReviewServiceTest {
 
         assertThatThrownBy { reviewService.create(storeId, badRequest, customerPrincipal) }
             .isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessage("Rating must be between 1 and 5")
+            .hasMessage("Invalid request")
     }
 
     @Test
@@ -86,7 +86,7 @@ class ReviewServiceTest {
 
         assertThatThrownBy { reviewService.create(storeId, makeCreateRequest(), customerPrincipal) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("Store not found")
+            .hasMessage("Not found")
     }
 
     // --- listByStore ---
@@ -118,7 +118,7 @@ class ReviewServiceTest {
 
         assertThatThrownBy { reviewService.delete(storeId, reviewId, customerPrincipal) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("Review not found")
+            .hasMessage("Not found")
     }
 
     @Test
@@ -127,7 +127,7 @@ class ReviewServiceTest {
 
         assertThatThrownBy { reviewService.delete(storeId, reviewId, customerPrincipal) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("Review not found in this store")
+            .hasMessage("Not found")
     }
 
     @Test

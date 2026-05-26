@@ -15,9 +15,10 @@ import io.jsonwebtoken.security.Keys
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Import
+import store.config.JwtProperties
 import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
@@ -30,12 +31,13 @@ import java.util.Date
 
 @WebMvcTest(ProductController::class)
 @Import(SecurityConfig::class)
+@EnableConfigurationProperties(JwtProperties::class)
 class ProductControllerTest {
 
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var productService: ProductService
     @Autowired private lateinit var objectMapper: ObjectMapper
-    @Value("\${jwt.secret}") private lateinit var jwtSecret: String
+    @Autowired private lateinit var jwtProperties: JwtProperties
 
     private val ownerId   = 1L
     private val storeId   = 10L
@@ -47,7 +49,7 @@ class ProductControllerTest {
         email: String = "owner@example.com",
         role: UserRole = UserRole.OWNER
     ): String {
-        val key = Keys.hmacShaKeyFor(jwtSecret.toByteArray(Charsets.UTF_8))
+        val key = Keys.hmacShaKeyFor(jwtProperties.secret.toByteArray(Charsets.UTF_8))
         val token = Jwts.builder()
             .subject(userId.toString())
             .claim("email", email)
@@ -219,12 +221,13 @@ class ProductControllerTest {
 
 @WebMvcTest(StoreStatisticsController::class)
 @Import(SecurityConfig::class)
+@EnableConfigurationProperties(JwtProperties::class)
 class StoreStatisticsControllerTest {
 
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var productStatisticsService: ProductStatisticsService
     @Autowired private lateinit var objectMapper: ObjectMapper
-    @Value("\${jwt.secret}") private lateinit var jwtSecret: String
+    @Autowired private lateinit var jwtProperties: JwtProperties
 
     private val ownerId  = 1L
     private val storeId  = 10L
@@ -232,7 +235,7 @@ class StoreStatisticsControllerTest {
     private val ownerPrincipal = UserPrincipal(ownerId, UserRole.OWNER)
 
     private fun bearerToken(): String {
-        val key = Keys.hmacShaKeyFor(jwtSecret.toByteArray(Charsets.UTF_8))
+        val key = Keys.hmacShaKeyFor(jwtProperties.secret.toByteArray(Charsets.UTF_8))
         val token = Jwts.builder()
             .subject(ownerId.toString())
             .claim("email", "owner@example.com")

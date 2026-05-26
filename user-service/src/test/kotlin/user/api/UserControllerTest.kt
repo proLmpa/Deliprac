@@ -16,8 +16,10 @@ import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.willThrow
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Import
+import user.config.JwtProperties
 import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
@@ -30,6 +32,7 @@ import java.util.Date
 
 @WebMvcTest(UserController::class)
 @Import(SecurityConfig::class)
+@EnableConfigurationProperties(JwtProperties::class)
 class UserControllerTest {
 
     @Autowired

@@ -14,9 +14,10 @@ import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.willDoNothing
 import org.mockito.BDDMockito.willThrow
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Import
+import notification.config.JwtProperties
 import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
@@ -28,16 +29,17 @@ import java.util.Date
 
 @WebMvcTest(PublicNotificationController::class)
 @Import(SecurityConfig::class)
+@EnableConfigurationProperties(JwtProperties::class)
 class PublicNotificationControllerTest {
 
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var publicNotificationService: PublicNotificationService
-    @Value("\${jwt.secret}") private lateinit var jwtSecret: String
+    @Autowired private lateinit var jwtProperties: JwtProperties
 
     private val notifId = 1L
 
     private fun bearerToken(role: UserRole = UserRole.ADMIN): String {
-        val key = Keys.hmacShaKeyFor(jwtSecret.toByteArray(Charsets.UTF_8))
+        val key = Keys.hmacShaKeyFor(jwtProperties.secret.toByteArray(Charsets.UTF_8))
         val token = Jwts.builder()
             .subject("10")
             .claim("email", "admin@example.com")
@@ -78,9 +80,11 @@ class PublicNotificationControllerTest {
     }
 
     @Test
-    fun `POST api public-notifications list - 403 without JWT`() {
+    fun `POST api public-notifications list - 200 without JWT`() {
+        given(publicNotificationService.listActive()).willReturn(emptyList())
+
         mockMvc.perform(post("/api/public-notifications/list"))
-            .andExpect(status().isForbidden)
+            .andExpect(status().isOk)
     }
 
     // --- POST /api/public-notifications ---

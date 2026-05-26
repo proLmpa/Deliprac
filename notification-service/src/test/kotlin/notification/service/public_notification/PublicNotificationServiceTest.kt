@@ -7,6 +7,7 @@ import notification.dto.public_notification.CreatePublicNotificationRequest
 import notification.dto.public_notification.DeactivatePublicNotificationRequest
 import notification.dto.public_notification.PublicNotificationResponse
 import notification.entity.public_notification.PublicNotification
+import notification.config.NotificationCacheConfig
 import notification.repository.public_notification.PublicNotificationRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -40,15 +41,17 @@ class PublicNotificationServiceTest {
 
     private val objectMapper = jacksonObjectMapper()
     private val notifId = 1L
-
-    companion object {
-        private const val CACHE_KEY = "public-notifications:active"
-    }
+    private val notifiCacheConfig = NotificationCacheConfig(
+        caffeineMaxSize    = 100L,
+        caffeineTtlMinutes = 5L,
+        key                = "public-notifications:active",
+        redisTtlMinutes    = 10L
+    )
 
     @BeforeEach
     fun setUp() {
         given(stringRedisTemplate.opsForValue()).willReturn(valueOperations)
-        service = PublicNotificationService(repository, caffeineCache, stringRedisTemplate, CACHE_KEY, 10L)
+        service = PublicNotificationService(repository, caffeineCache, stringRedisTemplate, notifiCacheConfig)
     }
 
     private fun makeEntity(): PublicNotification {
@@ -87,7 +90,7 @@ class PublicNotificationServiceTest {
     @Test
     fun `listActive - L1 Caffeine hit returns cached value without hitting Redis or DB`() {
         val cached = listOf(makeResponse())
-        given(caffeineCache.getIfPresent(CACHE_KEY)).willReturn(cached)
+        given(caffeineCache.getIfPresent(notifiCacheConfig.key)).willReturn(cached)
 
         val result = service.listActive()
 
@@ -100,41 +103,41 @@ class PublicNotificationServiceTest {
     fun `listActive - L2 Redis hit populates L1 and returns without hitting DB`() {
         val response = makeResponse()
         val json = objectMapper.writeValueAsString(listOf(response))
-        given(caffeineCache.getIfPresent(CACHE_KEY)).willReturn(null)
-        given(valueOperations.get(CACHE_KEY)).willReturn(json)
+        given(caffeineCache.getIfPresent(notifiCacheConfig.key)).willReturn(null)
+        given(valueOperations.get(notifiCacheConfig.key)).willReturn(json)
 
         val result = service.listActive()
 
         assertThat(result).hasSize(1)
         assertThat(result[0].title).isEqualTo("Test Title")
-        verify(caffeineCache).put(eq(CACHE_KEY), any())
+        verify(caffeineCache).put(eq(notifiCacheConfig.key), any())
         verifyNoInteractions(repository)
     }
 
     @Test
     fun `listActive - DB hit populates both caches and returns`() {
-        given(caffeineCache.getIfPresent(CACHE_KEY)).willReturn(null)
-        given(valueOperations.get(CACHE_KEY)).willReturn(null)
+        given(caffeineCache.getIfPresent(notifiCacheConfig.key)).willReturn(null)
+        given(valueOperations.get(notifiCacheConfig.key)).willReturn(null)
         given(repository.findAllByIsActiveTrue()).willReturn(listOf(makeEntity()))
 
         val result = service.listActive()
 
         assertThat(result).hasSize(1)
         assertThat(result[0].title).isEqualTo("Test Title")
-        verify(valueOperations).set(eq(CACHE_KEY), any(), eq(10L), eq(TimeUnit.MINUTES))
-        verify(caffeineCache).put(eq(CACHE_KEY), any())
+        verify(valueOperations).set(eq(notifiCacheConfig.key), any(), eq(10L), eq(TimeUnit.MINUTES))
+        verify(caffeineCache).put(eq(notifiCacheConfig.key), any())
     }
 
     @Test
     fun `listActive - empty DB result populates caches with empty list`() {
-        given(caffeineCache.getIfPresent(CACHE_KEY)).willReturn(null)
-        given(valueOperations.get(CACHE_KEY)).willReturn(null)
+        given(caffeineCache.getIfPresent(notifiCacheConfig.key)).willReturn(null)
+        given(valueOperations.get(notifiCacheConfig.key)).willReturn(null)
         given(repository.findAllByIsActiveTrue()).willReturn(emptyList())
 
         val result = service.listActive()
 
         assertThat(result).isEmpty()
-        verify(valueOperations).set(eq(CACHE_KEY), any(), eq(10L), eq(TimeUnit.MINUTES))
+        verify(valueOperations).set(eq(notifiCacheConfig.key), any(), eq(10L), eq(TimeUnit.MINUTES))
     }
 
     // --- create ---
@@ -148,8 +151,8 @@ class PublicNotificationServiceTest {
 
         assertThat(result.title).isEqualTo("Test Title")
         assertThat(result.isActive).isTrue()
-        verify(stringRedisTemplate).delete(CACHE_KEY)
-        verify(caffeineCache).invalidate(CACHE_KEY)
+        verify(stringRedisTemplate).delete(notifiCacheConfig.key)
+        verify(caffeineCache).invalidate(notifiCacheConfig.key)
     }
 
     // --- deactivate ---
@@ -163,8 +166,8 @@ class PublicNotificationServiceTest {
         service.deactivate(DeactivatePublicNotificationRequest(notifId))
 
         assertThat(entity.isActive).isFalse()
-        verify(stringRedisTemplate).delete(CACHE_KEY)
-        verify(caffeineCache).invalidate(CACHE_KEY)
+        verify(stringRedisTemplate).delete(notifiCacheConfig.key)
+        verify(caffeineCache).invalidate(notifiCacheConfig.key)
     }
 
     @Test

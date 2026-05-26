@@ -13,9 +13,10 @@ import io.jsonwebtoken.security.Keys
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Import
+import order.config.JwtProperties
 import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
@@ -28,17 +29,18 @@ import java.util.Date
 
 @WebMvcTest(OrderController::class)
 @Import(SecurityConfig::class)
+@EnableConfigurationProperties(JwtProperties::class)
 class OrderControllerTest {
 
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var orderService: OrderService
-    @Value("\${jwt.secret}") private lateinit var jwtSecret: String
+    @Autowired private lateinit var jwtProperties: JwtProperties
 
     private val ownerId  = 1L
     private val storeId  = 10L
     private val orderId  = 200L
     private fun bearerToken(userId: Long = ownerId, role: UserRole = UserRole.OWNER): String {
-        val key = Keys.hmacShaKeyFor(jwtSecret.toByteArray(Charsets.UTF_8))
+        val key = Keys.hmacShaKeyFor(jwtProperties.secret.toByteArray(Charsets.UTF_8))
         val token = Jwts.builder()
             .subject(userId.toString())
             .claim("email", "owner@example.com")
@@ -128,16 +130,17 @@ class OrderControllerTest {
 
 @WebMvcTest(UserOrderController::class)
 @Import(SecurityConfig::class)
+@EnableConfigurationProperties(JwtProperties::class)
 class UserOrderControllerTest {
 
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var orderService: OrderService
-    @Value("\${jwt.secret}") private lateinit var jwtSecret: String
+    @Autowired private lateinit var jwtProperties: JwtProperties
 
     private val customerId = 2L
 
     private fun bearerToken(): String {
-        val key = Keys.hmacShaKeyFor(jwtSecret.toByteArray(Charsets.UTF_8))
+        val key = Keys.hmacShaKeyFor(jwtProperties.secret.toByteArray(Charsets.UTF_8))
         val token = Jwts.builder()
             .subject(customerId.toString())
             .claim("email", "customer@example.com")
@@ -166,18 +169,19 @@ class UserOrderControllerTest {
 
 @WebMvcTest(StatisticsController::class)
 @Import(SecurityConfig::class)
+@EnableConfigurationProperties(JwtProperties::class)
 class StatisticsControllerTest {
 
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var statisticsService: StatisticsService
-    @Value("\${jwt.secret}") private lateinit var jwtSecret: String
+    @Autowired private lateinit var jwtProperties: JwtProperties
 
     private val ownerId = 1L
     private val storeId = 10L
     private val utc = java.time.ZoneId.of("UTC")
 
     private fun bearerToken(): String {
-        val key = Keys.hmacShaKeyFor(jwtSecret.toByteArray(Charsets.UTF_8))
+        val key = Keys.hmacShaKeyFor(jwtProperties.secret.toByteArray(Charsets.UTF_8))
         val token = Jwts.builder()
             .subject(ownerId.toString())
             .claim("email", "owner@example.com")
@@ -227,7 +231,7 @@ class StatisticsControllerTest {
                 .content("""{"storeId":$storeId,"year":2026,"month":3,"timezone":"INVALID"}""")
         )
             .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.detail").value("Invalid timezone: INVALID"))
+            .andExpect(jsonPath("$.detail").value("Invalid request"))
     }
 
     @Test
@@ -248,17 +252,18 @@ class StatisticsControllerTest {
 
 @WebMvcTest(UserStatisticsController::class)
 @Import(SecurityConfig::class)
+@EnableConfigurationProperties(JwtProperties::class)
 class UserStatisticsControllerTest {
 
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var statisticsService: StatisticsService
-    @Value("\${jwt.secret}") private lateinit var jwtSecret: String
+    @Autowired private lateinit var jwtProperties: JwtProperties
 
     private val customerId = 2L
     private val utc = java.time.ZoneId.of("UTC")
 
     private fun bearerToken(): String {
-        val key = Keys.hmacShaKeyFor(jwtSecret.toByteArray(Charsets.UTF_8))
+        val key = Keys.hmacShaKeyFor(jwtProperties.secret.toByteArray(Charsets.UTF_8))
         val token = Jwts.builder()
             .subject(customerId.toString())
             .claim("email", "customer@example.com")
@@ -293,7 +298,7 @@ class UserStatisticsControllerTest {
                 .content("""{"year":2026,"month":3,"timezone":"INVALID"}""")
         )
             .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.detail").value("Invalid timezone: INVALID"))
+            .andExpect(jsonPath("$.detail").value("Invalid request"))
     }
 
     @Test

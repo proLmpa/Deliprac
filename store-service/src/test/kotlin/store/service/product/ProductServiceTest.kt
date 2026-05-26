@@ -77,7 +77,7 @@ class ProductServiceTest {
     fun `create - non-OWNER role throws IllegalStateException`() {
         assertThatThrownBy { productService.create(storeId, makeCreateRequest(), customerPrincipal) }
             .isInstanceOf(ForbiddenException::class.java)
-            .hasMessage("Only OWNER can create products")
+            .hasMessage("Forbidden")
     }
 
     @Test
@@ -86,7 +86,7 @@ class ProductServiceTest {
 
         assertThatThrownBy { productService.create(storeId, makeCreateRequest(), ownerPrincipal) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("Store not found")
+            .hasMessage("Not found")
     }
 
     @Test
@@ -126,7 +126,7 @@ class ProductServiceTest {
 
         assertThatThrownBy { productService.findById(storeId, productId) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("Product not found")
+            .hasMessage("Not found")
     }
 
     @Test
@@ -135,7 +135,7 @@ class ProductServiceTest {
 
         assertThatThrownBy { productService.findById(storeId, productId) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("Product not found in this store")
+            .hasMessage("Not found")
     }
 
     // --- update ---
@@ -160,7 +160,7 @@ class ProductServiceTest {
 
         assertThatThrownBy { productService.update(storeId, productId, makeUpdateRequest(), ownerId) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("Store not found")
+            .hasMessage("Not found")
     }
 
     @Test
@@ -179,7 +179,7 @@ class ProductServiceTest {
 
         assertThatThrownBy { productService.update(storeId, productId, makeUpdateRequest(), ownerId) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("Product not found")
+            .hasMessage("Not found")
     }
 
     // --- deactivate ---
@@ -213,7 +213,7 @@ class ProductServiceTest {
 
         assertThatThrownBy { productService.deactivate(storeId, productId, ownerId) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("Product not found")
+            .hasMessage("Not found")
     }
 
     // --- incrementPopularity ---
@@ -273,14 +273,14 @@ class ProductStatisticsServiceTest {
 
         assertThatThrownBy { productStatisticsService.getPopularProducts(storeId, ownerPrincipal) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("Store not found")
+            .hasMessage("Not found")
     }
 
     @Test
     fun `getPopularProducts - non-OWNER role throws IllegalStateException`() {
         assertThatThrownBy { productStatisticsService.getPopularProducts(storeId, customerPrincipal) }
             .isInstanceOf(ForbiddenException::class.java)
-            .hasMessage("Only OWNER can view store statistics")
+            .hasMessage("Forbidden")
     }
 
     @Test

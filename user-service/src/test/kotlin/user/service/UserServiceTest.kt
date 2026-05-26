@@ -59,7 +59,7 @@ class UserServiceTest {
 
         assertThatThrownBy { userService.register(command) }
             .isInstanceOf(ConflictException::class.java)
-            .hasMessage("Email already exists")
+            .hasMessage("Invalid request")
     }
 
     @Test
@@ -123,12 +123,12 @@ class UserServiceTest {
         given(passwordEncoder.matches(command.password, user.passwordHash)).willReturn(true)
 
         assertThatThrownBy { userService.login(command) }
-            .isInstanceOf(ConflictException::class.java)
-            .hasMessage("Account is not active")
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessage("Invalid email or password")
     }
 
     @Test
-    fun `login - withdrawn account throws ConflictException`() {
+    fun `login - withdrawn account throws IllegalArgumentException`() {
         val command = LoginCommand("test@example.com", "password123")
         val user = User(id = 1L, email = command.email, phone = "", passwordHash = "hashed", status = UserStatus.WITHDRAWN)
 
@@ -136,8 +136,8 @@ class UserServiceTest {
         given(passwordEncoder.matches(command.password, user.passwordHash)).willReturn(true)
 
         assertThatThrownBy { userService.login(command) }
-            .isInstanceOf(ConflictException::class.java)
-            .hasMessage("Account is not active")
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessage("Invalid email or password")
     }
 
     @Test
@@ -163,7 +163,7 @@ class UserServiceTest {
 
         assertThatThrownBy { userService.suspend(1L, UserRole.ADMIN) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("User not found")
+            .hasMessage("Not found")
     }
 
     @Test
@@ -173,7 +173,7 @@ class UserServiceTest {
 
         assertThatThrownBy { userService.suspend(1L, UserRole.ADMIN) }
             .isInstanceOf(ConflictException::class.java)
-            .hasMessage("User is not active")
+            .hasMessage("Invalid operation")
     }
 
     @Test
@@ -193,6 +193,6 @@ class UserServiceTest {
 
         assertThatThrownBy { userService.withdraw(1L) }
             .isInstanceOf(ConflictException::class.java)
-            .hasMessage("User is not active")
+            .hasMessage("Invalid operation")
     }
 }

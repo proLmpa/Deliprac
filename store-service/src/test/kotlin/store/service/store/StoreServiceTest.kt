@@ -93,7 +93,7 @@ class StoreServiceTest {
     fun `create - non-OWNER role throws ForbiddenException`() {
         assertThatThrownBy { storeService.create(makeCreateCommand(), customerPrincipal) }
             .isInstanceOf(ForbiddenException::class.java)
-            .hasMessage("Only OWNER can create a store")
+            .hasMessage("Forbidden")
     }
 
     @Test
@@ -103,7 +103,7 @@ class StoreServiceTest {
 
         assertThatThrownBy { storeService.create(command, ownerPrincipal) }
             .isInstanceOf(ConflictException::class.java)
-            .hasMessage("Store with that name already exists")
+            .hasMessage("Conflict")
     }
 
     // --- findById ---
@@ -126,7 +126,7 @@ class StoreServiceTest {
 
         assertThatThrownBy { storeService.findById(id) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("Store not found")
+            .hasMessage("Not found")
     }
 
     // --- findMine ---
@@ -156,7 +156,7 @@ class StoreServiceTest {
     fun `findMine - non-OWNER role throws ForbiddenException`() {
         assertThatThrownBy { storeService.findMine(customerPrincipal) }
             .isInstanceOf(ForbiddenException::class.java)
-            .hasMessage("Only OWNER can access this")
+            .hasMessage("Forbidden")
     }
 
     // --- update ---
@@ -182,7 +182,7 @@ class StoreServiceTest {
 
         assertThatThrownBy { storeService.update(id, makeUpdateCommand(), ownerId) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("Store not found")
+            .hasMessage("Not found")
     }
 
     @Test
@@ -218,7 +218,7 @@ class StoreServiceTest {
 
         assertThatThrownBy { storeService.deactivate(id, ownerId) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("Store not found")
+            .hasMessage("Not found")
     }
 
     @Test

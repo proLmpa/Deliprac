@@ -56,7 +56,7 @@ class OrderServiceTest {
     fun `listByStore - non-OWNER throws IllegalStateException`() {
         assertThatThrownBy { orderService.listByStore(storeId, UserRole.CUSTOMER) }
             .isInstanceOf(ForbiddenException::class.java)
-            .hasMessage("Only OWNER can view store orders")
+            .hasMessage("Forbidden")
     }
 
     // --- markSold ---
@@ -79,7 +79,7 @@ class OrderServiceTest {
 
         assertThatThrownBy { orderService.markSold(storeId, orderId, UserRole.OWNER) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("Order not found")
+            .hasMessage("Not found")
     }
 
     @Test
@@ -88,7 +88,7 @@ class OrderServiceTest {
 
         assertThatThrownBy { orderService.markSold(storeId, orderId, UserRole.OWNER) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("Order not found in this store")
+            .hasMessage("Not found")
     }
 
     @Test
@@ -97,7 +97,7 @@ class OrderServiceTest {
 
         assertThatThrownBy { orderService.markSold(storeId, orderId, UserRole.OWNER) }
             .isInstanceOf(ConflictException::class.java)
-            .hasMessage("Order cannot be marked as sold")
+            .hasMessage("Invalid operation")
     }
 
     // --- markCanceled ---
@@ -120,7 +120,7 @@ class OrderServiceTest {
 
         assertThatThrownBy { orderService.markCanceled(storeId, orderId, UserRole.OWNER) }
             .isInstanceOf(ConflictException::class.java)
-            .hasMessage("Order cannot be canceled")
+            .hasMessage("Invalid operation")
     }
 
     // --- listByUser ---
@@ -151,7 +151,7 @@ class OrderServiceTest {
 
         assertThatThrownBy { orderService.getById(orderId) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("Order not found")
+            .hasMessage("Not found")
     }
 }
 
@@ -179,7 +179,7 @@ class StatisticsServiceTest {
     fun `getRevenue - non-OWNER throws IllegalStateException`() {
         assertThatThrownBy { statisticsService.getRevenue(storeId, 2026, 3, utc, UserRole.CUSTOMER) }
             .isInstanceOf(ForbiddenException::class.java)
-            .hasMessage("Only OWNER can view revenue statistics")
+            .hasMessage("Forbidden")
     }
 
     @Test

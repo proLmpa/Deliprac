@@ -124,7 +124,7 @@ class CartServiceTest {
 
         assertThatThrownBy { cartService.getMyCart(userId) }
             .isInstanceOf(NotFoundException::class.java)
-            .hasMessage("Cart not found")
+            .hasMessage("Not found")
     }
 
     // --- removeItem ---
@@ -194,7 +194,7 @@ class CartServiceTest {
 
         assertThatThrownBy { cartService.checkout(cartId, userId) }
             .isInstanceOf(ConflictException::class.java)
-            .hasMessage("Cart already checked out")
+            .hasMessage("Invalid operation")
     }
 
     @Test
@@ -204,7 +204,7 @@ class CartServiceTest {
 
         assertThatThrownBy { cartService.checkout(cartId, userId) }
             .isInstanceOf(ConflictException::class.java)
-            .hasMessage("Cart is empty")
+            .hasMessage("Invalid operation")
     }
 
     @Test

@@ -15,9 +15,10 @@ import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.willDoNothing
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Import
+import notification.config.JwtProperties
 import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
@@ -29,17 +30,18 @@ import java.util.Date
 
 @WebMvcTest(NotificationController::class)
 @Import(SecurityConfig::class)
+@EnableConfigurationProperties(JwtProperties::class)
 class NotificationControllerTest {
 
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var notificationService: NotificationService
-    @Value("\${jwt.secret}") private lateinit var jwtSecret: String
+    @Autowired private lateinit var jwtProperties: JwtProperties
 
     private val userId         = 1L
     private val notificationId = 10L
 
     private fun bearerToken(id: Long = userId, role: UserRole = UserRole.CUSTOMER): String {
-        val key = Keys.hmacShaKeyFor(jwtSecret.toByteArray(Charsets.UTF_8))
+        val key = Keys.hmacShaKeyFor(jwtProperties.secret.toByteArray(Charsets.UTF_8))
         val token = Jwts.builder()
             .subject(id.toString())
             .claim("email", "user@example.com")
