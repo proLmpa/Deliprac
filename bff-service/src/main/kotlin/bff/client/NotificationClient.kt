@@ -86,7 +86,7 @@ class NotificationClient(@Qualifier("notificationRestClient") private val client
         log.warn { "${"[CB] markAllRead fallback: {}"} ${ex.message}" }
     }
 
-    @CircuitBreaker(name = "notification", fallbackMethod = "listPublicNotificationsFallback")
+    @CircuitBreaker(name = "publicNotification", fallbackMethod = "listPublicNotificationsFallback")
     fun listPublicNotifications(token: String): List<PublicNotificationResponse> =
         client.post()
             .uri("/api/public-notifications/list")
@@ -99,7 +99,7 @@ class NotificationClient(@Qualifier("notificationRestClient") private val client
         return emptyList()
     }
 
-    @CircuitBreaker(name = "notification", fallbackMethod = "createPublicNotificationFallback")
+    @CircuitBreaker(name = "publicNotification", fallbackMethod = "createPublicNotificationFallback")
     fun createPublicNotification(request: CreatePublicNotificationRequest, token: String): PublicNotificationResponse =
         client.post()
             .uri("/api/public-notifications")
@@ -113,7 +113,7 @@ class NotificationClient(@Qualifier("notificationRestClient") private val client
         throw ex
     }
 
-    @CircuitBreaker(name = "notification", fallbackMethod = "deactivatePublicNotificationFallback")
+    @CircuitBreaker(name = "publicNotification", fallbackMethod = "deactivatePublicNotificationFallback")
     fun deactivatePublicNotification(request: DeactivatePublicNotificationRequest, token: String): Unit =
         client.put()
             .uri("/api/public-notifications/deactivate")
