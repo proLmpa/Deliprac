@@ -7,7 +7,15 @@ Commit changes freely, but always stop at commit. The user decides when and what
 
 ## JDK
 
-**Always use JDK 24.** Do not use any other JDK version. (Kotlin does not yet support JDK 25 bytecode.)
+**System JDK: 25.** The Gradle daemon and test forks run on JDK 25.
+
+**Compilation toolchain: JDK 25.** `jvmToolchain(25)` in `build.gradle.kts`. Kotlin 2.3.21 supports JVM 25 bytecode.
+
+**Kotlin 2.3.21 + Spring Boot BOM workaround (applied in `build.gradle.kts`):**
+Two combined fixes are applied in the root `build.gradle.kts` to work around a Kotlin 2.3.21 POM bug:
+1. `extra["kotlin.version"] = "2.3.21"` in `subprojects {}` — prevents Spring Boot BOM from downgrading `kotlin-compiler-embeddable` from 2.3.21 to the BOM's default (2.2.21). Without this the `ClasspathEntrySnapshotTransform` worker classpath gets the old `BuildMetricsReporter` (non-generic, `startMeasure(BuildTime)`) which is binary-incompatible with 2.3.21 APIs.
+2. `ComponentMetadataRule AddKotlinBuildStatistics` — patches `kotlin-build-tools-impl:2.3.21`'s transitive dependency graph to add `kotlin-build-statistics:2.3.21`, which provides `GradleBuildTimeMetric`. The `kotlin-build-tools-impl-2.3.21.pom` omits this artifact, causing `BuildMetricsReporterAdapterKt` to fail class initialization.
+Remove both workarounds if a future Kotlin release fixes the `kotlin-build-tools-impl` POM.
 
 ## Build & Run
 
