@@ -31,6 +31,8 @@ flowchart TB
         ND[("notificationdb\n:5436")]
     end
 
+    RD[("Redis\n:6379")]
+
     subgraph mon ["Monitoring"]
         direction LR
         PR["Prometheus :9090"] --> AM["Alertmanager :9093"] --> TG(["Telegram"])
@@ -44,6 +46,8 @@ flowchart TB
     SS --> SD
     OS --> OD
     NS --> ND
+
+    SS & OS & NS -->|cache| RD
 
     US & SS & OS & NS -->|metrics| PR
 ```
@@ -76,7 +80,7 @@ The BFF (Backend for Frontend) sits between the client and the four backend serv
 | Security | Spring Security 7, JWT (jjwt 0.12) |
 | Persistence | Spring Data JPA, Hibernate, QueryDSL 5.1 |
 | Database | PostgreSQL 16 |
-| Caching | Caffeine (L1, in-process) + Redis (L2, shared) |
+| Caching | Spring Cache + Redis (`@Cacheable` — store-service, order-service) · Caffeine L1 + Redis L2 (notification-service public notifications) |
 | Resilience | Resilience4j 2.3 (circuit breaker) |
 | Observability | Spring Boot Actuator, Micrometer, Prometheus, Grafana, Alertmanager |
 | Build | Gradle 9 (Kotlin DSL), kapt |
@@ -324,6 +328,26 @@ Notifications are created by the BFF immediately after order mutations — no me
 **userId security:** `StoreResponse.userId` and `OrderResponse.userId` are annotated `@get:JsonIgnore` / `@param:JsonProperty` — deserialized from backend services, never serialized to the frontend. The recipient's `userId` only ever exists inside the BFF at request time.
 
 **Delivery:** notifications are created in a background thread (`CompletableFuture.runAsync`) after the BFF returns its response to the client. Failures are swallowed silently and do not affect the API caller. The frontend polls `/api/notifications/list` every 30 seconds; recipients see new notifications within one poll cycle assuming the async call succeeds.
+
+### Spring Cache (@Cacheable) in store-service and order-service
+
+store-service and order-service cache their most-read query results in Redis using Spring's `@Cacheable` / `@CacheEvict` abstraction backed by `RedisCacheManager`.
+
+| Cache name | Service | Cached method | Key | TTL |
+|---|---|---|---|---|
+| `stores` | store-service | `StoreService.findById` | `#id` | 5 min |
+| `stores-all` | store-service | `StoreService.listAll` | `#sortBy` | 2 min |
+| `products` | store-service | `ProductService.findById` | `#storeId + ':' + #productId` | 5 min |
+| `products-by-store` | store-service | `ProductService.listByStore` | `#storeId` | 5 min |
+| `orders-by-user` | order-service | `OrderService.listByUser` | `#userId` | 5 min |
+
+Write methods (`create`, `update`, `deactivate`, `markSold`, `markCanceled`, `checkout`) carry matching `@CacheEvict` annotations so cached entries are invalidated immediately after a mutation.
+
+**Serialization:** `GenericJacksonJsonRedisSerializer` writes a `@class` field into every JSON value so Jackson can reconstruct the correct concrete type on read. The serializer uses a dedicated `ObjectMapper` configured with `activateDefaultTypingAsProperty` (PROPERTY format). Passing Spring Boot's default `ObjectMapper` directly causes a `ClassCastException` because Jackson returns a `LinkedHashMap` without type information.
+
+**Profile activation:** Redis connection properties are gated behind `cache-dev` / `cache-prod` profiles, which are included in the `dev` and `prod` profile groups respectively. The `test` group does not include a cache profile — `@WebMvcTest` slices never load `CacheConfig` and caching is transparent during testing.
+
+---
 
 ### Two-level cache for public notifications (Caffeine + Redis)
 
@@ -606,11 +630,15 @@ Credentials stored in Jenkins — no values appear in the `Jenkinsfile`:
 - Docker + Docker Compose
 - JDK 24
 
-### 1. Start all databases
+### 1. Start all databases and Redis
 
 ```bash
 docker compose up -d
+docker run -d --name baemin_redis -p 6379:6379 redis:7
 ```
+
+> Redis is required by store-service and order-service (`cache-dev` profile is active in `dev`
+> by default). Without it, `RedisCacheManager` fails to initialize and the service will not start.
 
 ### 2. Apply schemas
 

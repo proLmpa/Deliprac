@@ -1,11 +1,13 @@
 package store.service.product
 
-import common.exception.ConflictException
 import common.exception.ForbiddenException
 import common.exception.NotFoundException
 import common.orThrow
 import common.security.UserPrincipal
 import common.security.UserRole
+import org.springframework.cache.annotation.CacheEvict
+import org.springframework.cache.annotation.Cacheable
+import org.springframework.cache.annotation.Caching
 import store.dto.product.CreateProductRequest
 import store.dto.product.ProductInfo
 import store.dto.product.UpdateProductRequest
@@ -21,6 +23,7 @@ class ProductService(
     private val storeRepository: StoreRepository
 ) {
 
+    @CacheEvict(value = ["products-by-store"], key = "#storeId")
     @Transactional
     fun create(storeId: Long, request: CreateProductRequest, principal: UserPrincipal): ProductInfo {
         if (principal.role != UserRole.OWNER) throw ForbiddenException("Forbidden")
@@ -42,10 +45,12 @@ class ProductService(
         return ProductInfo.of(productRepository.save(product))
     }
 
+    @Cacheable(value = ["products-by-store"], key = "#storeId")
     @Transactional(readOnly = true)
     fun listByStore(storeId: Long): List<ProductInfo> =
         productRepository.findAllByStoreId(storeId).map { ProductInfo.of(it) }
 
+    @Cacheable(value = ["products"], key = "#storeId + ':' + #productId")
     @Transactional(readOnly = true)
     fun findById(storeId: Long, productId: Long): ProductInfo {
         val product = productRepository.findById(productId).orThrow("Not found")
@@ -54,6 +59,10 @@ class ProductService(
         return ProductInfo.of(product)
     }
 
+    @Caching(evict = [
+        CacheEvict(value = ["products"], key = "#storeId + ':' + #productId"),
+        CacheEvict(value = ["products-by-store"], key = "#storeId",)
+    ])
     @Transactional
     fun update(storeId: Long, productId: Long, request: UpdateProductRequest, userId: Long): ProductInfo {
         val store = storeRepository.findById(storeId).orThrow("Not found")
@@ -70,6 +79,10 @@ class ProductService(
         return ProductInfo.of(productRepository.save(product))
     }
 
+    @Caching(evict = [
+        CacheEvict(value = ["products"], key = "#storeId + ':' + #productId"),
+        CacheEvict(value = ["products-by-store"], key = "#storeId",)
+    ])
     @Transactional
     fun deactivate(storeId: Long, productId: Long, userId: Long) {
         val store = storeRepository.findById(storeId).orThrow("Not found")
@@ -83,12 +96,11 @@ class ProductService(
         productRepository.save(product)
     }
 
-    @Transactional(readOnly = true)
-    fun getById(productId: Long): ProductInfo {
-        val product = productRepository.findById(productId).orThrow("Not found")
-        return ProductInfo.of(product)
-    }
 
+    @Caching(evict = [
+        CacheEvict(value = ["products"], key = "#storeId + ':' + #productId"),
+        CacheEvict(value = ["products-by-store"], key = "#storeId",)
+    ])
     @Transactional
     fun incrementPopularity(storeId: Long, productId: Long, delta: Long, userId: Long) {
         val store = storeRepository.findById(storeId).orThrow("Not found")

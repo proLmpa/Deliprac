@@ -14,6 +14,7 @@ import order.entity.order.OrderStatus
 import order.repository.cart.CartProductRepository
 import order.repository.cart.CartRepository
 import order.repository.order.OrderRepository
+import org.springframework.cache.annotation.CacheEvict
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -71,6 +72,7 @@ class CartService(
         cartRepository.save(cart)
     }
 
+    @CacheEvict(value = ["orders-by-user"], key = "#userId")
     @Transactional
     fun checkout(cartId: Long, userId: Long): OrderResponse {
         val cart = cartRepository.findById(cartId).orThrow("Not found")

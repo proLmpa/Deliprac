@@ -9,6 +9,8 @@ import order.dto.order.OrderResponse
 import order.entity.order.OrderStatus
 import order.repository.cart.CartProductRepository
 import order.repository.order.OrderRepository
+import org.springframework.cache.annotation.CacheEvict
+import org.springframework.cache.annotation.Cacheable
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.stereotype.Service
 
@@ -26,6 +28,7 @@ class OrderService(
         return orderRepository.findAllByStoreId(storeId).map { OrderResponse.of(it) }
     }
 
+    @CacheEvict(value = ["orders-by-user"], allEntries = true)
     @Transactional
     fun markSold(storeId: Long, orderId: Long, role: UserRole): OrderResponse {
         if (role != UserRole.OWNER) throw ForbiddenException("Forbidden")
@@ -40,6 +43,7 @@ class OrderService(
         return OrderResponse.of(saved, items)
     }
 
+    @CacheEvict(value = ["orders-by-user"], allEntries = true)
     @Transactional
     fun markCanceled(storeId: Long, orderId: Long, role: UserRole): OrderResponse {
         if (role != UserRole.OWNER) throw ForbiddenException("Forbidden")
@@ -54,6 +58,7 @@ class OrderService(
         return OrderResponse.of(saved, items)
     }
 
+    @Cacheable(value = ["orders-by-user"], key = "#userId")
     @Transactional(readOnly = true)
     fun listByUser(userId: Long): List<OrderResponse> =
         orderRepository.findAllByUserId(userId).map { OrderResponse.of(it) }

@@ -5,6 +5,9 @@ import common.exception.ForbiddenException
 import common.orThrow
 import common.security.UserPrincipal
 import common.security.UserRole
+import org.springframework.cache.annotation.CacheEvict
+import org.springframework.cache.annotation.Cacheable
+import org.springframework.cache.annotation.Caching
 import store.dto.store.CreateStoreCommand
 import store.dto.store.StoreInfo
 import store.dto.store.StoreSortBy
@@ -22,6 +25,7 @@ class StoreService(
     private val reviewRepository: ReviewRepository,
 ) {
 
+    @CacheEvict(value = ["stores-all"], allEntries = true)
     @Transactional
     fun create(command: CreateStoreCommand, principal: UserPrincipal): StoreInfo {
         if (principal.role != UserRole.OWNER) {
@@ -50,6 +54,7 @@ class StoreService(
         return StoreInfo.of(saved, 0.0)
     }
 
+    @Cacheable(value = ["stores-all"], key = "#sortBy")
     @Transactional(readOnly = true)
     fun listAll(sortBy: StoreSortBy): List<StoreInfo> {
         val stores = storeRepository.findActiveStoresOrderByCreatedAtDesc()
@@ -65,6 +70,7 @@ class StoreService(
         return sorted.map { StoreInfo.of(it, ratings[it.id] ?: 0.0) }
     }
 
+    @Cacheable(value = ["stores"], key = "#id")
     @Transactional(readOnly = true)
     fun findById(id: Long): StoreInfo {
         val store = storeRepository.findById(id).orThrow("Not found")
@@ -85,6 +91,10 @@ class StoreService(
         return stores.map { StoreInfo.of(it, ratings[it.id] ?: 0.0) }
     }
 
+    @Caching(evict = [
+        CacheEvict(value = ["stores"], key = "#id"),
+        CacheEvict(value = ["stores-all"], allEntries = true)
+    ])
     @Transactional
     fun update(id: Long, command: UpdateStoreCommand, userId: Long): StoreInfo {
         val store = storeRepository.findById(id).orThrow("Not found")
@@ -106,6 +116,10 @@ class StoreService(
         return StoreInfo.of(storeRepository.save(store), rating)
     }
 
+    @Caching(evict = [
+        CacheEvict(value = ["stores"], key = "#id"),
+        CacheEvict(value = ["stores-all"], allEntries = true)
+    ])
     @Transactional
     fun deactivate(id: Long, userId: Long) {
         val store = storeRepository.findById(id).orThrow("Not found")

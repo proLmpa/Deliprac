@@ -1,0 +1,22 @@
+order:
+  cache:
+    redis-ttl-minutes: 5
+
+---
+spring:
+  config:
+    activate:
+      on-profile: "cache-dev"
+  data:
+    redis:
+      host: localhost
+      port: 6379
+---
+spring:
+  config:
+    activate:
+      on-profile: "cache-prod"
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
