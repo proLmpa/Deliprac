@@ -92,90 +92,46 @@ pipeline {
                 script {
                     def tasks = [:]
 
-                    // ── Kubernetes: all 6 API services ─────────────────────
+                    // ── ArgoCD: update image tag and sync ──────────────────
                     tasks['k8s'] = {
-                        withKubeConfig([credentialsId: 'minikube-kubeconfig']) {
-                            // Namespace
-                            sh 'kubectl apply -f k8s/namespace.yaml'
-
-                            // Secrets (injected from Jenkins credentials — not stored in git)
+                        withCredentials([
+                            string(credentialsId: 'argocd-token',  variable: 'ARGOCD_AUTH_TOKEN'),
+                            string(credentialsId: 'argocd-server', variable: 'ARGOCD_SERVER')
+                        ]) {
                             sh """
-                                kubectl -n baemin create secret generic common-secret \
-                                    --from-literal=JWT_SECRET=${env.JWT_SECRET} \
-                                    --dry-run=client -o yaml | kubectl apply -f -
-                                kubectl -n baemin create secret generic bff-secret \
-                                    --from-literal=BFF_HMAC_USER_SECRET=${env.BFF_HMAC_USER_SECRET} \
-                                    --from-literal=BFF_HMAC_STORE_SECRET=${env.BFF_HMAC_STORE_SECRET} \
-                                    --from-literal=BFF_HMAC_ORDER_SECRET=${env.BFF_HMAC_ORDER_SECRET} \
-                                    --from-literal=BFF_HMAC_NOTIF_SECRET=${env.BFF_HMAC_NOTIF_SECRET} \
-                                    --dry-run=client -o yaml | kubectl apply -f -
-                                kubectl -n baemin create secret generic user-secret \
-                                    --from-literal=DB_USERNAME=${env.USER_DB_USERNAME} \
-                                    --from-literal=DB_PASSWORD=${env.USER_DB_PASSWORD} \
-                                    --from-literal=BFF_HMAC_USER_SECRET=${env.BFF_HMAC_USER_SECRET} \
-                                    --dry-run=client -o yaml | kubectl apply -f -
-                                kubectl -n baemin create secret generic store-secret \
-                                    --from-literal=DB_USERNAME=${env.STORE_DB_USERNAME} \
-                                    --from-literal=DB_PASSWORD=${env.STORE_DB_PASSWORD} \
-                                    --from-literal=BFF_HMAC_STORE_SECRET=${env.BFF_HMAC_STORE_SECRET} \
-                                    --dry-run=client -o yaml | kubectl apply -f -
-                                kubectl -n baemin create secret generic order-secret \
-                                    --from-literal=DB_USERNAME=${env.ORDER_DB_USERNAME} \
-                                    --from-literal=DB_PASSWORD=${env.ORDER_DB_PASSWORD} \
-                                    --from-literal=BFF_HMAC_ORDER_SECRET=${env.BFF_HMAC_ORDER_SECRET} \
-                                    --dry-run=client -o yaml | kubectl apply -f -
-                                kubectl -n baemin create secret generic notification-secret \
-                                    --from-literal=DB_USERNAME=${env.NOTIF_DB_USERNAME} \
-                                    --from-literal=DB_PASSWORD=${env.NOTIF_DB_PASSWORD} \
-                                    --from-literal=BFF_HMAC_NOTIF_SECRET=${env.BFF_HMAC_NOTIF_SECRET} \
-                                    --dry-run=client -o yaml | kubectl apply -f -
+                                argocd app set baemin \
+                                    --auth-token \$ARGOCD_AUTH_TOKEN \
+                                    --server \$ARGOCD_SERVER \
+                                    --grpc-web \
+                                    -p images.tag=${env.IMAGE_TAG}
+                                argocd app sync baemin \
+                                    --auth-token \$ARGOCD_AUTH_TOKEN \
+                                    --server \$ARGOCD_SERVER \
+                                    --grpc-web \
+                                    --timeout 180
                             """
-
-                            // ConfigMaps and all manifests
-                            sh 'kubectl apply -f k8s/configmaps/'
-                            sh 'kubectl apply -f k8s/deployments/'
-                            sh 'kubectl apply -f k8s/services/'
-
-                            // Rolling update to new image tag
-                            def allServices = ['bff-service', 'user-service', 'store-service',
-                                               'order-service', 'notification-service', 'front-service']
-                            for (svc in allServices) {
-                                sh "kubectl -n baemin set image deployment/${svc} ${svc}=${env.DOCKER_HUB_USER}/${svc}:${env.IMAGE_TAG}"
-                            }
-
-                            // Wait for rollouts in parallel
-                            def rolloutTasks = [:]
-                            for (svc in allServices) {
-                                def s = svc
-                                rolloutTasks[s] = {
-                                    sh "kubectl -n baemin rollout status deployment/${s} --timeout=180s"
-                                }
-                            }
-                            parallel rolloutTasks
                         }
                     }
 
-                    // ── VM-monitoring: config substitution + scp + systemctl reload ──
+                    // ── VM-monitoring: config + scp + systemctl reload ────────
                     tasks['vm-monitoring'] = {
                         withCredentials([
                             string(credentialsId: 'telegram-bot-token', variable: 'TELEGRAM_BOT_TOKEN'),
                             string(credentialsId: 'telegram-chat-id',   variable: 'TELEGRAM_CHAT_ID'),
-                            string(credentialsId: 'MINIKUBE_IP',        variable: 'MINIKUBE_IP'),
                             string(credentialsId: 'MONITORING_HOST',    variable: 'MONITORING_HOST')
                         ]) {
                             sshagent(credentials: ['deploy-ssh-key']) {
-                                sh '''
-                                    envsubst < monitoring/prometheus.yml   > /tmp/baemin-prometheus.yml
-                                    envsubst < monitoring/alertmanager.yml > /tmp/baemin-alertmanager.yml
-                                '''
+                                // prometheus.yml has no variable placeholders — copy directly.
+                                // alertmanager.yml still needs Telegram credentials substituted.
+                                sh 'envsubst < monitoring/alertmanager.yml > /tmp/baemin-alertmanager.yml'
                                 sh '''
                                     ssh -o StrictHostKeyChecking=no $MONITORING_HOST 'mkdir -p /opt/monitoring/grafana/provisioning/datasources /opt/monitoring/grafana/provisioning/dashboards /opt/monitoring/grafana/dashboards'
-                                    scp -o StrictHostKeyChecking=no /tmp/baemin-prometheus.yml                                        $MONITORING_HOST:/opt/monitoring/prometheus.yml
-                                    scp -o StrictHostKeyChecking=no /tmp/baemin-alertmanager.yml                                      $MONITORING_HOST:/opt/monitoring/alertmanager.yml
-                                    scp -o StrictHostKeyChecking=no monitoring/alerting-rules.yml                                     $MONITORING_HOST:/opt/monitoring/alerting-rules.yml
-                                    scp -o StrictHostKeyChecking=no monitoring/grafana/provisioning/datasources/prometheus.yml         $MONITORING_HOST:/opt/monitoring/grafana/provisioning/datasources/prometheus.yml
-                                    scp -o StrictHostKeyChecking=no monitoring/grafana/provisioning/dashboards/dashboard.yml           $MONITORING_HOST:/opt/monitoring/grafana/provisioning/dashboards/dashboard.yml
-                                    scp -o StrictHostKeyChecking=no monitoring/grafana/dashboards/baemin.json                         $MONITORING_HOST:/opt/monitoring/grafana/dashboards/baemin.json
+                                    scp -o StrictHostKeyChecking=no monitoring/prometheus.yml                                                $MONITORING_HOST:/opt/monitoring/prometheus.yml
+                                    scp -o StrictHostKeyChecking=no /tmp/baemin-alertmanager.yml                                             $MONITORING_HOST:/opt/monitoring/alertmanager.yml
+                                    scp -o StrictHostKeyChecking=no monitoring/alerting-rules.yml                                            $MONITORING_HOST:/opt/monitoring/alerting-rules.yml
+                                    scp -o StrictHostKeyChecking=no monitoring/grafana/provisioning/datasources/prometheus.yml        $MONITORING_HOST:/opt/monitoring/grafana/provisioning/datasources/prometheus.yml
+                                    scp -o StrictHostKeyChecking=no monitoring/grafana/provisioning/dashboards/dashboard.yml          $MONITORING_HOST:/opt/monitoring/grafana/provisioning/dashboards/dashboard.yml
+                                    scp -o StrictHostKeyChecking=no monitoring/grafana/dashboards/baemin.json                        $MONITORING_HOST:/opt/monitoring/grafana/dashboards/baemin.json
                                 '''
                                 // Copy staged files to the locations each native service reads from
                                 sh '''
