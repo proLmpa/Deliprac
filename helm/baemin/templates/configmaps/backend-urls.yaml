@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-urls
+  namespace: baemin
+  labels:
+    {{- include "baemin.labels" . | nindent 4 }}
+data:
+  # All backend services expose ClusterIP port 80 — no port suffix needed.
+  USER_SERVICE_URL:         "http://user-service"
+  STORE_SERVICE_URL:        "http://store-service"
+  ORDER_SERVICE_URL:        "http://order-service"
+  NOTIFICATION_SERVICE_URL: "http://notification-service"

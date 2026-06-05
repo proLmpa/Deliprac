@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-config
+  namespace: baemin
+  labels:
+    {{- include "baemin.labels" . | nindent 4 }}
+data:
+  USER_DB_URL:  {{ .Values.config.db.userUrl  | quote }}
+  STORE_DB_URL: {{ .Values.config.db.storeUrl | quote }}
+  ORDER_DB_URL: {{ .Values.config.db.orderUrl | quote }}
+  NOTIF_DB_URL: {{ .Values.config.db.notifUrl | quote }}

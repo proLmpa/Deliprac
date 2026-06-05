@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: front-service
+  namespace: baemin
+  labels:
+    app: front-service
+    {{- include "baemin.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: front-service
+  template:
+    metadata:
+      labels:
+        app: front-service
+    spec:
+      containers:
+        - name: front-service
+          image: "{{ .Values.images.registry }}/front-service:{{ .Values.images.tag }}"
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80

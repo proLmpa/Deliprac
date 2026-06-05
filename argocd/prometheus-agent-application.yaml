@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus-agent
+  namespace: argocd
+spec:
+  project: default
+  source:
+    # Replace with your actual GitHub repository URL.
+    repoURL: https://github.com/proLmpa/Deliprac.git
+    targetRevision: main
+    path: helm/prometheus-agent
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

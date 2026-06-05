@@ -1,0 +1,12 @@
+apiVersion: v2
+name: prometheus-agent
+description: >
+  Prometheus running in Agent mode inside the baemin cluster.
+  Scrapes /actuator/prometheus from all baemin pods and remote-writes
+  to the vm-monitoring Prometheus instance at 192.168.160.105:9090.
+type: application
+version: 0.1.0
+dependencies:
+  - name: prometheus
+    version: "25.x"
+    repository: "https://prometheus-community.github.io/helm-charts"

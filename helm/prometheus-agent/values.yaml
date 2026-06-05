@@ -1,0 +1,55 @@
+prometheus:
+  server:
+    # Agent mode: no local storage, push-only via remote_write.
+    agentMode: true
+
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    # Push all scraped metrics to vm-monitoring Prometheus.
+    # Requires --web.enable-remote-write-receiver on the receiver.
+    remoteWrite:
+      - url: "http://192.168.160.105:9090/api/v1/write"
+
+    # Discover baemin pods by annotation and scrape their actuator endpoints.
+    # This works without Prometheus Operator.  ServiceMonitor CRDs in the baemin
+    # chart take over automatically if Prometheus Operator is installed.
+    extraScrapeConfigs: |
+      - job_name: baemin-pods
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [baemin]
+        relabel_configs:
+          # Only scrape pods that opt in via annotation
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+          # Use the annotated metrics path
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          # Replace default port with the annotated port
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: '([^:]+)(?::\d+)?;(\d+)'
+            replacement: '$1:$2'
+            target_label: __address__
+          # Expose the app label as the job name
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: job
+          # Expose the pod name
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+
+  # Disable bundled sub-charts — not needed in agent-only mode.
+  kube-state-metrics:
+    enabled: false
+
+  prometheus-node-exporter:
+    enabled: false
+
+  prometheus-pushgateway:
+    enabled: false

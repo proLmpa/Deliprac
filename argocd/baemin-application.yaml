@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: baemin
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/proLmpa/Deliprac.git
+    targetRevision: main
+    path: helm/baemin
+    helm:
+      valueFiles:
+        - values.yaml
+      # Secret overrides are injected by CI — never committed to git:
+      #   argocd app set baemin \
+      #     -p secrets.jwt=REAL_VALUE \
+      #     -p secrets.user.dbUser=user_svc \
+      #     -p secrets.user.dbPass=REAL_PASS \
+      #     ...
+      # Image tag is updated per-deploy:
+      #   argocd app set baemin -p images.tag=<git-sha>
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: baemin
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

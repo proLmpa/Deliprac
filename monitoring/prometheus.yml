@@ -10,28 +10,13 @@ alerting:
 rule_files:
   - alerting-rules.yml
 
-scrape_configs:
-  - job_name: bff-service
-    metrics_path: /actuator/prometheus
-    static_configs:
-      - targets: ["${MINIKUBE_IP}:9080"]
-
-  - job_name: user-service
-    metrics_path: /actuator/prometheus
-    static_configs:
-      - targets: ["${MINIKUBE_IP}:9081"]
-
-  - job_name: store-service
-    metrics_path: /actuator/prometheus
-    static_configs:
-      - targets: ["${MINIKUBE_IP}:9082"]
-
-  - job_name: order-service
-    metrics_path: /actuator/prometheus
-    static_configs:
-      - targets: ["${MINIKUBE_IP}:9083"]
-
-  - job_name: notification-service
-    metrics_path: /actuator/prometheus
-    static_configs:
-      - targets: ["${MINIKUBE_IP}:9084"]
+# No scrape_configs here — metrics are pushed by the in-cluster Prometheus Agent
+# (helm/prometheus-agent) via remote_write.  This Prometheus instance only needs
+# to receive those writes and evaluate alerting rules against the stored data.
+#
+# To enable receiving, Prometheus must be started with --web.enable-remote-write-receiver
+# (already added to start.sh and start.ps1 for local dev).
+#
+# On vm-monitoring (192.168.160.105), add the flag to the systemd override:
+#   /etc/systemd/system/prometheus.service.d/override.conf — append to ExecStart
+#   sudo systemctl daemon-reload && sudo systemctl restart prometheus

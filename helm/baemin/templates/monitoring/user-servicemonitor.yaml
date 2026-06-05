@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: user-service
+  namespace: baemin
+  labels:
+    app: user-service
+    release: prometheus-agent
+    {{- include "baemin.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: user-service
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 15s

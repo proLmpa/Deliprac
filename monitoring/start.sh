@@ -21,7 +21,12 @@ docker run -d --name prometheus --network monitoring \
   -p 9090:9090 \
   -v /tmp/baemin-prometheus.yml:/etc/prometheus/prometheus.yml:ro \
   -v "$SCRIPT_DIR/alerting-rules.yml":/etc/prometheus/alerting-rules.yml:ro \
-  prom/prometheus:v2.53.4
+  prom/prometheus:v2.53.4 \
+  --config.file=/etc/prometheus/prometheus.yml \
+  --storage.tsdb.path=/prometheus \
+  --web.console.libraries=/usr/share/prometheus/console_libraries \
+  --web.console.templates=/usr/share/prometheus/consoles \
+  --web.enable-remote-write-receiver
 
 docker run -d --name alertmanager --network monitoring \
   -p 9093:9093 \

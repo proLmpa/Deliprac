@@ -1,0 +1,44 @@
+# Image registry and tag shared by all services.
+# CI always overrides `tag` with the git SHA so Kubernetes detects the change
+# and performs a rolling restart.  "latest" is a fallback for local testing only.
+images:
+  registry: prolmpa
+  tag: "latest"
+
+# Secret values — "changeme" placeholders here.
+# Production values are injected via `argocd app set -p secrets.*=REAL_VALUE`
+# and are never committed to git.
+secrets:
+  jwt: "changeme"
+  bff:
+    hmacUser:  "changeme"
+    hmacStore: "changeme"
+    hmacOrder: "changeme"
+    hmacNotif: "changeme"
+  user:
+    dbUser:   "changeme"
+    dbPass:   "changeme"
+    hmacUser: "changeme"
+  store:
+    dbUser:    "changeme"
+    dbPass:    "changeme"
+    hmacStore: "changeme"
+  order:
+    dbUser:    "changeme"
+    dbPass:    "changeme"
+    hmacOrder: "changeme"
+  notification:
+    dbUser:    "changeme"
+    dbPass:    "changeme"
+    hmacNotif: "changeme"
+
+# Non-secret configuration
+config:
+  db:
+    userUrl:  "jdbc:postgresql://192.168.160.101:5432/userdb"
+    storeUrl: "jdbc:postgresql://192.168.160.102:5432/storedb"
+    orderUrl: "jdbc:postgresql://192.168.160.103:5432/orderdb"
+    notifUrl: "jdbc:postgresql://192.168.160.104:5432/notificationdb"
+  redis:
+    host: "192.168.160.104"
+    port: "6379"

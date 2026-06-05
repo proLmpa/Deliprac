@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bff-service
+  namespace: baemin
+  labels:
+    app: bff-service
+    {{- include "baemin.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bff-service
+  template:
+    metadata:
+      labels:
+        app: bff-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path:   "/actuator/prometheus"
+        prometheus.io/port:   "8080"
+    spec:
+      containers:
+        - name: bff-service
+          image: "{{ .Values.images.registry }}/bff-service:{{ .Values.images.tag }}"
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: USER_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-urls
+                  key: USER_SERVICE_URL
+            - name: STORE_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-urls
+                  key: STORE_SERVICE_URL
+            - name: ORDER_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-urls
+                  key: ORDER_SERVICE_URL
+            - name: NOTIFICATION_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-urls
+                  key: NOTIFICATION_SERVICE_URL
+            - name: BFF_HMAC_USER_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: bff-secret
+                  key: BFF_HMAC_USER_SECRET
+            - name: BFF_HMAC_STORE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: bff-secret
+                  key: BFF_HMAC_STORE_SECRET
+            - name: BFF_HMAC_ORDER_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: bff-secret
+                  key: BFF_HMAC_ORDER_SECRET
+            - name: BFF_HMAC_NOTIF_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: bff-secret
+                  key: BFF_HMAC_NOTIF_SECRET
+            - name: JAVA_OPTS
+              value: "-Xms32m -Xmx200m"
