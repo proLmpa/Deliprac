@@ -32,6 +32,11 @@ secrets:
     dbPass:    "changeme"
     hmacNotif: "changeme"
 
+# Set to true only if Prometheus Operator is installed in the cluster.
+# When false, annotation-based scraping via prometheus-agent is used instead.
+prometheusOperator:
+  enabled: false
+
 # Non-secret configuration
 config:
   db:

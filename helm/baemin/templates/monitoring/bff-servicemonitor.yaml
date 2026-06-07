@@ -1,7 +1,6 @@
-# ServiceMonitor — requires the Prometheus Operator CRDs.
-# Install with: helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack
-# If using the prometheus-agent chart's kubernetes_sd_configs instead, this file
-# is a no-op until the Operator is present.
+{{- if .Values.prometheusOperator.enabled }}
+# ServiceMonitor — only rendered when prometheusOperator.enabled=true.
+# When false, annotation-based scraping via prometheus-agent is used instead.
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -19,3 +18,4 @@ spec:
     - port: http
       path: /actuator/prometheus
       interval: 15s
+{{- end }}
