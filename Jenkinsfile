@@ -43,10 +43,6 @@ pipeline {
                         'bff-service', 'user-service', 'store-service',
                         'order-service', 'notification-service'
                     ]
-                    // Copy jars first (sequential — fast)
-                    for (svc in springServices) {
-                        sh "find ${svc}/build/libs -name '*.jar' ! -name '*plain*' ! -name 'app.jar' | head -1 | xargs -I{} cp {} ${svc}/build/libs/app.jar"
-                    }
                     // Build all images in parallel
                     def buildTasks = [:]
                     for (svc in springServices) {
