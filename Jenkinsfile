@@ -99,11 +99,13 @@ pipeline {
                                     --auth-token \$ARGOCD_AUTH_TOKEN \
                                     --server \$ARGOCD_SERVER \
                                     --grpc-web \
+                                    --insecure \
                                     -p images.tag=${env.IMAGE_TAG}
                                 argocd app sync baemin \
                                     --auth-token \$ARGOCD_AUTH_TOKEN \
                                     --server \$ARGOCD_SERVER \
                                     --grpc-web \
+                                    --insecure \
                                     --timeout 180
                             """
                         }
