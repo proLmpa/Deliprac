@@ -37,6 +37,11 @@ secrets:
 prometheusOperator:
   enabled: false
 
+# JVM heap for all Spring Boot services.
+# -Xmx200m caused 500+ second startups on a 2 GB VM due to GC pressure.
+# With 6 GB RAM on vm-front, 512m gives fast startup across all 5 services.
+javaOpts: "-Xms128m -Xmx512m"
+
 # Non-secret configuration
 config:
   db:

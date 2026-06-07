@@ -65,4 +65,4 @@ spec:
                   name: redis-config
                   key: REDIS_PORT
             - name: JAVA_OPTS
-              value: "-Xms32m -Xmx200m"
+              value: {{ .Values.javaOpts | quote }}
