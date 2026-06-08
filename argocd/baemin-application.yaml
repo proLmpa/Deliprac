@@ -12,14 +12,6 @@ spec:
     helm:
       valueFiles:
         - values.yaml
-      # Secret overrides are injected by CI — never committed to git:
-      #   argocd app set baemin \
-      #     -p secrets.jwt=REAL_VALUE \
-      #     -p secrets.user.dbUser=user_svc \
-      #     -p secrets.user.dbPass=REAL_PASS \
-      #     ...
-      # Image tag is updated per-deploy:
-      #   argocd app set baemin -p images.tag=<git-sha>
   destination:
     server: https://kubernetes.default.svc
     namespace: baemin

@@ -6,7 +6,6 @@ metadata:
 spec:
   project: default
   source:
-    # Replace with your actual GitHub repository URL.
     repoURL: https://github.com/proLmpa/Deliprac.git
     targetRevision: main
     path: helm/prometheus-agent
