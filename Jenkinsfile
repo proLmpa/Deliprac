@@ -95,6 +95,11 @@ pipeline {
                             string(credentialsId: 'argocd-server', variable: 'ARGOCD_SERVER')
                         ]) {
                             sh """
+                                argocd app terminate-op baemin \
+                                    --auth-token \$ARGOCD_AUTH_TOKEN \
+                                    --server \$ARGOCD_SERVER \
+                                    --grpc-web \
+                                    --insecure || true
                                 argocd app set baemin \
                                     --auth-token \$ARGOCD_AUTH_TOKEN \
                                     --server \$ARGOCD_SERVER \
