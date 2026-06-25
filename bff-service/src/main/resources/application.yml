@@ -32,6 +32,10 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+  endpoint:
+    health:
+      probes:
+        enabled: true
 
 resilience4j:
   circuitbreaker:
