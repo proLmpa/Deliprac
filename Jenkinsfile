@@ -82,88 +82,72 @@ pipeline {
             }
         }
 
-        // ── 4. Deploy ──────────────────────────────────────────────────────
+        // ── 4. Update the Helm tag ──────────────────────────────────────────
+        stage('Update Helm Tag') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'github-cred',
+                    usernameVariable: 'GIT_USER',
+                    passwordVariable: 'GIT_PASS'
+                )]) {
+                    sh """
+                        sed -i 's/^  tag: .*/  tag: "${env.IMAGE_TAG}"/' helm/baemin/values.yaml
+                        git config user.email "kheeyeoul@gmail.com"
+                        git config user.name "proLmpa"
+                        git add helm/baemin/values.yaml
+                        git commit -m "ci: bump images.tag to ${env.IMAGE_TAG}"
+                        git push https://\${GIT_USER}:\${GIT_PASS}@github.com/proLmpa/Deliprac.git HEAD:main
+                    """
+                }
+            }
+        }
+
+        // ── 5. Deploy ──────────────────────────────────────────────────────
         stage('Deploy') {
             steps {
                 script {
-                    def tasks = [:]
-
-                    // ── ArgoCD: update image tag and sync ──────────────────
-                    tasks['k8s'] = {
-                        withCredentials([
-                            string(credentialsId: 'argocd-token',  variable: 'ARGOCD_AUTH_TOKEN'),
-                            string(credentialsId: 'argocd-server', variable: 'ARGOCD_SERVER')
-                        ]) {
-                            sh """
-                                argocd app terminate-op baemin \
-                                    --auth-token \$ARGOCD_AUTH_TOKEN \
-                                    --server \$ARGOCD_SERVER \
-                                    --grpc-web \
-                                    --insecure || true
-                                argocd app set baemin \
-                                    --auth-token \$ARGOCD_AUTH_TOKEN \
-                                    --server \$ARGOCD_SERVER \
-                                    --grpc-web \
-                                    --insecure \
-                                    -p images.tag=${env.IMAGE_TAG}
-                                argocd app wait baemin \
-                                    --auth-token \$ARGOCD_AUTH_TOKEN \
-                                    --server \$ARGOCD_SERVER \
-                                    --grpc-web \
-                                    --insecure \
-                                    --operation \
-                                    --timeout 180
-                            """
+                    withCredentials([
+                        string(credentialsId: 'telegram-bot-token', variable: 'TELEGRAM_BOT_TOKEN'),
+                        string(credentialsId: 'telegram-chat-id',   variable: 'TELEGRAM_CHAT_ID'),
+                        string(credentialsId: 'MONITORING_HOST',    variable: 'MONITORING_HOST')
+                    ]) {
+                        sshagent(credentials: ['deploy-ssh-key']) {
+                            // prometheus.yml has no variable placeholders — copy directly.
+                            // alertmanager.yml still needs Telegram credentials substituted.
+                            sh 'envsubst < monitoring/alertmanager.yml > /tmp/baemin-alertmanager.yml'
+                            sh '''
+                                ssh -o StrictHostKeyChecking=no $MONITORING_HOST 'mkdir -p /opt/monitoring/grafana/provisioning/datasources /opt/monitoring/grafana/provisioning/dashboards /opt/monitoring/grafana/dashboards'
+                                scp -o StrictHostKeyChecking=no monitoring/prometheus.yml                                                $MONITORING_HOST:/opt/monitoring/prometheus.yml
+                                scp -o StrictHostKeyChecking=no /tmp/baemin-alertmanager.yml                                             $MONITORING_HOST:/opt/monitoring/alertmanager.yml
+                                scp -o StrictHostKeyChecking=no monitoring/alerting-rules.yml                                            $MONITORING_HOST:/opt/monitoring/alerting-rules.yml
+                                scp -o StrictHostKeyChecking=no monitoring/grafana/provisioning/datasources/prometheus.yml        $MONITORING_HOST:/opt/monitoring/grafana/provisioning/datasources/prometheus.yml
+                                scp -o StrictHostKeyChecking=no monitoring/grafana/provisioning/dashboards/dashboard.yml          $MONITORING_HOST:/opt/monitoring/grafana/provisioning/dashboards/dashboard.yml
+                                scp -o StrictHostKeyChecking=no monitoring/grafana/dashboards/baemin.json                        $MONITORING_HOST:/opt/monitoring/grafana/dashboards/baemin.json
+                            '''
+                            // Copy staged files to the locations each native service reads from
+                            sh '''
+                                ssh -o StrictHostKeyChecking=no $MONITORING_HOST '
+                                    sudo cp /opt/monitoring/prometheus.yml              /etc/prometheus/prometheus.yml
+                                    sudo cp /opt/monitoring/alerting-rules.yml          /etc/prometheus/alerting-rules.yml
+                                    sudo cp /opt/monitoring/alertmanager.yml            /etc/prometheus/alertmanager.yml
+                                    sudo mkdir -p /etc/grafana/provisioning/datasources /etc/grafana/provisioning/dashboards /var/lib/grafana/dashboards
+                                    sudo cp /opt/monitoring/grafana/provisioning/datasources/prometheus.yml /etc/grafana/provisioning/datasources/prometheus.yml
+                                    sudo cp /opt/monitoring/grafana/provisioning/dashboards/dashboard.yml   /etc/grafana/provisioning/dashboards/dashboard.yml
+                                    sudo cp /opt/monitoring/grafana/dashboards/baemin.json                  /var/lib/grafana/dashboards/baemin.json
+                                    sudo chown grafana:grafana /var/lib/grafana/dashboards/baemin.json
+                                '
+                            '''
+                            // Reload Prometheus and Alertmanager (config-only reload — no restart needed)
+                            // Restart Grafana to pick up provisioning changes
+                            sh '''
+                                ssh -o StrictHostKeyChecking=no $MONITORING_HOST '
+                                    sudo systemctl reload prometheus
+                                    sudo systemctl reload prometheus-alertmanager
+                                    sudo systemctl restart grafana-server
+                                '
+                            '''
                         }
                     }
-
-                    // ── VM-monitoring: config + scp + systemctl reload ────────
-                    tasks['vm-monitoring'] = {
-                        withCredentials([
-                            string(credentialsId: 'telegram-bot-token', variable: 'TELEGRAM_BOT_TOKEN'),
-                            string(credentialsId: 'telegram-chat-id',   variable: 'TELEGRAM_CHAT_ID'),
-                            string(credentialsId: 'MONITORING_HOST',    variable: 'MONITORING_HOST')
-                        ]) {
-                            sshagent(credentials: ['deploy-ssh-key']) {
-                                // prometheus.yml has no variable placeholders — copy directly.
-                                // alertmanager.yml still needs Telegram credentials substituted.
-                                sh 'envsubst < monitoring/alertmanager.yml > /tmp/baemin-alertmanager.yml'
-                                sh '''
-                                    ssh -o StrictHostKeyChecking=no $MONITORING_HOST 'mkdir -p /opt/monitoring/grafana/provisioning/datasources /opt/monitoring/grafana/provisioning/dashboards /opt/monitoring/grafana/dashboards'
-                                    scp -o StrictHostKeyChecking=no monitoring/prometheus.yml                                                $MONITORING_HOST:/opt/monitoring/prometheus.yml
-                                    scp -o StrictHostKeyChecking=no /tmp/baemin-alertmanager.yml                                             $MONITORING_HOST:/opt/monitoring/alertmanager.yml
-                                    scp -o StrictHostKeyChecking=no monitoring/alerting-rules.yml                                            $MONITORING_HOST:/opt/monitoring/alerting-rules.yml
-                                    scp -o StrictHostKeyChecking=no monitoring/grafana/provisioning/datasources/prometheus.yml        $MONITORING_HOST:/opt/monitoring/grafana/provisioning/datasources/prometheus.yml
-                                    scp -o StrictHostKeyChecking=no monitoring/grafana/provisioning/dashboards/dashboard.yml          $MONITORING_HOST:/opt/monitoring/grafana/provisioning/dashboards/dashboard.yml
-                                    scp -o StrictHostKeyChecking=no monitoring/grafana/dashboards/baemin.json                        $MONITORING_HOST:/opt/monitoring/grafana/dashboards/baemin.json
-                                '''
-                                // Copy staged files to the locations each native service reads from
-                                sh '''
-                                    ssh -o StrictHostKeyChecking=no $MONITORING_HOST '
-                                        sudo cp /opt/monitoring/prometheus.yml              /etc/prometheus/prometheus.yml
-                                        sudo cp /opt/monitoring/alerting-rules.yml          /etc/prometheus/alerting-rules.yml
-                                        sudo cp /opt/monitoring/alertmanager.yml            /etc/prometheus/alertmanager.yml
-                                        sudo mkdir -p /etc/grafana/provisioning/datasources /etc/grafana/provisioning/dashboards /var/lib/grafana/dashboards
-                                        sudo cp /opt/monitoring/grafana/provisioning/datasources/prometheus.yml /etc/grafana/provisioning/datasources/prometheus.yml
-                                        sudo cp /opt/monitoring/grafana/provisioning/dashboards/dashboard.yml   /etc/grafana/provisioning/dashboards/dashboard.yml
-                                        sudo cp /opt/monitoring/grafana/dashboards/baemin.json                  /var/lib/grafana/dashboards/baemin.json
-                                        sudo chown grafana:grafana /var/lib/grafana/dashboards/baemin.json
-                                    '
-                                '''
-                                // Reload Prometheus and Alertmanager (config-only reload — no restart needed)
-                                // Restart Grafana to pick up provisioning changes
-                                sh '''
-                                    ssh -o StrictHostKeyChecking=no $MONITORING_HOST '
-                                        sudo systemctl reload prometheus
-                                        sudo systemctl reload prometheus-alertmanager
-                                        sudo systemctl restart grafana-server
-                                    '
-                                '''
-                            }
-                        }
-                    }
-
-                    parallel tasks
                 }
             }
         }

@@ -5,9 +5,7 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
-md-files/Cacheable.md
-md-files/VM-Deployment.md
-md-files/260605.md
+md-files/
 
 ### STS ###
 .apt_generated
