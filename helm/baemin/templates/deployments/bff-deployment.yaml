@@ -14,7 +14,7 @@ spec:
       app: bff-service
   strategy:
     blueGreen:
-      activeService: bff-service-active
+      activeService: bff-service
       previewService: bff-service-preview
       autoPromotionEnabled: false
   template:
