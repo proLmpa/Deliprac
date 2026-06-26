@@ -7,7 +7,7 @@ metadata:
     app: user-service
     {{- include "baemin.labels" . | nindent 4 }}
 spec:
-  replicas: 2
+  replicas: {{ .Values.replicas }}
   revisionHistoryLimit: 2
   selector:
     matchLabels:
@@ -62,7 +62,7 @@ spec:
             httpGet:
               path: /actuator/health/liveness
               port: 8081
-            initialDelaySeconds: 90
+            initialDelaySeconds: 180
             periodSeconds: 10
             failureThreshold: 3
             timeoutSeconds: 5
@@ -71,7 +71,7 @@ spec:
             httpGet:
               path: /actuator/health/readiness
               port: 8081
-            initialDelaySeconds: 60
+            initialDelaySeconds: 120
             periodSeconds: 10
             failureThreshold: 3
             timeoutSeconds: 5
