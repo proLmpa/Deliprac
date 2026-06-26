@@ -75,7 +75,7 @@ The BFF (Backend for Frontend) sits between the client and the four backend serv
 
 | Layer | Technology |
 |---|---|
-| Language | Kotlin 2.2 |
+| Language | Kotlin 2.3.21 |
 | Framework | Spring Boot 4.0 |
 | Security | Spring Security 7, JWT (jjwt 0.12) |
 | Persistence | Spring Data JPA, Hibernate, QueryDSL 5.1 |
@@ -84,116 +84,205 @@ The BFF (Backend for Frontend) sits between the client and the four backend serv
 | Resilience | Resilience4j 2.3 (circuit breaker) |
 | Observability | Spring Boot Actuator, Micrometer, Prometheus, Grafana, Alertmanager |
 | Build | Gradle 9 (Kotlin DSL), kapt |
-| Java | JDK 24 |
+| Java | JDK 25 |
 | Testing | JUnit 5, Mockito 5, MockMvc |
-| Infrastructure | Docker, Kubernetes (minikube), Jenkins |
+| Infrastructure | Docker, Kubernetes (minikube), Helm, ArgoCD, Jenkins |
 
 ---
 
-## API Reference
+## Getting Started
 
-All read operations use `POST` with a JSON request body. Mutation operations use `POST` (create), `PUT` (update/action), or `DELETE`.
+### Prerequisites
+- JDK 25
 
-### user-service · `:8081`
+### 1. Apply schemas
 
-| Method | Path | Auth | Body / Notes |
-|--------|------|------|--------------|
-| `POST` | `/api/users/signup` | Public | `{ email, password, phone?, role? }` → `201 Created` |
-| `POST` | `/api/users/signin` | Public | `{ email, password }` → `{ accessToken, tokenType }` |
-| `PUT`  | `/api/users/suspend` | ADMIN | `{ id }` — suspend user (sets status `SUSPENDED`) |
-| `PUT`  | `/api/users/me/withdraw` | Any | Self-withdraw (sets status `WITHDRAWN`) |
+```bash
+psql -h 192.168.160.101 -U user_svc  -d userdb         < user-service/src/main/resources/db/schema.sql
+psql -h 192.168.160.102 -U store_svc -d storedb        < store-service/src/main/resources/db/schema.sql
+psql -h 192.168.160.103 -U order_svc -d orderdb        < order-service/src/main/resources/db/schema.sql
+psql -h 192.168.160.104 -U notif_svc -d notificationdb < notification-service/src/main/resources/db/schema.sql
+```
 
----
+### 2. Run services
 
-### store-service · `:8082`
+```bash
+# Each in a separate terminal
+./gradlew :user-service:bootRun
+./gradlew :store-service:bootRun
+./gradlew :order-service:bootRun
+./gradlew :notification-service:bootRun
+./gradlew :bff-service:bootRun
+```
 
-#### Stores
+### 3. Run tests
 
-| Method | Path | Auth | Body / Notes |
-|--------|------|------|--------------|
-| `POST` | `/api/stores` | OWNER | `{ name, address, phone, content, storePictureUrl?, productCreatedTime, openedTime, closedTime, closedDays }` |
-| `POST` | `/api/stores/list` | Any | `{ sortBy: "CREATED_AT"\|"RATING" }` → `List<StoreResponse>` |
-| `POST` | `/api/stores/mine` | OWNER | *(no body)* → `List<StoreResponse>` |
-| `POST` | `/api/stores/find` | Any | `{ id }` → `StoreResponse` |
-| `PUT`  | `/api/stores` | OWNER | `{ id, name, address, phone, ... }` |
-| `PUT`  | `/api/stores/deactivate` | OWNER | `{ id }` — soft-delete (sets status `INACTIVE`) |
-
-#### Products
-
-| Method | Path | Auth | Body / Notes |
-|--------|------|------|--------------|
-| `POST` | `/api/stores/products` | OWNER | `{ storeId, name, description, price, productPictureUrl? }` |
-| `POST` | `/api/stores/products/list` | Any | `{ storeId }` → `List<ProductResponse>` |
-| `POST` | `/api/stores/products/find` | Any | `{ storeId, productId }` → `ProductResponse` |
-| `PUT`  | `/api/stores/products` | OWNER | `{ storeId, productId, name, description, price, productPictureUrl? }` |
-| `PUT`  | `/api/stores/products/deactivate` | OWNER | `{ storeId, productId }` |
-| `PUT`  | `/api/stores/products/popularity` | OWNER | `{ storeId, productId, delta }` — increment popularity |
-
-#### Reviews
-
-| Method | Path | Auth | Body / Notes |
-|--------|------|------|--------------|
-| `POST`   | `/api/stores/reviews` | CUSTOMER | `{ storeId, rating, content }` |
-| `POST`   | `/api/stores/reviews/list` | Any | `{ storeId }` → `List<ReviewResponse>` |
-| `DELETE` | `/api/stores/reviews` | CUSTOMER (own) / ADMIN | `{ storeId, reviewId }` |
-
-#### Statistics
-
-| Method | Path | Auth | Body / Notes |
-|--------|------|------|--------------|
-| `POST` | `/api/stores/statistics/popular-products` | OWNER | `{ storeId }` → `List<ProductResponse>` ordered by popularity |
+```bash
+./gradlew test                              # all modules
+./gradlew :store-service:test               # single module
+./gradlew :notification-service:test
+```
 
 ---
 
-### order-service · `:8083`
+## Key Design Decisions
 
-#### Cart
+### 1. All reads use POST + JSON body
+Path variables and query params for read operations are moved into the request body. This eliminates resource IDs from URLs on query-only endpoints (e.g. `POST /api/stores/find` with `{ "id": 5 }` instead of `GET /api/stores/5`).
 
-| Method | Path | Auth | Body / Notes |
-|--------|------|------|--------------|
-| `POST`   | `/api/carts` | CUSTOMER | `{ productId, storeId, quantity }` — BFF fetches `unitPrice`; creates cart if none; resets if different store |
-| `POST`   | `/api/carts/me` | CUSTOMER | *(no body)* → current cart |
-| `DELETE` | `/api/carts/products` | CUSTOMER | `{ cartId, productId }` — remove one item |
-| `DELETE` | `/api/carts` | CUSTOMER | `{ cartId }` — clear all items |
-| `PUT`    | `/api/carts/checkout` | CUSTOMER | `{ cartId }` — creates `Order(PENDING)` |
+### 2. Multiple carts per user, one active at a time
+`carts.user_id` is non-unique. A user accumulates carts over time; only the one with `is_ordered = false` is the active cart (queried via `findByUserIdAndIsOrderedFalse`). Ordered carts are preserved as history, permanently linked to their order. When a customer adds a product from a different store, the active cart is reset in-place — items cleared, `store_id` updated.
 
-#### Orders
+### 3. Order status flow
 
-| Method | Path | Auth | Body / Notes |
-|--------|------|------|--------------|
-| `POST` | `/api/stores/orders/list` | OWNER | `{ storeId }` → `List<OrderResponse>` |
-| `PUT`  | `/api/stores/orders/sold` | OWNER | `{ storeId, orderId }` — PENDING → SOLD |
-| `PUT`  | `/api/stores/orders/cancel` | OWNER | `{ storeId, orderId }` — PENDING → CANCELED |
-| `POST` | `/api/users/me/orders` | CUSTOMER | *(no body)* → `List<OrderResponse>` |
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING : PUT /carts/checkout
+    PENDING --> SOLD      : PUT /stores/orders/sold
+    PENDING --> CANCELED  : PUT /stores/orders/cancel
+```
 
-#### Statistics
+Only `PENDING` orders can transition.
 
-| Method | Path | Auth | Body / Notes |
-|--------|------|------|--------------|
-| `POST` | `/api/stores/statistics/revenue` | OWNER | `{ storeId, year, month, timezone? }` → `RevenueResponse` |
-| `POST` | `/api/users/me/statistics/spending` | CUSTOMER | `{ year, month, timezone? }` → `SpendingResponse` |
+### 4. Popularity tracking
+`products.popularity` is a `BIGINT` incremented by the client calling `PUT /api/stores/products/popularity` with `{ storeId, productId, delta }` after marking an order `SOLD`. Queried via QueryDSL (`ORDER BY popularity DESC`) to surface popular items.
+
+### 5. No shared database
+Each service has its own PostgreSQL instance. Foreign-key-like references across services (e.g. `store_id` in `orders`) are plain `BIGINT` columns — no ORM join, no FK constraint across DB boundaries.
+
+### 6. Long for all monetary and accumulative fields
+`price`, `unit_price`, `total_price`, `popularity`, `quantity`, `total_revenue`, `total_spending` are all `BIGINT` / `Long` to prevent integer overflow on aggregates.
+
+### 7. Statistics via QueryDSL with timezone support
+Monthly aggregates compute UTC epoch-millis boundaries from a caller-supplied timezone:
+```kotlin
+ZonedDateTime.of(year, month, 1, 0, 0, 0, 0, zoneId).toInstant().toEpochMilli()
+```
+
+### 8. BFF-triggered fire-and-forget notifications
+Notifications are created by the BFF immediately after order mutations — no message broker is involved. Every notification includes a full item snapshot (product name, unit price, quantity) and the store name.
+
+| BFF action | Recipient | Type | Item source |
+|---|---|---|---|
+| `checkout` | Store owner | `NEW_ORDER` | BFF fetches active cart + product names from store-service |
+| `markSold` | Customer | `ORDER_SOLD` | order-service returns cart snapshot in `OrderResponse.items` |
+| `markCanceled` | Customer | `ORDER_CANCELED` | order-service returns cart snapshot in `OrderResponse.items` |
+
+**userId security:** `StoreResponse.userId` and `OrderResponse.userId` are annotated `@get:JsonIgnore` / `@param:JsonProperty` — deserialized from backend services, never serialized to the frontend. The recipient's `userId` only ever exists inside the BFF at request time.
+
+**Delivery:** notifications are created in a background thread (`CompletableFuture.runAsync`) after the BFF returns its response to the client. Failures are swallowed silently and do not affect the API caller. The frontend polls `/api/notifications/list` every 30 seconds; recipients see new notifications within one poll cycle assuming the async call succeeds.
+
+### 9. Spring Cache (@Cacheable) in store-service and order-service
+
+store-service and order-service cache their most-read query results in Redis using Spring's `@Cacheable` / `@CacheEvict` abstraction backed by `RedisCacheManager`.
+
+| Cache name | Service | Cached method | Key | TTL |
+|---|---|---|---|---|
+| `stores` | store-service | `StoreService.findById` | `#id` | 5 min |
+| `stores-all` | store-service | `StoreService.listAll` | `#sortBy` | 2 min |
+| `products` | store-service | `ProductService.findById` | `#storeId + ':' + #productId` | 5 min |
+| `products-by-store` | store-service | `ProductService.listByStore` | `#storeId` | 5 min |
+| `orders-by-user` | order-service | `OrderService.listByUser` | `#userId` | 5 min |
+
+Write methods (`create`, `update`, `deactivate`, `markSold`, `markCanceled`, `checkout`) carry matching `@CacheEvict` annotations so cached entries are invalidated immediately after a mutation.
+
+**Serialization:** `GenericJacksonJsonRedisSerializer` writes a `@class` field into every JSON value so Jackson can reconstruct the correct concrete type on read. The serializer uses a dedicated `ObjectMapper` configured with `activateDefaultTypingAsProperty` (PROPERTY format). Passing Spring Boot's default `ObjectMapper` directly causes a `ClassCastException` because Jackson returns a `LinkedHashMap` without type information.
+
+**Profile activation:** Redis connection properties are gated behind `cache-dev` / `cache-prod` profiles, which are included in the `dev` and `prod` profile groups respectively. The `test` group does not include a cache profile — `@WebMvcTest` slices never load `CacheConfig` and caching is transparent during testing.
 
 ---
 
-### notification-service · `:8084`
+### 10. Two-level cache for public notifications (Caffeine + Redis)
 
-#### User Notifications
+`POST /api/public-notifications/list` is called on every page load — including by unauthenticated visitors — making it the highest-frequency read endpoint in the system. To avoid a database hit on every request, notification-service uses a two-level read-through cache with write-through eviction.
 
-| Method | Path | Auth | Body / Notes |
-|--------|------|------|--------------|
-| `POST` | `/api/notifications/list` | Any | `{ unreadOnly: Boolean }` → `List<NotificationResponse>` |
-| `PUT`  | `/api/notifications/read` | Any | `{ notificationId }` — mark one notification as read |
-| `PUT`  | `/api/notifications/read-all` | Any | *(no body)* — mark all as read |
+**Read path (`listActive`)**
 
-`/internal/notifications` (no JWT) is called by the BFF to create notifications — it is not exposed to clients.
+```
+Request
+  │
+  ├─ L1 hit  → Caffeine (in-process, TTL 1 min)  ──────────────────────► return
+  │
+  ├─ L1 miss → Redis (shared, TTL 10 min) ──► repopulate Caffeine ──────► return
+  │
+  └─ L2 miss → PostgreSQL ──► write to Redis + Caffeine ─────────────────► return
+```
 
-#### Public Notifications
+**Write path (create / deactivate)**
 
-| Method | Path | Auth | Body / Notes |
-|--------|------|------|--------------|
-| `POST` | `/api/public-notifications/list` | Public | *(no body)* → `List<PublicNotificationResponse>` — served from two-level cache |
-| `POST` | `/api/public-notifications` | ADMIN | `{ title, content, expiresAt }` → `201 Created` |
-| `PUT`  | `/api/public-notifications/deactivate` | ADMIN | `{ notificationId }` — soft-deactivate |
+Both mutations call `evictCache()` immediately after the DB write, invalidating both layers atomically:
+
+```kotlin
+private fun evictCache() {
+    stringRedisTemplate.delete(cacheKey)   // evict Redis
+    caffeineCache.invalidate(cacheKey)     // evict Caffeine
+}
+```
+
+The next read after any mutation falls all the way through to the DB and repopulates both layers, ensuring stale data is never served after a change.
+
+**Cache parameters**
+
+| Layer | Implementation | TTL | Scope |
+|---|---|---|---|
+| L1 | Caffeine (`Cache<String, Any>`) | 1 minute | Per JVM instance |
+| L2 | Redis (`StringRedisTemplate`, JSON) | 10 minutes | Shared across all instances |
+
+The Caffeine TTL is intentionally shorter than Redis so that in a multi-instance deployment, stale L1 entries expire quickly while Redis continues to absorb DB traffic.
+
+**Cache key:** `public-notifications:active` — the entire active list is stored as a single JSON array under one key. Invalidation is therefore O(1) regardless of how many notifications exist.
+
+---
+
+### 11. Resilience4j circuit breaker on NotificationClient
+
+All four `NotificationClient` methods are annotated `@CircuitBreaker(name = "notification")`. Configuration (COUNT_BASED): sliding window 10, minimum calls 5, 50% failure threshold, 30 s open wait, 3 permitted calls in half-open, auto-transition enabled.
+
+**Fallback behaviour:** the fire-and-forget `createNotification` logs a warning and returns silently; user-facing methods (`listMyNotifications`, `markRead`, `markAllRead`) return empty results or `Unit` so the API caller is unaffected. The circuit breaker state is exposed via `/actuator/prometheus` and triggers the Alertmanager `CircuitBreakerOpen` alert.
+
+### 12. Monitoring — Prometheus, Grafana, Alertmanager
+
+All five services expose Prometheus metrics at `/actuator/prometheus` (Spring Boot Actuator + Micrometer). A dedicated `vm-monitoring` VM runs all three tools natively as systemd services:
+
+| Service | Package | Port | Role |
+|---|---|---|---|
+| `prometheus` | `prometheus` (apt) | 9090 | Scrapes `/actuator/prometheus` via minikube NodePorts every 15 s |
+| `prometheus-alertmanager` | `prometheus-alertmanager` (apt) | 9093 | Routes firing alerts to Telegram |
+| `grafana-server` | `grafana` (Grafana apt repo) | 3000 | Dashboard provisioned from `monitoring/grafana/` |
+
+Alert rule: `CircuitBreakerOpen` — fires immediately when `resilience4j_circuitbreaker_state{state="open"} == 1`, sending a Telegram message via Alertmanager. Config files (`prometheus.yml`, `alertmanager.yml`) are templates with `${VAR}` placeholders substituted by `envsubst` on the Jenkins agent, then SCP'd to `/opt/monitoring/` on vm-monitoring. Jenkins reloads the services via `sudo systemctl reload`; no process restart is required for config-only changes.
+
+### 13. BFF-to-backend HMAC signing
+
+All four `RestClient` beans in the BFF have an `HmacSigningInterceptor` that signs every outgoing request. The signature covers method, path, timestamp, and a SHA-256 hash of the request body:
+
+```
+signature = HMAC-SHA256(secret, METHOD + "\n" + PATH + "\n" + TIMESTAMP_MS + "\n" + SHA256(body))
+```
+
+The result is sent as two headers: `X-Bff-Timestamp` (epoch milliseconds) and `X-Bff-Signature` (hex). Each backend service runs `HmacRequestFilter` at `HIGHEST_PRECEDENCE` — before Spring Security — and rejects any request that fails the following checks. `/actuator/**` paths are exempt from HMAC validation to allow Prometheus scraping without authentication.
+
+| Check | Response |
+|---|---|
+| `X-Bff-Timestamp` or `X-Bff-Signature` missing | `401 Missing HMAC headers` |
+| Timestamp outside ±30 s of server time | `401 Request expired` |
+| Signature mismatch | `401 Invalid HMAC signature` |
+
+Each service has its **own independent secret** (`bff.hmac.secret` in each backend, `bff.hmac.{service}.secret` in the BFF). A leaked secret for one service does not affect the others. In production, secrets are injected via environment variables (`BFF_HMAC_USER_SECRET`, `BFF_HMAC_STORE_SECRET`, etc.).
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant B as BFF :8080
+    participant S as Backend :808x
+
+    C->>B: POST /api/... (JWT)
+    Note over B: HmacSigningInterceptor<br/>adds X-Bff-Timestamp + X-Bff-Signature
+    B->>S: POST /api/... + HMAC headers
+    Note over S: HmacRequestFilter<br/>validates before Spring Security
+    S-->>B: 200 OK
+    B-->>C: 200 OK
+```
 
 ---
 
@@ -278,167 +367,6 @@ sequenceDiagram
 
     Ow->>BFF: POST /api/stores/statistics/revenue { storeId, year, month }
     BFF-->>Ow: RevenueResponse
-```
-
----
-
-## Key Design Decisions
-
-### All reads use POST + JSON body
-Path variables and query params for read operations are moved into the request body. This eliminates resource IDs from URLs on query-only endpoints (e.g. `POST /api/stores/find` with `{ "id": 5 }` instead of `GET /api/stores/5`).
-
-### Multiple carts per user, one active at a time
-`carts.user_id` is non-unique. A user accumulates carts over time; only the one with `is_ordered = false` is the active cart (queried via `findByUserIdAndIsOrderedFalse`). Ordered carts are preserved as history, permanently linked to their order. When a customer adds a product from a different store, the active cart is reset in-place — items cleared, `store_id` updated.
-
-### Order status flow
-
-```mermaid
-stateDiagram-v2
-    [*] --> PENDING : PUT /carts/checkout
-    PENDING --> SOLD      : PUT /stores/orders/sold
-    PENDING --> CANCELED  : PUT /stores/orders/cancel
-```
-
-Only `PENDING` orders can transition.
-
-### Popularity tracking
-`products.popularity` is a `BIGINT` incremented by the client calling `PUT /api/stores/products/popularity` with `{ storeId, productId, delta }` after marking an order `SOLD`. Queried via QueryDSL (`ORDER BY popularity DESC`) to surface popular items.
-
-### No shared database
-Each service has its own PostgreSQL instance. Foreign-key-like references across services (e.g. `store_id` in `orders`) are plain `BIGINT` columns — no ORM join, no FK constraint across DB boundaries.
-
-### Long for all monetary and accumulative fields
-`price`, `unit_price`, `total_price`, `popularity`, `quantity`, `total_revenue`, `total_spending` are all `BIGINT` / `Long` to prevent integer overflow on aggregates.
-
-### Statistics via QueryDSL with timezone support
-Monthly aggregates compute UTC epoch-millis boundaries from a caller-supplied timezone:
-```kotlin
-ZonedDateTime.of(year, month, 1, 0, 0, 0, 0, zoneId).toInstant().toEpochMilli()
-```
-
-### BFF-triggered fire-and-forget notifications
-Notifications are created by the BFF immediately after order mutations — no message broker is involved. Every notification includes a full item snapshot (product name, unit price, quantity) and the store name.
-
-| BFF action | Recipient | Type | Item source |
-|---|---|---|---|
-| `checkout` | Store owner | `NEW_ORDER` | BFF fetches active cart + product names from store-service |
-| `markSold` | Customer | `ORDER_SOLD` | order-service returns cart snapshot in `OrderResponse.items` |
-| `markCanceled` | Customer | `ORDER_CANCELED` | order-service returns cart snapshot in `OrderResponse.items` |
-
-**userId security:** `StoreResponse.userId` and `OrderResponse.userId` are annotated `@get:JsonIgnore` / `@param:JsonProperty` — deserialized from backend services, never serialized to the frontend. The recipient's `userId` only ever exists inside the BFF at request time.
-
-**Delivery:** notifications are created in a background thread (`CompletableFuture.runAsync`) after the BFF returns its response to the client. Failures are swallowed silently and do not affect the API caller. The frontend polls `/api/notifications/list` every 30 seconds; recipients see new notifications within one poll cycle assuming the async call succeeds.
-
-### Spring Cache (@Cacheable) in store-service and order-service
-
-store-service and order-service cache their most-read query results in Redis using Spring's `@Cacheable` / `@CacheEvict` abstraction backed by `RedisCacheManager`.
-
-| Cache name | Service | Cached method | Key | TTL |
-|---|---|---|---|---|
-| `stores` | store-service | `StoreService.findById` | `#id` | 5 min |
-| `stores-all` | store-service | `StoreService.listAll` | `#sortBy` | 2 min |
-| `products` | store-service | `ProductService.findById` | `#storeId + ':' + #productId` | 5 min |
-| `products-by-store` | store-service | `ProductService.listByStore` | `#storeId` | 5 min |
-| `orders-by-user` | order-service | `OrderService.listByUser` | `#userId` | 5 min |
-
-Write methods (`create`, `update`, `deactivate`, `markSold`, `markCanceled`, `checkout`) carry matching `@CacheEvict` annotations so cached entries are invalidated immediately after a mutation.
-
-**Serialization:** `GenericJacksonJsonRedisSerializer` writes a `@class` field into every JSON value so Jackson can reconstruct the correct concrete type on read. The serializer uses a dedicated `ObjectMapper` configured with `activateDefaultTypingAsProperty` (PROPERTY format). Passing Spring Boot's default `ObjectMapper` directly causes a `ClassCastException` because Jackson returns a `LinkedHashMap` without type information.
-
-**Profile activation:** Redis connection properties are gated behind `cache-dev` / `cache-prod` profiles, which are included in the `dev` and `prod` profile groups respectively. The `test` group does not include a cache profile — `@WebMvcTest` slices never load `CacheConfig` and caching is transparent during testing.
-
----
-
-### Two-level cache for public notifications (Caffeine + Redis)
-
-`POST /api/public-notifications/list` is called on every page load — including by unauthenticated visitors — making it the highest-frequency read endpoint in the system. To avoid a database hit on every request, notification-service uses a two-level read-through cache with write-through eviction.
-
-**Read path (`listActive`)**
-
-```
-Request
-  │
-  ├─ L1 hit  → Caffeine (in-process, TTL 1 min)  ──────────────────────► return
-  │
-  ├─ L1 miss → Redis (shared, TTL 10 min) ──► repopulate Caffeine ──────► return
-  │
-  └─ L2 miss → PostgreSQL ──► write to Redis + Caffeine ─────────────────► return
-```
-
-**Write path (create / deactivate)**
-
-Both mutations call `evictCache()` immediately after the DB write, invalidating both layers atomically:
-
-```kotlin
-private fun evictCache() {
-    stringRedisTemplate.delete(cacheKey)   // evict Redis
-    caffeineCache.invalidate(cacheKey)     // evict Caffeine
-}
-```
-
-The next read after any mutation falls all the way through to the DB and repopulates both layers, ensuring stale data is never served after a change.
-
-**Cache parameters**
-
-| Layer | Implementation | TTL | Scope |
-|---|---|---|---|
-| L1 | Caffeine (`Cache<String, Any>`) | 1 minute | Per JVM instance |
-| L2 | Redis (`StringRedisTemplate`, JSON) | 10 minutes | Shared across all instances |
-
-The Caffeine TTL is intentionally shorter than Redis so that in a multi-instance deployment, stale L1 entries expire quickly while Redis continues to absorb DB traffic.
-
-**Cache key:** `public-notifications:active` — the entire active list is stored as a single JSON array under one key. Invalidation is therefore O(1) regardless of how many notifications exist.
-
----
-
-### Resilience4j circuit breaker on NotificationClient
-
-All four `NotificationClient` methods are annotated `@CircuitBreaker(name = "notification")`. Configuration (COUNT_BASED): sliding window 10, minimum calls 5, 50% failure threshold, 30 s open wait, 3 permitted calls in half-open, auto-transition enabled.
-
-**Fallback behaviour:** the fire-and-forget `createNotification` logs a warning and returns silently; user-facing methods (`listMyNotifications`, `markRead`, `markAllRead`) return empty results or `Unit` so the API caller is unaffected. The circuit breaker state is exposed via `/actuator/prometheus` and triggers the Alertmanager `CircuitBreakerOpen` alert.
-
-### Monitoring — Prometheus, Grafana, Alertmanager
-
-All five services expose Prometheus metrics at `/actuator/prometheus` (Spring Boot Actuator + Micrometer). A dedicated `vm-monitoring` VM runs all three tools natively as systemd services:
-
-| Service | Package | Port | Role |
-|---|---|---|---|
-| `prometheus` | `prometheus` (apt) | 9090 | Scrapes `/actuator/prometheus` via minikube NodePorts every 15 s |
-| `prometheus-alertmanager` | `prometheus-alertmanager` (apt) | 9093 | Routes firing alerts to Telegram |
-| `grafana-server` | `grafana` (Grafana apt repo) | 3000 | Dashboard provisioned from `monitoring/grafana/` |
-
-Alert rule: `CircuitBreakerOpen` — fires immediately when `resilience4j_circuitbreaker_state{state="open"} == 1`, sending a Telegram message via Alertmanager. Config files (`prometheus.yml`, `alertmanager.yml`) are templates with `${VAR}` placeholders substituted by `envsubst` on the Jenkins agent, then SCP'd to `/opt/monitoring/` on vm-monitoring. Jenkins reloads the services via `sudo systemctl reload`; no process restart is required for config-only changes.
-
-### BFF-to-backend HMAC signing
-
-All four `RestClient` beans in the BFF have an `HmacSigningInterceptor` that signs every outgoing request. The signature covers method, path, timestamp, and a SHA-256 hash of the request body:
-
-```
-signature = HMAC-SHA256(secret, METHOD + "\n" + PATH + "\n" + TIMESTAMP_MS + "\n" + SHA256(body))
-```
-
-The result is sent as two headers: `X-Bff-Timestamp` (epoch milliseconds) and `X-Bff-Signature` (hex). Each backend service runs `HmacRequestFilter` at `HIGHEST_PRECEDENCE` — before Spring Security — and rejects any request that fails the following checks. `/actuator/**` paths are exempt from HMAC validation to allow Prometheus scraping without authentication.
-
-| Check | Response |
-|---|---|
-| `X-Bff-Timestamp` or `X-Bff-Signature` missing | `401 Missing HMAC headers` |
-| Timestamp outside ±30 s of server time | `401 Request expired` |
-| Signature mismatch | `401 Invalid HMAC signature` |
-
-Each service has its **own independent secret** (`bff.hmac.secret` in each backend, `bff.hmac.{service}.secret` in the BFF). A leaked secret for one service does not affect the others. In production, secrets are injected via environment variables (`BFF_HMAC_USER_SECRET`, `BFF_HMAC_STORE_SECRET`, etc.).
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant B as BFF :8080
-    participant S as Backend :808x
-
-    C->>B: POST /api/... (JWT)
-    Note over B: HmacSigningInterceptor<br/>adds X-Bff-Timestamp + X-Bff-Signature
-    B->>S: POST /api/... + HMAC headers
-    Note over S: HmacRequestFilter<br/>validates before Spring Security
-    S-->>B: 200 OK
-    B-->>C: 200 OK
 ```
 
 ---
@@ -568,12 +496,14 @@ erDiagram
 flowchart LR
     GH["GitHub\n(main branch)"]
     DH["Docker Hub\nprolmpa/*"]
+    AC["ArgoCD\n(auto-sync)"]
 
     subgraph jenkins ["Jenkins Server"]
         CO["1. Checkout"]
         BI["2. Build Images\n./gradlew bootJar\ndocker build x 6"]
         PI["3. Push Images\ndocker push x 6"]
-        DP["4. Deploy\nkubectl + SSH (parallel)"]
+        UH["4. Update Helm values\nvalues.yaml images.tag\ngit commit + push"]
+        DP["5. Deploy Monitoring\nenvsubst → SCP → systemctl reload"]
     end
 
     subgraph k8s ["minikube cluster (baemin namespace)"]
@@ -588,10 +518,11 @@ flowchart LR
 
     VM["vm-monitoring\nPrometheus · Alertmanager · Grafana"]
 
-    GH -->|push| CO --> BI --> PI --> DP
+    GH -->|push| CO --> BI --> PI --> UH & DP
     PI --> DH
-    DH --> DP
-    DP --> k8s
+    UH -->|git push| GH
+    GH -->|detects change| AC
+    AC --> k8s
     DP -->|SSH| VM
 ```
 
@@ -602,9 +533,10 @@ flowchart LR
 | **Checkout** | Pulls `main` branch from GitHub |
 | **Build Images** | `./gradlew bootJar -x test` — produces fat JARs; `docker build` for all 6 services (5 Spring + `front-service`); each image tagged with a 12-char git SHA and `latest` |
 | **Push Images** | `docker login` with `docker-hub-cred`; pushes both tags for all 6 images to Docker Hub; removes local images immediately after push to prevent disk exhaustion |
-| **Deploy** | Two parallel tasks: (1) **k8s** — applies the `baemin` namespace, injects Kubernetes Secrets from Jenkins credentials (never stored in git), applies ConfigMaps/Deployments/Services from `k8s/`, rolls out the new image tag across all 6 Deployments, and waits for each rollout; (2) **vm-monitoring** — `envsubst` substitutes `${MINIKUBE_IP}` and Telegram credentials into config templates, copies via SCP, and recreates Prometheus, Alertmanager, and Grafana containers |
+| **Update Helm values** | Writes the 12-char git SHA into `helm/baemin/values.yaml` (`images.tag`), commits, and pushes to `main`. ArgoCD detects the change automatically via its automated sync policy (`prune: true`, `selfHeal: true`) and reconciles the cluster — no `kubectl apply` runs from Jenkins. |
+| **Deploy Monitoring** | `envsubst` substitutes `${MINIKUBE_IP}` and Telegram credentials into config templates, copies via SCP to `/opt/monitoring/` on vm-monitoring, and reloads Prometheus and Alertmanager via `sudo systemctl reload` — no process restart required. |
 
-All 6 services run as Kubernetes Deployments in the `baemin` namespace, exposed via NodePort Services. ConfigMaps supply non-sensitive configuration (JDBC URLs pointing to `host.minikube.internal`, Redis host, backend service URLs). Kubernetes Secrets supply credentials — Jenkins creates them at deploy time using `--dry-run=client | kubectl apply -f -` so no secrets appear in the repo. Prometheus scrapes metrics via minikube NodePorts. The monitoring stack deploys identically to before, only the scrape targets change.
+Stages 4 and 5 run in parallel. All 6 services run as Kubernetes Deployments in the `baemin` namespace (Helm chart at `helm/baemin/`), exposed via NodePort Services. ArgoCD owns all cluster state; Jenkins only pushes image tags to git. Prometheus scrapes metrics from all services via minikube NodePorts.
 
 ### Jenkins Credentials & Global Env Vars
 
@@ -621,49 +553,3 @@ Credentials stored in Jenkins — no values appear in the `Jenkinsfile`:
 | `MINIKUBE_IP` | Secret text | `minikube ip` output — Prometheus NodePort scrape targets |
 
 `MONITORING_HOST`, DB connection strings, JWT secret, and HMAC secrets are stored as Jenkins Global Environment Variables. `MONITORING_HOST` is used for SSH to vm-monitoring; the rest are injected into Kubernetes Secrets at deploy time.
-
----
-
-## Getting Started
-
-### Prerequisites
-- Docker + Docker Compose
-- JDK 24
-
-### 1. Start all databases and Redis
-
-```bash
-docker compose up -d
-docker run -d --name baemin_redis -p 6379:6379 redis:7
-```
-
-> Redis is required by store-service and order-service (`cache-dev` profile is active in `dev`
-> by default). Without it, `RedisCacheManager` fails to initialize and the service will not start.
-
-### 2. Apply schemas
-
-```bash
-docker compose exec -T user-db         psql -U user_svc  -d userdb         < user-service/src/main/resources/db/schema.sql
-docker compose exec -T store-db        psql -U store_svc -d storedb        < store-service/src/main/resources/db/schema.sql
-docker compose exec -T order-db        psql -U order_svc -d orderdb        < order-service/src/main/resources/db/schema.sql
-docker compose exec -T notification-db psql -U notif_svc -d notificationdb < notification-service/src/main/resources/db/schema.sql
-```
-
-### 3. Run services
-
-```bash
-# Each in a separate terminal
-./gradlew :user-service:bootRun
-./gradlew :store-service:bootRun
-./gradlew :order-service:bootRun
-./gradlew :notification-service:bootRun
-./gradlew :bff-service:bootRun
-```
-
-### 4. Run tests
-
-```bash
-./gradlew test                              # all modules
-./gradlew :store-service:test               # single module
-./gradlew :notification-service:test
-```
