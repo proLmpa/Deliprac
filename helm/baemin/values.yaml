@@ -3,7 +3,7 @@
 # and performs a rolling restart.  "latest" is a fallback for local testing only.
 images:
   registry: prolmpa
-  tag: "64eef5681f23"
+  tag: "7c26d0e3dd05"
 
 # Secret values — "changeme" placeholders here.
 # Production values are injected via `argocd app set -p secrets.*=REAL_VALUE`
