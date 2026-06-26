@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: order-service
+  name: order-service-active
   namespace: baemin
   labels:
     app: order-service
@@ -13,4 +13,17 @@ spec:
   ports:
     - name: http
       port: 80
+      targetPort: 8083
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service-preview
+  namespace: baemin
+spec:
+  type: ClusterIP
+  selector:
+    app: order-service
+  ports:
+    - port: 80
       targetPort: 8083

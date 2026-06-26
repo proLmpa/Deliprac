@@ -1,5 +1,5 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: store-service
   namespace: baemin
@@ -12,6 +12,11 @@ spec:
   selector:
     matchLabels:
       app: store-service
+  strategy:
+    blueGreen:
+      activeService: store-service-active
+      previewService: store-service-preview
+      autoPromotionEnabled: false
   template:
     metadata:
       labels:
@@ -68,11 +73,18 @@ spec:
             - name: JAVA_OPTS
               value: {{ .Values.javaOpts | quote }}
 
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8082
+            failureThreshold: 30
+            periodSeconds: 10
+
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
               port: 8082
-            initialDelaySeconds: 180
+            initialDelaySeconds: 0
             periodSeconds: 10
             failureThreshold: 3
             timeoutSeconds: 5
@@ -81,7 +93,7 @@ spec:
             httpGet:
               path: /actuator/health/readiness
               port: 8082
-            initialDelaySeconds: 120
+            initialDelaySeconds: 0
             periodSeconds: 10
             failureThreshold: 3
             timeoutSeconds: 5

@@ -1,5 +1,5 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: front-service
   namespace: baemin
@@ -12,6 +12,11 @@ spec:
   selector:
     matchLabels:
       app: front-service
+  strategy:
+    blueGreen:
+      activeService: front-service-active
+      previewService: front-service-preview
+      autoPromotionEnabled: false
   template:
     metadata:
       labels:
