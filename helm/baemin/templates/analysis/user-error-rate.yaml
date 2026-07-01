@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: user-service-error-rate
+  namespace: baemin
+spec:
+  args:
+    - name: canary-hash          # injected by Argo Rollouts at runtime — see Rollout spec below
+  metrics:
+    - name: error-rate
+      interval: 30s
+      count: 10
+      successCondition: result[0] < 0.05
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: "{{ .Values.config.monitoring.prometheusAddress }}"
+          query: |
+            (
+              sum(
+                rate(
+                  http_server_requests_seconds_count{
+                    app="user-service",
+                    outcome="SERVER_ERROR",
+                    rollouts_pod_template_hash="{{ "{{" }} args.canary-hash {{ "}}" }}"
+                  }[2m]
+                )
+              )
+              /
+              sum(
+                rate(
+                  http_server_requests_seconds_count{
+                    app="user-service",
+                    rollouts_pod_template_hash="{{ "{{" }} args.canary-hash {{ "}}" }}"
+                  }[2m]
+                )
+              )
+            ) or vector(0)

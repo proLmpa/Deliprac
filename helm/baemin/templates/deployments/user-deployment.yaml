@@ -7,16 +7,28 @@ metadata:
     app: user-service
     {{- include "baemin.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.replicas }}
+  replicas: {{ .Values.userReplicas }}
   revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: user-service
   strategy:
-    blueGreen:
-      activeService: user-service-active
-      previewService: user-service-preview
-      autoPromotionEnabled: false
+    canary:
+      stableService: user-service-active
+      canaryService: user-service-canary
+      analysis:
+        templates:
+          - templateName: user-service-error-rate
+        startingStep: 1
+        args:
+          - name: canary-hash
+            valueFrom:
+              podTemplateHashValue: Latest
+      steps:
+        - setWeight: 50
+        - pause:
+            duration: 6m
+        - setWeight: 100
   template:
     metadata:
       labels:

@@ -52,5 +52,8 @@ config:
   redis:
     host: "192.168.160.104"
     port: "6379"
+  monitoring:
+    prometheusAddress: "changeme"
 
 replicas: 1
+userReplicas: 2
