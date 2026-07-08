@@ -25,10 +25,10 @@ flowchart TB
 
     subgraph db ["PostgreSQL Databases"]
         direction LR
-        UD[("userdb\n:5433")]
-        SD[("storedb\n:5434")]
-        OD[("orderdb\n:5435")]
-        ND[("notificationdb\n:5436")]
+        UD[("userdb\n:5432")]
+        SD[("storedb\n:5432")]
+        OD[("orderdb\n:5432")]
+        ND[("notificationdb\n:5432")]
     end
 
     RD[("Redis\n:6379")]
@@ -49,7 +49,7 @@ flowchart TB
 
     SS & OS & NS -->|cache| RD
 
-    US & SS & OS & NS -->|metrics| PR
+    BFF & US & SS & OS & NS -->|metrics| PR
 ```
 
 All client requests flow through the BFF, which aggregates cross-service calls and forwards them to the appropriate backend service. There are no direct service-to-service calls between backend services. Each service owns its own PostgreSQL database. Foreign-key-like references across services (e.g. `store_id` in `orders`) are plain `BIGINT` columns — no ORM join, no FK constraint across DB boundaries.
@@ -375,7 +375,7 @@ sequenceDiagram
 
 ```mermaid
 erDiagram
-    %% ── userdb :5433 (user-service) ────────────────────────
+    %% ── userdb :5432 (user-service) ────────────────────────
     users {
         bigserial id PK
         varchar   email
@@ -387,7 +387,7 @@ erDiagram
         bigint    updated_at
     }
 
-    %% ── storedb :5434 (store-service) ──────────────────────
+    %% ── storedb :5432 (store-service) ──────────────────────
     stores {
         bigserial id PK
         bigint    user_id              "* cross-service ref — no FK"
@@ -426,7 +426,7 @@ erDiagram
         bigint    updated_at
     }
 
-    %% ── orderdb :5435 (order-service) ──────────────────────
+    %% ── orderdb :5432 (order-service) ──────────────────────
     carts {
         bigserial id PK
         bigint    user_id     "* cross-service ref — no FK, indexed non-unique"
@@ -453,7 +453,7 @@ erDiagram
         bigint    updated_at
     }
 
-    %% ── notificationdb :5436 (notification-service) ────────
+    %% ── notificationdb :5432 (notification-service) ────────
     notifications {
         bigserial id PK
         bigint    user_id     "* cross-service ref — no FK, indexed non-unique"
@@ -509,10 +509,10 @@ flowchart LR
     subgraph k8s ["minikube cluster (baemin namespace)"]
         direction LR
         BFF["bff-service :30080"]
-        US["user-service :30081"]
-        SS["store-service :30082"]
-        OS["order-service :30083"]
-        NS["notification-service :30084"]
+        US["user-service"]
+        SS["store-service"]
+        OS["order-service"]
+        NS["notification-service"]
         FS["front-service :30000"]
     end
 
@@ -533,10 +533,10 @@ flowchart LR
 | **Checkout** | Pulls `main` branch from GitHub |
 | **Build Images** | `./gradlew bootJar -x test` — produces fat JARs; `docker build` for all 6 services (5 Spring + `front-service`); each image tagged with a 12-char git SHA and `latest` |
 | **Push Images** | `docker login` with `docker-hub-cred`; pushes both tags for all 6 images to Docker Hub; removes local images immediately after push to prevent disk exhaustion |
-| **Update Helm values** | Writes the 12-char git SHA into `helm/baemin/values.yaml` (`images.tag`), commits, and pushes to `main`. ArgoCD detects the change automatically via its automated sync policy (`prune: true`, `selfHeal: true`) and reconciles the cluster — no `kubectl apply` runs from Jenkins. |
+| **Update Helm values** | Writes the 12-char git SHA into `helm/baemin/values.yaml` (`images.tag`), commits, and pushes to `main`. ArgoCD detects the Helm values change in git (OutOfSync) and reconciles the cluster on manual sync — no `kubectl apply` runs from Jenkins. |
 | **Deploy Monitoring** | `envsubst` substitutes `${MINIKUBE_IP}` and Telegram credentials into config templates, copies via SCP to `/opt/monitoring/` on vm-monitoring, and reloads Prometheus and Alertmanager via `sudo systemctl reload` — no process restart required. |
 
-Stages 4 and 5 run in parallel. All 6 services run as Kubernetes Deployments in the `baemin` namespace (Helm chart at `helm/baemin/`), exposed via NodePort Services. ArgoCD owns all cluster state; Jenkins only pushes image tags to git. Prometheus scrapes metrics from all services via minikube NodePorts.
+Stages 4 and 5 run in parallel. All 6 services run in the `baemin` namespace (Helm chart at `helm/baemin/`); only `bff-service` (:30080) and `front-service` (:30000) are exposed via NodePort — the four backend services are ClusterIP. ArgoCD owns all cluster state; Jenkins only pushes image tags to git. Prometheus scrapes metrics from all five Spring Boot services via minikube NodePorts.
 
 ### Jenkins Credentials & Global Env Vars
 
