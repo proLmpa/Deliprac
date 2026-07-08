@@ -8,6 +8,6 @@ metadata:
 data:
   # All backend services expose ClusterIP port 80 — no port suffix needed.
   USER_SERVICE_URL:         "http://user-service-active"
-  STORE_SERVICE_URL:        "http://store-service-active"
-  ORDER_SERVICE_URL:        "http://order-service-active"
-  NOTIFICATION_SERVICE_URL: "http://notification-service-active"
+  STORE_SERVICE_URL:        "http://store-service"
+  ORDER_SERVICE_URL:        "http://order-service"
+  NOTIFICATION_SERVICE_URL: "http://notification-service"

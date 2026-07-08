@@ -6,6 +6,8 @@ metadata:
   labels:
     app: user-service
     {{- include "baemin.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   replicas: {{ .Values.userReplicas }}
   revisionHistoryLimit: 2
@@ -79,7 +81,7 @@ spec:
             httpGet:
               path: /actuator/health/liveness
               port: 8081
-            initialDelaySeconds: 0
+            initialDelaySeconds: 60
             failureThreshold: 60
             periodSeconds: 10
 

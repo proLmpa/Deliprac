@@ -1,11 +1,13 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Rollout
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: front-service
   namespace: baemin
   labels:
     app: front-service
     {{- include "baemin.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   replicas: {{ .Values.replicas }}
   revisionHistoryLimit: 2
@@ -13,10 +15,7 @@ spec:
     matchLabels:
       app: front-service
   strategy:
-    blueGreen:
-      activeService: front-service-active
-      previewService: front-service-preview
-      autoPromotionEnabled: false
+    type: RollingUpdate
   template:
     metadata:
       labels:

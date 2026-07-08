@@ -6,6 +6,8 @@ metadata:
   labels:
     app: bff-service
     {{- include "baemin.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   replicas: {{ .Values.replicas }}
   revisionHistoryLimit: 2
@@ -82,7 +84,7 @@ spec:
             httpGet:
               path: /actuator/health/liveness
               port: 8080
-            initialDelaySeconds: 0
+            initialDelaySeconds: 60
             failureThreshold: 60
             periodSeconds: 10
 

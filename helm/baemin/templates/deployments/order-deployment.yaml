@@ -1,11 +1,13 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Rollout
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: order-service
   namespace: baemin
   labels:
     app: order-service
     {{- include "baemin.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
 spec:
   replicas: {{ .Values.replicas }}
   revisionHistoryLimit: 2
@@ -13,10 +15,7 @@ spec:
     matchLabels:
       app: order-service
   strategy:
-    blueGreen:
-      activeService: order-service-active
-      previewService: order-service-preview
-      autoPromotionEnabled: false
+    type: RollingUpdate
   template:
     metadata:
       labels:
@@ -77,7 +76,7 @@ spec:
             httpGet:
               path: /actuator/health/liveness
               port: 8083
-            initialDelaySeconds: 0
+            initialDelaySeconds: 60
             failureThreshold: 60
             periodSeconds: 10
 
