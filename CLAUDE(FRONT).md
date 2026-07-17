@@ -14,10 +14,13 @@ npm run dev     # http://localhost:5173
 npm run build   # production build (runs tsc -b first)
 ```
 
-All traffic goes through the BFF. Start it before using the frontend:
+All traffic goes through the BFF. Start all backend services before using the frontend (databases are on dedicated VMs — no local Docker needed):
 
 ```bash
-docker compose up -d
+./gradlew :user-service:bootRun
+./gradlew :store-service:bootRun
+./gradlew :order-service:bootRun
+./gradlew :notification-service:bootRun
 ./gradlew :bff-service:bootRun
 ```
 
@@ -235,6 +238,14 @@ markAllRead()                    PUT  /api/notifications/read-all (no body)
 
 `Header.tsx` polls unread notifications: `useQuery({ queryKey: ['notifications', 'unread'], queryFn: () => listNotifications(true), refetchInterval: 30_000, enabled: !!token })`
 
+### Public Notifications (`src/api/publicNotifications.ts`)
+
+```typescript
+listPublicNotifications()   POST /api/public-notifications/list  (no body)   → PublicNotificationResponse[]
+```
+
+Unauthenticated — no JWT required. Called on every page load (including visitors not signed in). Backed by Caffeine L1 + Redis L2 cache on the server side; frontend should not poll aggressively.
+
 ---
 
 ## Backend Response Shapes
@@ -355,6 +366,19 @@ markAllRead()                    PUT  /api/notifications/read-all (no body)
   createdAt: number     // epoch millis
   items: { productName: string; unitPrice: number; quantity: number }[]
   // NO userId — never exposed to the frontend
+}
+```
+
+### `PublicNotificationResponse`
+
+```typescript
+{
+  id: number
+  title: string
+  content: string
+  isActive: boolean
+  issuedAt: number    // epoch millis
+  expiresAt: number   // epoch millis
 }
 ```
 

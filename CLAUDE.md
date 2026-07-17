@@ -51,11 +51,12 @@ Kotlin 2.3.21 + Spring Boot 4 microservices with a shared `common` library modul
 
 ```
 common/                ← shared library (JWT filter, UserPrincipal, UserRole, GlobalExceptionHandler, Extensions)
-bff-service/           ← port 8080 — BFF gateway (routing, aggregation, JWT forwarding)
+front-service/         ← port 30000 (NodePort) — client frontend
+bff-service/           ← port 30080 (NodePort) — BFF gateway (routing, aggregation, JWT forwarding)
 user-service/          ← port 8081 — auth, user management
 store-service/         ← port 8082 — stores, products, reviews, product statistics
 order-service/         ← port 8083 — carts, orders, order statistics
-notification-service/  ← port 8084 — per-user notifications (created by BFF, read by frontend via BFF)
+notification-service/  ← port 8084 — per-user notifications + public notifications
 ```
 
 Helm chart at `helm/baemin/` — deployed via ArgoCD GitOps (auto-syncs on `main` push). `values.yaml` holds `images.tag` (CI-managed), `replicas`, `javaOpts`.
@@ -125,7 +126,11 @@ Stateless gateway. No own database. Does **not** validate JWTs — only forwards
 **Cache:** `orders-by-user` cached in Redis via `@Cacheable` / `@CacheEvict`.
 
 ### notification-service (port 8084)
-`/internal/notifications` is `permitAll()` — BFF trusted caller, no JWT. All `/api/**` require JWT. `userId` always from `currentUser()`, never from request body. `expiry` must be ≥ 10 min after `issuedAt`. Ownership enforced in `markRead`.
+Two entity types: `notifications` (per-user, JWT-gated) and `public_notifications` (system-wide, unauthenticated).
+
+**Per-user notifications:** `/internal/notifications` is `permitAll()` — BFF trusted caller, no JWT. All `/api/**` require JWT. `userId` always from `currentUser()`, never from request body. `expiry` must be ≥ 10 min after `issuedAt`. Ownership enforced in `markRead`.
+
+**Public notifications:** `POST /api/public-notifications/list` — unauthenticated, highest-frequency read endpoint. Uses a **two-level cache**: Caffeine L1 (in-process, TTL 1 min) → Redis L2 (shared, TTL 10 min) → PostgreSQL. Both cache layers are evicted atomically on create/deactivate. Cache key: `public-notifications:active` (entire active list as single JSON array).
 
 ---
 
