@@ -151,6 +151,44 @@ pipeline {
                 }
             }
         }
+
+        // ── 6. Deploy ELK Config ──────────────────────────────────────────
+        stage('Deploy ELK Config') {
+            steps {
+                script {
+                    withCredentials([
+                        string(credentialsId: 'ELK_HOST', variable: 'ELK_HOST'),
+                        string(credentialsId: 'ELASTIC_PASSWORD', variable: 'ELASTIC_PASSWORD'),
+                        string(credentialsId: 'LOGSTASH_WRITER_PASSWORD', variable: 'LOGSTASH_WRITER_PASSWORD')
+                    ]) {
+                        sshagent(credentialsId: ['elk-host']) {
+                            sh '''
+                                mkdir -p ~/.ssh
+                                ssh-keyscan -H $(echo $ELK_HOST | cut -d@ -f2) >> ~/.ssh/known_hosts 2>/dev/null
+
+                                ssh $ELK_HOST "mkdir -p /opt/elk/logstash/conf.d"
+                                scp elk/logstash/conf.d/baemin.conf \
+                                    $ELK_HOST:/opt/elk/logstash/conf.d/baemin.conf
+                                ssh $ELK_HOST "
+                                    sudo cp /opt/elk/logstash/conf.d/baemin.conf \
+                                            /etc/logstash/conf.d/baemin.conf
+                                    sudo systemctl restart logstash
+                                "
+
+                                scp elk/setup/bootstrap-elk.sh \
+                                    $ELK_HOST:/opt/elk/setup/bootstrap-elk.sh
+                                ssh $ELK_HOST "
+                                    chmod +x /opt/elk/setup/bootstrap-elk.sh
+                                    ELASTIC_PASSWORD=${ELASTIC_PASSWORD} \
+                                    LOGSTASH_WRITER_PASSWORD=${LOGSTASH_WRITER_PASSWORD} \
+                                    /opt/elk/setup/bootstrap-elk.sh
+                                "
+                            '''
+                        }
+                    }
+                }
+            }
+        }
     }
 
     post {
