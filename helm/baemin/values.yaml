@@ -57,3 +57,8 @@ config:
 
 replicas: 1
 userReplicas: 2
+
+elk:
+  logstashHost: "192.168.160.106"
+  logstashPort: 5044
+  filebeatVersion: "8.17.3"

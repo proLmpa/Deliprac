@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filebeat-config
+  namespace: baemin
+data:
+  filebeat.yml: |
+    filebeat.autodiscover:
+      providers:
+        - type: kubernetes
+          node: ${NODE_NAME}
+          hints.enabled: false
+          templates:
+            - condition:
+                contains:
+                  kubernetes.namespace: baemin
+              config:
+                - type: container
+                  paths:
+                    - /var/log/containers/*${data.kubernetes.container.id}.log
+                    
+    processors:
+      - add_kubernetes_metadata:
+          host: ${NODE_NAME}
+          matchers:
+            - logs_path:
+                logs_path: "/var/log/containers/"
+      - drop_fields:
+          fields: ["host", "agent", "ecs", "input"]
+          ignore_missing: true
+          
+    output.logstash:
+      hosts: ["{{ .Values.elk.logstashHost }}:{{ .Values.elk.logstashPort }}"]
+      
+    logging.level: warning
+    logging.to_files: false
