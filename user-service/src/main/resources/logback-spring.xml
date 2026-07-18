@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <springProperty scope="context" name="appName"
+                    source="spring.application.name" defaultValue="unknown"/>
+
+    <!-- prod profile: JSON to stdout, consumed by Filebeat -->
+    <springProfile name="prod">
+        <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <!-- "service" field in every JSON line — how Logstash routes
+                     to the correct per-service index. -->
+                <customFields>{"service":"${appName}"}</customFields>
+
+                <!-- Include traceId from MDC as a top-level JSON field. -->
+                <includeMdcKeyName>traceId</includeMdcKeyName>
+
+                <fieldNames>
+                    <timestamp>@timestamp</timestamp>
+                    <!-- [ignore] suppresses a field from the JSON output entirely. -->
+                    <!-- version is an ECS field with no value for this project. -->
+                    <version>[ignore]</version>
+                    <!-- levelValue is the numeric log level (INFO=20000, ERROR=40000).
+                         Redundant when you have the string "level" field. -->
+                    <levelValue>[ignore]</levelValue>
+                    <!-- thread_name (e.g. "http-nio-8081-exec-3") is removed because
+                         it tells you which slot in the thread pool handled the request,
+                         not anything about the request itself. Re-add if you ever
+                         need to debug thread pool exhaustion. -->
+                    <thread>[ignore]</thread>
+                    <logger>logger_name</logger>
+                </fieldNames>
+            </encoder>
+        </appender>
+        <root level="INFO">
+            <appender-ref ref="JSON"/>
+        </root>
+    </springProfile>
+
+    <!-- dev/test profiles: human-readable coloured console -->
+    <springProfile name="dev,test">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%clr(%d{HH:mm:ss.SSS}){faint} %clr(%-5level) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx</pattern>
+            </encoder>
+        </appender>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+</configuration>

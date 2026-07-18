@@ -21,13 +21,13 @@ import bff.dto.RevenueRequest
 import bff.dto.RevenueResponse
 import bff.dto.SpendingRequest
 import bff.dto.SpendingResponse
+import common.logging.runAsyncWithMdc
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
-import java.util.concurrent.CompletableFuture
 
 @RestController
 class OrderController(
@@ -82,7 +82,7 @@ class OrderController(
                 quantity    = item.quantity
             )
         } ?: emptyList()
-        CompletableFuture.runAsync {
+        runAsyncWithMdc {
             try {
                 notificationClient.createNotification(
                     CreateNotificationRequest(
@@ -121,7 +121,7 @@ class OrderController(
                 quantity    = item.quantity
             )
         }
-        CompletableFuture.runAsync {
+        runAsyncWithMdc {
             try {
                 notificationClient.createNotification(
                     CreateNotificationRequest(
@@ -154,7 +154,7 @@ class OrderController(
                 quantity    = item.quantity
             )
         }
-        CompletableFuture.runAsync {
+        runAsyncWithMdc {
             try {
                 notificationClient.createNotification(
                     CreateNotificationRequest(

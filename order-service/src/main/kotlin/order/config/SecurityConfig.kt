@@ -1,5 +1,6 @@
 package order.config
 
+import common.logging.MdcFilter
 import common.security.JwtAuthenticationFilter
 import io.jsonwebtoken.JwtParser
 import io.jsonwebtoken.Jwts
@@ -7,6 +8,7 @@ import io.jsonwebtoken.security.Keys
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.Ordered
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
@@ -44,4 +46,11 @@ class SecurityConfig(
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)
         return http.build()
     }
+
+    @Bean
+    fun mdcFilterRegistration(): FilterRegistrationBean<MdcFilter> =
+        FilterRegistrationBean(MdcFilter()).apply {
+            order = Ordered.HIGHEST_PRECEDENCE
+            addUrlPatterns("/*")
+        }
 }
