@@ -149,7 +149,7 @@ pipeline {
                                 mkdir -p ~/.ssh
                                 ssh-keyscan -H $(echo $ELK_HOST | cut -d@ -f2) >> ~/.ssh/known_hosts 2>/dev/null
 
-                                ssh $ELK_HOST "sudo mkdir -p /opt/elk/logstash/conf.d /opt/elk/setup"
+                                ssh $ELK_HOST "sudo mkdir -p /opt/elk/logstash/conf.d /opt/elk/setup && sudo chown -R front:front /opt/elk"
                                 scp elk/logstash/conf.d/baemin.conf \
                                     $ELK_HOST:/opt/elk/logstash/conf.d/baemin.conf
                                 ssh $ELK_HOST "
