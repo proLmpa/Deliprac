@@ -77,7 +77,7 @@ spec:
               path: /actuator/health/liveness
               port: 8084
             initialDelaySeconds: 60
-            failureThreshold: 60
+            failureThreshold: 120
             periodSeconds: 10
 
           livenessProbe:
