@@ -82,27 +82,7 @@ pipeline {
             }
         }
 
-        // ── 4. Update the Helm tag ──────────────────────────────────────────
-        stage('Update Helm Tag') {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'github-cred',
-                    usernameVariable: 'GIT_USER',
-                    passwordVariable: 'GIT_PASS'
-                )]) {
-                    sh """
-                        sed -i 's/^  tag: .*/  tag: "${env.IMAGE_TAG}"/' helm/baemin/values.yaml
-                        git config user.email "kheeyeoul@gmail.com"
-                        git config user.name "proLmpa"
-                        git add helm/baemin/values.yaml
-                        git commit -m "ci: bump images.tag to ${env.IMAGE_TAG}"
-                        git push https://\${GIT_USER}:\${GIT_PASS}@github.com/proLmpa/Deliprac.git HEAD:main
-                    """
-                }
-            }
-        }
-
-        // ── 5. Deploy ──────────────────────────────────────────────────────
+        // ── 4. Deploy ──────────────────────────────────────────────────────
         stage('Deploy') {
             steps {
                 script {
@@ -116,17 +96,20 @@ pipeline {
                             // alertmanager.yml still needs Telegram credentials substituted.
                             sh 'envsubst < monitoring/alertmanager.yml > /tmp/baemin-alertmanager.yml'
                             sh '''
-                                ssh -o StrictHostKeyChecking=no $MONITORING_HOST 'mkdir -p /opt/monitoring/grafana/provisioning/datasources /opt/monitoring/grafana/provisioning/dashboards /opt/monitoring/grafana/dashboards'
-                                scp -o StrictHostKeyChecking=no monitoring/prometheus.yml                                                $MONITORING_HOST:/opt/monitoring/prometheus.yml
-                                scp -o StrictHostKeyChecking=no /tmp/baemin-alertmanager.yml                                             $MONITORING_HOST:/opt/monitoring/alertmanager.yml
-                                scp -o StrictHostKeyChecking=no monitoring/alerting-rules.yml                                            $MONITORING_HOST:/opt/monitoring/alerting-rules.yml
-                                scp -o StrictHostKeyChecking=no monitoring/grafana/provisioning/datasources/prometheus.yml        $MONITORING_HOST:/opt/monitoring/grafana/provisioning/datasources/prometheus.yml
-                                scp -o StrictHostKeyChecking=no monitoring/grafana/provisioning/dashboards/dashboard.yml          $MONITORING_HOST:/opt/monitoring/grafana/provisioning/dashboards/dashboard.yml
-                                scp -o StrictHostKeyChecking=no monitoring/grafana/dashboards/baemin.json                        $MONITORING_HOST:/opt/monitoring/grafana/dashboards/baemin.json
+                                mkdir -p ~/.ssh
+                                ssh-keyscan -H $(echo $MONITORING_HOST | cut -d@ -f2) >> ~/.ssh/known_hosts 2>/dev/null
+
+                                ssh $MONITORING_HOST 'mkdir -p /opt/monitoring/grafana/provisioning/datasources /opt/monitoring/grafana/provisioning/dashboards /opt/monitoring/grafana/dashboards'
+                                scp monitoring/prometheus.yml                                                $MONITORING_HOST:/opt/monitoring/prometheus.yml
+                                scp /tmp/baemin-alertmanager.yml                                             $MONITORING_HOST:/opt/monitoring/alertmanager.yml
+                                scp monitoring/alerting-rules.yml                                            $MONITORING_HOST:/opt/monitoring/alerting-rules.yml
+                                scp monitoring/grafana/provisioning/datasources/prometheus.yml        $MONITORING_HOST:/opt/monitoring/grafana/provisioning/datasources/prometheus.yml
+                                scp monitoring/grafana/provisioning/dashboards/dashboard.yml          $MONITORING_HOST:/opt/monitoring/grafana/provisioning/dashboards/dashboard.yml
+                                scp monitoring/grafana/dashboards/baemin.json                        $MONITORING_HOST:/opt/monitoring/grafana/dashboards/baemin.json
                             '''
                             // Copy staged files to the locations each native service reads from
                             sh '''
-                                ssh -o StrictHostKeyChecking=no $MONITORING_HOST '
+                                ssh $MONITORING_HOST '
                                     sudo cp /opt/monitoring/prometheus.yml              /etc/prometheus/prometheus.yml
                                     sudo cp /opt/monitoring/alerting-rules.yml          /etc/prometheus/alerting-rules.yml
                                     sudo cp /opt/monitoring/alertmanager.yml            /etc/prometheus/alertmanager.yml
@@ -140,7 +123,7 @@ pipeline {
                             // Reload Prometheus and Alertmanager (config-only reload — no restart needed)
                             // Restart Grafana to pick up provisioning changes
                             sh '''
-                                ssh -o StrictHostKeyChecking=no $MONITORING_HOST '
+                                ssh $MONITORING_HOST '
                                     sudo systemctl reload prometheus
                                     sudo systemctl reload prometheus-alertmanager
                                     sudo systemctl restart grafana-server
@@ -152,7 +135,7 @@ pipeline {
             }
         }
 
-        // ── 6. Deploy ELK Config ──────────────────────────────────────────
+        // ── 5. Deploy ELK Config ──────────────────────────────────────────
         stage('Deploy ELK Config') {
             steps {
                 script {
@@ -161,7 +144,7 @@ pipeline {
                         string(credentialsId: 'ELASTIC_PASSWORD', variable: 'ELASTIC_PASSWORD'),
                         string(credentialsId: 'LOGSTASH_WRITER_PASSWORD', variable: 'LOGSTASH_WRITER_PASSWORD')
                     ]) {
-                        sshagent(credentialsId: ['elk-host']) {
+                        sshagent(credentials: ['elk-host']) {
                             sh '''
                                 mkdir -p ~/.ssh
                                 ssh-keyscan -H $(echo $ELK_HOST | cut -d@ -f2) >> ~/.ssh/known_hosts 2>/dev/null
@@ -186,6 +169,26 @@ pipeline {
                             '''
                         }
                     }
+                }
+            }
+        }
+
+        // ── 6. Update the Helm tag ──────────────────────────────────────────
+        stage('Update Helm Tag') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'github-cred',
+                    usernameVariable: 'GIT_USER',
+                    passwordVariable: 'GIT_PASS'
+                )]) {
+                    sh """
+                        sed -i 's/^  tag: .*/  tag: "${env.IMAGE_TAG}"/' helm/baemin/values.yaml
+                        git config user.email "kheeyeoul@gmail.com"
+                        git config user.name "proLmpa"
+                        git add helm/baemin/values.yaml
+                        git commit -m "ci: bump images.tag to ${env.IMAGE_TAG}"
+                        git push https://\${GIT_USER}:\${GIT_PASS}@github.com/proLmpa/Deliprac.git HEAD:main
+                    """
                 }
             }
         }
