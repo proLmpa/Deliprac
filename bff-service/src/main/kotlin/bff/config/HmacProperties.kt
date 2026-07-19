@@ -7,5 +7,6 @@ data class HmacProperties(
     val userSecret: String,
     val storeSecret: String,
     val orderSecret: String,
-    val notificationSecret: String
+    val notificationSecret: String,
+    val aiSecret: String
 )

@@ -46,4 +46,10 @@ class RestClientConfig(
         RestClient.builder().baseUrl(backendUrlProperties.notificationUrl).requestFactory(factory(3, 3))
             .requestInterceptor(HmacSigningInterceptor(hmacProperties.notificationSecret))
             .requestInterceptor(TraceIdInterceptor()).build()
+
+    @Bean
+    fun aiRestClient(): RestClient =
+        RestClient.builder().baseUrl(backendUrlProperties.aiUrl).requestFactory(factory(3, 60))
+            .requestInterceptor(HmacSigningInterceptor(hmacProperties.aiSecret))
+            .requestInterceptor(TraceIdInterceptor()).build()
 }
