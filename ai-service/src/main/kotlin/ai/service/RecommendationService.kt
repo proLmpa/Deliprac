@@ -7,7 +7,7 @@ import ai.config.AiRequestContext
 import ai.dto.RecommendInfo
 import ai.dto.RecommendRequest
 import ai.dto.RecommendedItem
-import com.fasterxml.jackson.databind.ObjectMapper
+import tools.jackson.databind.ObjectMapper
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.stereotype.Service
