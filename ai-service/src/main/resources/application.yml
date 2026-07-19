@@ -25,12 +25,13 @@ spring:
   profiles:
     default: dev
     group:
-      dev:  [backend-dev,  hmac-dev]
-      prod: [backend-prod, hmac-prod]
+      dev:  [backend-dev,  hmac-dev,  jwt-dev]
+      prod: [backend-prod, hmac-prod, jwt-prod]
   config:
     import:
       - "backend.yaml"
       - "hmac.yaml"
+      - "jwt.yaml"
 
 management:
   endpoints:
