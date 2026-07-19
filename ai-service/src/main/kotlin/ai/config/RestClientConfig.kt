@@ -2,6 +2,7 @@ package ai.config
 
 import common.security.HmacSigningInterceptor
 import common.logging.MdcFilter
+import org.springframework.ai.chat.client.ChatClient
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.client.JdkClientHttpRequestFactory
@@ -12,8 +13,12 @@ import java.time.Duration
 @Configuration
 class RestClientConfig(
     private val hmacProperties: HmacProperties,
-    private val backendUrlProperties: BackendUrlProperties
+    private val backendUrlProperties: BackendUrlProperties,
+    private val chatClientBuilder: ChatClient.Builder
 ) {
+
+    @Bean
+    fun chatClient(): ChatClient = chatClientBuilder.build()
 
     private fun factory(connectSecs: Long, readSecs: Long): JdkClientHttpRequestFactory {
         val httpClient = HttpClient.newBuilder()
