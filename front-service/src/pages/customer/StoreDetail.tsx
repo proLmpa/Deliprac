@@ -11,6 +11,8 @@ import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import StarRating from '../../components/ui/StarRating'
 import StatusBadge from '../../components/ui/StatusBadge'
+import AiConsentPopup from '../../components/ai/AiConsentPopup'
+import MenuRecommendation from '../../components/ai/MenuRecommendation'
 
 function epochToTime(ms: number) {
   return format(new Date(ms), 'HH:mm')
@@ -26,6 +28,17 @@ export default function StoreDetail() {
   const [reviewContent, setReviewContent] = useState('')
   const [reviewError, setReviewError] = useState('')
   const [cartMsg, setCartMsg] = useState('')
+
+  const isCustomer = role === 'CUSTOMER' && !!token
+  const [aiConsent, setAiConsent] = useState<string | null>(() => localStorage.getItem('aiConsent'))
+  const [showConsentPopup, setShowConsentPopup] = useState(
+    () => isCustomer && localStorage.getItem('aiConsent') === null
+  )
+
+  const handleConsent = (accepted: boolean) => {
+    setAiConsent(accepted ? 'yes' : 'no')
+    setShowConsentPopup(false)
+  }
 
   const { data: store } = useQuery({ queryKey: ['store', storeId], queryFn: () => getStore(storeId) })
   const { data: products } = useQuery({ queryKey: ['products', storeId], queryFn: () => listProducts(storeId) })
@@ -63,6 +76,7 @@ export default function StoreDetail() {
 
   return (
     <div className="space-y-8">
+      {showConsentPopup && <AiConsentPopup onConsent={handleConsent} />}
       {/* Store Header */}
       <div>
         <div className="flex items-center gap-3 mb-1">
@@ -103,6 +117,13 @@ export default function StoreDetail() {
           ))}
         </div>
       </section>
+
+      {/* AI Recommendations */}
+      {isCustomer && aiConsent === 'yes' && (
+        <section>
+          <MenuRecommendation storeId={storeId} />
+        </section>
+      )}
 
       {/* Reviews */}
       {token && (
