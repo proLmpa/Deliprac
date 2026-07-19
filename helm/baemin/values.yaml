@@ -60,6 +60,7 @@ config:
 
 replicas: 1
 userReplicas: 2
+notificationReplicas: 0
 
 elk:
   logstashHost: "192.168.160.106"
