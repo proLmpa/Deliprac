@@ -39,6 +39,14 @@ flowchart TB
         PR --> GF["Grafana :3000"]
     end
 
+    FB["Filebeat DaemonSet\n(baemin namespace)"]
+
+    subgraph elk ["ELK VM"]
+        direction LR
+        LS["Logstash :5044"] --> ES["Elasticsearch :9200"]
+        ES --> KB["Kibana :5601"]
+    end
+
     C --> BFF
     BFF --> US & SS & OS & NS
 
@@ -50,6 +58,8 @@ flowchart TB
     SS & OS & NS -->|cache| RD
 
     BFF & US & SS & OS & NS -->|metrics| PR
+    BFF & US & SS & OS & NS -->|stdout JSON| FB
+    FB -->|Beats :5044| LS
 ```
 
 All client requests flow through the BFF, which aggregates cross-service calls and forwards them to the appropriate backend service. There are no direct service-to-service calls between backend services. Each service owns its own PostgreSQL database. Foreign-key-like references across services (e.g. `store_id` in `orders`) are plain `BIGINT` columns — no ORM join, no FK constraint across DB boundaries.
@@ -58,7 +68,7 @@ The JWT secret is shared across all services via configuration — user-service 
 
 Every BFF→backend call is signed with HMAC-SHA256. The BFF attaches `X-Bff-Timestamp` and `X-Bff-Signature` headers to each outgoing `RestClient` request; each backend service validates the signature before Spring Security runs, rejecting direct callers with `401 Unauthorized`. Each service has its own independent HMAC secret.
 
-Notifications are created asynchronously (fire-and-forget) by the BFF after order mutations. After a checkout the BFF looks up the store owner and calls notification-service to notify them; after marking an order sold or canceled it calls notification-service to notify the customer. The BFF calls `/internal/notifications` (no JWT) — notification-service treats the BFF as a trusted internal caller. The notification call runs in a background thread (`CompletableFuture.runAsync`) so failures are silent and do not affect the API response. Clients poll the REST endpoint to fetch and mark notifications.
+Notifications are created asynchronously (fire-and-forget) by the BFF after order mutations. After a checkout the BFF looks up the store owner and calls notification-service to notify them; after marking an order sold or canceled it calls notification-service to notify the customer. The BFF calls `/internal/notifications` (no JWT) — notification-service treats the BFF as a trusted internal caller. The notification call runs in a background thread (`runAsyncWithMdc { ... }` from `common/logging/MdcPropagation.kt`) so failures are silent and do not affect the API response. `runAsyncWithMdc` captures the calling thread's MDC context before handing off to the fork-join pool, preserving `traceId` on async log lines. Clients poll the REST endpoint to fetch and mark notifications.
 
 ### BFF Layer
 
@@ -83,6 +93,7 @@ The BFF (Backend for Frontend) sits between the client and the four backend serv
 | Caching | Spring Cache + Redis (`@Cacheable` — store-service, order-service) · Caffeine L1 + Redis L2 (notification-service public notifications) |
 | Resilience | Resilience4j 2.3 (circuit breaker) |
 | Observability | Spring Boot Actuator, Micrometer, Prometheus, Grafana, Alertmanager |
+| Log aggregation | Elasticsearch 8.x · Logstash · Kibana · Filebeat (DaemonSet) · logstash-logback-encoder 8.0 · kotlin-logging-jvm 7.0.3 |
 | Build | Gradle 9 (Kotlin DSL), kapt |
 | Java | JDK 25 |
 | Testing | JUnit 5, Mockito 5, MockMvc |
@@ -170,7 +181,7 @@ Notifications are created by the BFF immediately after order mutations — no me
 
 **userId security:** `StoreResponse.userId` and `OrderResponse.userId` are annotated `@get:JsonIgnore` / `@param:JsonProperty` — deserialized from backend services, never serialized to the frontend. The recipient's `userId` only ever exists inside the BFF at request time.
 
-**Delivery:** notifications are created in a background thread (`CompletableFuture.runAsync`) after the BFF returns its response to the client. Failures are swallowed silently and do not affect the API caller. The frontend polls `/api/notifications/list` every 30 seconds; recipients see new notifications within one poll cycle assuming the async call succeeds.
+**Delivery:** notifications are created in a background thread (`runAsyncWithMdc { ... }`) after the BFF returns its response to the client. Failures are swallowed silently and do not affect the API caller. The frontend polls `/api/notifications/list` every 30 seconds; recipients see new notifications within one poll cycle assuming the async call succeeds.
 
 ### 9. Spring Cache (@Cacheable) in store-service and order-service
 
@@ -283,6 +294,40 @@ sequenceDiagram
     S-->>B: 200 OK
     B-->>C: 200 OK
 ```
+
+### 14. Structured logging and distributed trace correlation (ELK)
+
+All five services emit structured JSON logs on the `prod` Spring profile via `logstash-logback-encoder`. On `dev`/`test` profiles a human-readable coloured console pattern is used instead. No file appenders exist — logs go to stdout only, where Filebeat picks them up.
+
+**Trace propagation across services**
+
+| Component | Location | Role |
+|---|---|---|
+| `MdcFilter` | `common`, `HIGHEST_PRECEDENCE` | Reads `X-Request-Id` from the incoming request or generates a UUID; stores it in MDC as `traceId`; clears MDC at request end to prevent thread-pool leakage |
+| `TraceIdInterceptor` | BFF, each `RestClient` bean | Reads `traceId` from MDC and attaches it as `X-Request-Id` on every outgoing backend call |
+| `MdcFilter` (backend) | all four backend services | Receives `X-Request-Id`, stores in MDC — so backend log lines carry the same `traceId` as the originating BFF request |
+| `runAsyncWithMdc` | `common/logging/MdcPropagation.kt` | Captures the calling thread's MDC before handing off to the fork-join pool; restores it inside the async block so notification fire-and-forget calls also carry `traceId` |
+
+**BFF HTTP access log**
+
+`AccessLogFilter` (`HIGHEST_PRECEDENCE + 1`, BFF only) emits one structured log line per request:
+```json
+{ "service":"bff-service", "level":"INFO", "traceId":"a1b2c3d4",
+  "message":"method=POST uri=/api/orders/place status=200 durationMs=143" }
+```
+This makes it possible to answer "did BFF receive the request, and how long did it take?" independently of service-layer logs.
+
+**Log pipeline**
+
+Filebeat (DaemonSet, one pod per node) tails `/var/log/containers/` and ships only `baemin` namespace logs to Logstash on the ELK VM (Beats protocol, port 5044). Logstash parses JSON lines into individual indexed fields and writes to per-service daily indices: `baemin-{service}-{YYYY.MM.dd}`. Unstructured startup and framework noise lands in `baemin-unknown-*`. A delete-only ILM policy removes indices older than 7 days.
+
+**Filter ordering**
+
+| Order | Filter | Reason |
+|---|---|---|
+| `HIGHEST_PRECEDENCE` | `MdcFilter` | Must run first — every subsequent filter and handler needs `traceId` already in MDC |
+| `HIGHEST_PRECEDENCE + 1` | `AccessLogFilter` (BFF only) | Must run after `MdcFilter` so the access log line carries `traceId`; wraps the entire request to capture the final response status |
+| (default, before Spring Security) | `HmacRequestFilter` | Must reject forged requests before business logic; runs after MDC so rejections are also traceable |
 
 ---
 
@@ -502,8 +547,9 @@ flowchart LR
         CO["1. Checkout"]
         BI["2. Build Images\n./gradlew bootJar\ndocker build x 6"]
         PI["3. Push Images\ndocker push x 6"]
-        UH["4. Update Helm values\nvalues.yaml images.tag\ngit commit + push"]
-        DP["5. Deploy Monitoring\nenvsubst → SCP → systemctl reload"]
+        DP["4. Deploy Monitoring\nenvsubst → SCP → systemctl reload"]
+        ELK["5. Deploy ELK Config\nSCP baemin.conf + bootstrap-elk.sh\nssh restart logstash"]
+        UH["6. Update Helm values\nvalues.yaml images.tag\ngit commit + push"]
     end
 
     subgraph k8s ["minikube cluster (baemin namespace)"]
@@ -517,13 +563,16 @@ flowchart LR
     end
 
     VM["vm-monitoring\nPrometheus · Alertmanager · Grafana"]
+    ELKVM["ELK VM\nLogstash · Elasticsearch · Kibana"]
 
-    GH -->|push| CO --> BI --> PI --> UH & DP
+    GH -->|push| CO --> BI --> PI --> DP & ELK
+    DP & ELK --> UH
     PI --> DH
     UH -->|git push| GH
     GH -->|detects change| AC
     AC --> k8s
     DP -->|SSH| VM
+    ELK -->|SSH| ELKVM
 ```
 
 ### Stages
@@ -533,10 +582,11 @@ flowchart LR
 | **Checkout** | Pulls `main` branch from GitHub |
 | **Build Images** | `./gradlew bootJar -x test` — produces fat JARs; `docker build` for all 6 services (5 Spring + `front-service`); each image tagged with a 12-char git SHA and `latest` |
 | **Push Images** | `docker login` with `docker-hub-cred`; pushes both tags for all 6 images to Docker Hub; removes local images immediately after push to prevent disk exhaustion |
-| **Update Helm values** | Writes the 12-char git SHA into `helm/baemin/values.yaml` (`images.tag`), commits, and pushes to `main`. ArgoCD detects the Helm values change in git (OutOfSync) and reconciles the cluster on manual sync — no `kubectl apply` runs from Jenkins. |
 | **Deploy Monitoring** | `envsubst` substitutes `${MINIKUBE_IP}` and Telegram credentials into config templates, copies via SCP to `/opt/monitoring/` on vm-monitoring, and reloads Prometheus and Alertmanager via `sudo systemctl reload` — no process restart required. |
+| **Deploy ELK Config** | `sshagent(elk-host)`: pre-populates the ELK VM's host key via `ssh-keyscan` (replaces `StrictHostKeyChecking=no`); SCPs `elk/logstash/conf.d/baemin.conf` to `/opt/elk/` and `sudo cp`s it to `/etc/logstash/conf.d/`; restarts Logstash; SCPs and runs `elk/setup/bootstrap-elk.sh` (idempotent: ILM policy, index template, `logstash_writer` role and user). |
+| **Update Helm values** | Writes the 12-char git SHA into `helm/baemin/values.yaml` (`images.tag`), commits, and pushes to `main`. Runs **last** so ArgoCD only triggers a rollout after both monitoring and ELK are ready to receive logs from the new pods. ArgoCD detects the Helm values change in git (OutOfSync) and reconciles the cluster on manual sync — no `kubectl apply` runs from Jenkins. |
 
-Stages 4 and 5 run in parallel. All 6 services run in the `baemin` namespace (Helm chart at `helm/baemin/`); only `bff-service` (:30080) and `front-service` (:30000) are exposed via NodePort — the four backend services are ClusterIP. ArgoCD owns all cluster state; Jenkins only pushes image tags to git. Prometheus scrapes metrics from all five Spring Boot services via minikube NodePorts.
+Stages 4 (**Deploy Monitoring**) and 5 (**Deploy ELK Config**) run in parallel after Push Images. Stage 6 (**Update Helm values**) runs last so ArgoCD does not roll out new pods before the log pipeline is ready. All 6 services run in the `baemin` namespace (Helm chart at `helm/baemin/`); only `bff-service` (:30080) and `front-service` (:30000) are exposed via NodePort — the four backend services are ClusterIP. ArgoCD owns all cluster state; Jenkins only pushes image tags to git. Prometheus scrapes metrics from all five Spring Boot services via minikube NodePorts.
 
 ### Jenkins Credentials & Global Env Vars
 
@@ -551,5 +601,31 @@ Credentials stored in Jenkins — no values appear in the `Jenkinsfile`:
 | `telegram-bot-token` | Secret text | Alertmanager webhook to Telegram |
 | `telegram-chat-id` | Secret text | Alertmanager webhook to Telegram |
 | `MINIKUBE_IP` | Secret text | `minikube ip` output — Prometheus NodePort scrape targets |
+| `elk-host` | SSH Username with private key | `sshagent` for SSH/SCP to ELK VM in Deploy ELK Config stage |
+| `ELK_HOST` | Secret text | `user@<ELK_VM_IP>` — SSH target for the ELK deploy stage |
+| `ELASTIC_PASSWORD` | Secret text | Elasticsearch `elastic` superuser password passed to `bootstrap-elk.sh` |
+| `LOGSTASH_WRITER_PASSWORD` | Secret text | `logstash_writer` user password passed to `bootstrap-elk.sh` |
 
 `MONITORING_HOST`, DB connection strings, JWT secret, and HMAC secrets are stored as Jenkins Global Environment Variables. `MONITORING_HOST` is used for SSH to vm-monitoring; the rest are injected into Kubernetes Secrets at deploy time.
+
+---
+
+## Kubernetes Deployment Notes
+
+### startupProbe failureThreshold
+
+All five Spring services have `startupProbe.failureThreshold` set to **120** (initialDelaySeconds 30, periodSeconds 10 → 1,260 s total window). JVM cold-start on this 6-core cluster takes approximately 960 s. The previous threshold of 60 (660 s window) caused pods to be killed by kubelet before the Spring context finished initialising.
+
+### Rolling update strategy
+
+`front-service`, `store-service`, `order-service`, and `notification-service` are configured with:
+
+```yaml
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 0
+    maxUnavailable: 1
+```
+
+`maxSurge: 0` prevents Kubernetes from scheduling a new pod before the old one terminates. On this single-node cluster, running old and new pods simultaneously during a rollout would briefly double the number of JVM processes and risk swap exhaustion. `bff-service` and `user-service` use Argo Rollouts (blue-green and canary respectively) and are not affected by this setting.
