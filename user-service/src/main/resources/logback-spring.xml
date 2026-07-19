@@ -41,7 +41,7 @@
     <springProfile name="dev,test">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
-                <pattern>%clr(%d{HH:mm:ss.SSS}){faint} %clr(%-5level) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx</pattern>
+                <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) %magenta(${PID:- }) --- [%15.15t] %cyan(%-40.40logger{39}) : %m%n%xEx</pattern>
             </encoder>
         </appender>
         <root level="INFO">
