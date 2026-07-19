@@ -1,0 +1,46 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: ai-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceInitializationAutoConfiguration
+      - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
+      - org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration
+  ai:
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY}
+      http-client:
+        read-timeout: 55s
+      chat:
+        options:
+          model: claude-haiku-4-5-20251001
+          max-tokens: 1024
+  mvc:
+    problemdetails:
+      enabled: true
+  profiles:
+    default: dev
+    group:
+      dev:  [backend-dev,  hmac-dev]
+      prod: [backend-prod, hmac-prod]
+  config:
+    import:
+      - "backend.yaml"
+      - "hmac.yaml"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}

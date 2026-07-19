@@ -1,0 +1,16 @@
+---
+spring:
+  config:
+    activate:
+      on-profile: "backend-dev"
+backend:
+  store-url: http://localhost:8082
+  order-url: http://localhost:8083
+---
+spring:
+  config:
+    activate:
+      on-profile: "backend-prod"
+backend:
+  store-url: ${STORE_SERVICE_URL}
+  order-url: ${ORDER_SERVICE_URL}

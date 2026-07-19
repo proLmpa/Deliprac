@@ -1,6 +1,5 @@
-package bff.config
+package common.security
 
-import common.security.HmacUtils
 import org.springframework.http.HttpRequest
 import org.springframework.http.client.ClientHttpRequestExecution
 import org.springframework.http.client.ClientHttpRequestInterceptor

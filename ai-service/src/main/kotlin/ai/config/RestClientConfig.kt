@@ -1,6 +1,7 @@
-package bff.config
+package ai.config
 
 import common.security.HmacSigningInterceptor
+import common.logging.MdcFilter
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.client.JdkClientHttpRequestFactory
@@ -24,26 +25,20 @@ class RestClientConfig(
     }
 
     @Bean
-    fun userRestClient(): RestClient =
-        RestClient.builder().baseUrl(backendUrlProperties.userUrl).requestFactory(factory(3, 30))
-            .requestInterceptor(HmacSigningInterceptor(hmacProperties.userSecret))
-            .requestInterceptor(TraceIdInterceptor()).build()
-
-    @Bean
     fun storeRestClient(): RestClient =
-        RestClient.builder().baseUrl(backendUrlProperties.storeUrl).requestFactory(factory(3, 30))
+        RestClient.builder()
+            .baseUrl(backendUrlProperties.storeUrl)
+            .requestFactory(factory(3, 30))
             .requestInterceptor(HmacSigningInterceptor(hmacProperties.storeSecret))
-            .requestInterceptor(TraceIdInterceptor()).build()
+            .requestInterceptor(TraceIdInterceptor())
+            .build()
 
     @Bean
     fun orderRestClient(): RestClient =
-        RestClient.builder().baseUrl(backendUrlProperties.orderUrl).requestFactory(factory(3, 30))
+        RestClient.builder()
+            .baseUrl(backendUrlProperties.orderUrl)
+            .requestFactory(factory(3, 30))
             .requestInterceptor(HmacSigningInterceptor(hmacProperties.orderSecret))
-            .requestInterceptor(TraceIdInterceptor()).build()
-
-    @Bean
-    fun notificationRestClient(): RestClient =
-        RestClient.builder().baseUrl(backendUrlProperties.notificationUrl).requestFactory(factory(3, 3))
-            .requestInterceptor(HmacSigningInterceptor(hmacProperties.notificationSecret))
-            .requestInterceptor(TraceIdInterceptor()).build()
+            .requestInterceptor(TraceIdInterceptor())
+            .build()
 }
