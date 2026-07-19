@@ -4,7 +4,7 @@ spring:
     activate:
       on-profile: "hmac-dev"
 bff.hmac:
-  ai-secret:    "baemin-bff-ai-hmac-secret-key-32chars++"
+  ai-secret:    "baemin-bff-ai-hmac-secret-key-32chars+++"
   store-secret: "baemin-bff-store-hmac-secret-key-32chars+"
   order-secret: "baemin-bff-order-hmac-secret-key-32chars+"
 ---
@@ -14,5 +14,5 @@ spring:
       on-profile: "hmac-prod"
 bff.hmac:
   ai-secret:    ${BFF_HMAC_AI_SECRET}
-  store-secret: ${HMAC_STORE_SECRET}
-  order-secret: ${HMAC_ORDER_SECRET}
+  store-secret: ${BFF_HMAC_STORE_SECRET}
+  order-secret: ${BFF_HMAC_ORDER_SECRET}
