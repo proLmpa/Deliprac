@@ -41,7 +41,7 @@ pipeline {
                 script {
                     def springServices = [
                         'bff-service', 'user-service', 'store-service',
-                        'order-service', 'notification-service'
+                        'order-service', 'notification-service', 'ai-service'
                     ]
                     // Build all images in parallel
                     def buildTasks = [:]
@@ -66,7 +66,7 @@ pipeline {
                 script {
                     def allServices = [
                         'bff-service', 'user-service', 'store-service',
-                        'order-service', 'notification-service', 'front-service'
+                        'order-service', 'notification-service', 'ai-service', 'front-service'
                     ]
                     def pushTasks = [:]
                     for (svc in allServices) {

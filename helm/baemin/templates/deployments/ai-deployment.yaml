@@ -1,47 +1,42 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Rollout
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: bff-service
+  name: ai-service
   namespace: baemin
   labels:
-    app: bff-service
+    app: ai-service
     {{- include "baemin.labels" . | nindent 4 }}
   annotations:
-    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-wave: "5"
 spec:
   replicas: {{ .Values.replicas }}
   revisionHistoryLimit: 2
   selector:
     matchLabels:
-      app: bff-service
+      app: ai-service
   strategy:
-    blueGreen:
-      activeService: bff-service
-      previewService: bff-service-preview
-      autoPromotionEnabled: false
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   template:
     metadata:
       labels:
-        app: bff-service
+        app: ai-service
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/path:   "/actuator/prometheus"
-        prometheus.io/port:   "8080"
+        prometheus.io/port:   "8085"
     spec:
       containers:
-        - name: bff-service
-          image: "{{ .Values.images.registry }}/bff-service:{{ .Values.images.tag }}"
+        - name: ai-service
+          image: "{{ .Values.images.registry }}/ai-service:{{ .Values.images.tag }}"
           imagePullPolicy: Always
           ports:
-            - containerPort: 8080
+            - containerPort: 8085
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: "prod"
-            - name: USER_SERVICE_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: backend-urls
-                  key: USER_SERVICE_URL
             - name: STORE_SERVICE_URL
               valueFrom:
                 configMapKeyRef:
@@ -52,21 +47,21 @@ spec:
                 configMapKeyRef:
                   name: backend-urls
                   key: ORDER_SERVICE_URL
-            - name: NOTIFICATION_SERVICE_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: backend-urls
-                  key: NOTIFICATION_SERVICE_URL
-            - name: AI_SERVICE_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: backend-urls
-                  key: AI_SERVICE_URL
-            - name: BFF_HMAC_USER_SECRET
+            - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: bff-secret
-                  key: BFF_HMAC_USER_SECRET
+                  name: common-secret
+                  key: JWT_SECRET
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-secret
+                  key: ANTHROPIC_API_KEY
+            - name: BFF_HMAC_AI_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ai-secret
+                  key: BFF_HMAC_AI_SECRET
             - name: BFF_HMAC_STORE_SECRET
               valueFrom:
                 secretKeyRef:
@@ -77,23 +72,13 @@ spec:
                 secretKeyRef:
                   name: bff-secret
                   key: BFF_HMAC_ORDER_SECRET
-            - name: BFF_HMAC_NOTIF_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: bff-secret
-                  key: BFF_HMAC_NOTIF_SECRET
-            - name: BFF_HMAC_AI_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: bff-secret
-                  key: BFF_HMAC_AI_SECRET
             - name: JAVA_OPTS
               value: {{ .Values.javaOpts | quote }}
 
           startupProbe:
             httpGet:
               path: /actuator/health/liveness
-              port: 8080
+              port: 8085
             initialDelaySeconds: 60
             failureThreshold: 120
             periodSeconds: 10
@@ -101,7 +86,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
-              port: 8080
+              port: 8085
             initialDelaySeconds: 0
             periodSeconds: 10
             failureThreshold: 3
@@ -110,7 +95,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
-              port: 8080
+              port: 8085
             initialDelaySeconds: 0
             periodSeconds: 10
             failureThreshold: 3

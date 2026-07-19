@@ -15,6 +15,9 @@ secrets:
     hmacStore: "changeme"
     hmacOrder: "changeme"
     hmacNotif: "changeme"
+    hmacAi:    "changeme"
+  ai:
+    anthropicKey: "changeme"
   user:
     dbUser:   "changeme"
     dbPass:   "changeme"

@@ -11,3 +11,4 @@ data:
   STORE_SERVICE_URL:        "http://store-service"
   ORDER_SERVICE_URL:        "http://order-service"
   NOTIFICATION_SERVICE_URL: "http://notification-service"
+  AI_SERVICE_URL:           "http://ai-service"
