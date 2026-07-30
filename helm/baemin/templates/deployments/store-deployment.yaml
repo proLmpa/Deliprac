@@ -9,7 +9,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "2"
 spec:
-  replicas: {{ .Values.replicas }}
+  replicas: {{ .Values.storeReplicas }}
   revisionHistoryLimit: 2
   selector:
     matchLabels:

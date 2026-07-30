@@ -58,8 +58,15 @@ config:
   monitoring:
     prometheusAddress: "changeme"
 
-replicas: 1
+# Canary deployment (Argo Rollouts) — keep running for observation
 userReplicas: 2
+# Blue-green deployment (Argo Rollouts) — keep running for observation
+bffReplicas: 1
+# Rolling-update services — scaled to 0 while tracking canary/blue-green behaviour
+frontReplicas: 0
+storeReplicas: 0
+orderReplicas: 0
+aiReplicas: 0
 notificationReplicas: 0
 
 elk:
