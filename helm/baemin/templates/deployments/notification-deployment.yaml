@@ -15,18 +15,13 @@ spec:
     matchLabels:
       app: notification-service
   strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 0
-      maxUnavailable: 1
+    {{- include "baemin.rollingUpdate" . | nindent 4 }}
   template:
     metadata:
       labels:
         app: notification-service
       annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/path:   "/actuator/prometheus"
-        prometheus.io/port:   "8084"
+        {{- include "baemin.prometheusAnnotations" "8084" | nindent 8 }}
     spec:
       containers:
         - name: notification-service
@@ -35,33 +30,6 @@ spec:
           ports:
             - containerPort: 8084
           env:
-            - name: SPRING_PROFILES_ACTIVE
-              value: "prod"
-            - name: DB_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: db-config
-                  key: NOTIF_DB_URL
-            - name: DB_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: notification-secret
-                  key: DB_USERNAME
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: notification-secret
-                  key: DB_PASSWORD
-            - name: JWT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: common-secret
-                  key: JWT_SECRET
-            - name: BFF_HMAC_NOTIF_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: notification-secret
-                  key: BFF_HMAC_NOTIF_SECRET
             - name: REDIS_HOST
               valueFrom:
                 configMapKeyRef:
@@ -72,31 +40,10 @@ spec:
                 configMapKeyRef:
                   name: redis-config
                   key: REDIS_PORT
-            - name: JAVA_OPTS
-              value: {{ .Values.javaOpts | quote }}
+            {{- include "baemin.backendEnv" (dict
+                  "service" "notification"
+                  "dbKey"   "NOTIF_DB_URL"
+                  "hmacKey" "BFF_HMAC_NOTIF_SECRET"
+                  "javaOpts" .Values.javaOpts) | nindent 12 }}
 
-          startupProbe:
-            httpGet:
-              path: /actuator/health/liveness
-              port: 8084
-            initialDelaySeconds: 60
-            failureThreshold: 120
-            periodSeconds: 10
-
-          livenessProbe:
-            httpGet:
-              path: /actuator/health/liveness
-              port: 8084
-            initialDelaySeconds: 0
-            periodSeconds: 10
-            failureThreshold: 3
-            timeoutSeconds: 5
-
-          readinessProbe:
-            httpGet:
-              path: /actuator/health/readiness
-              port: 8084
-            initialDelaySeconds: 0
-            periodSeconds: 10
-            failureThreshold: 3
-            timeoutSeconds: 5
+          {{- include "baemin.probes" 8084 | nindent 10 }}

@@ -63,7 +63,7 @@ bffReplicas: 1
 frontReplicas: 1
 storeReplicas: 1
 orderReplicas: 1
-aiReplicas: 1
+aiReplicas: 0
 notificationReplicas: 1
 
 elk:

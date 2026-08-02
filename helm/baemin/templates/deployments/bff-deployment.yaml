@@ -15,18 +15,13 @@ spec:
     matchLabels:
       app: bff-service
   strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 0
-      maxUnavailable: 1
+    {{- include "baemin.rollingUpdate" . | nindent 4 }}
   template:
     metadata:
       labels:
         app: bff-service
       annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/path:   "/actuator/prometheus"
-        prometheus.io/port:   "8080"
+        {{- include "baemin.prometheusAnnotations" "8080" | nindent 8 }}
     spec:
       containers:
         - name: bff-service
@@ -90,28 +85,4 @@ spec:
             - name: JAVA_OPTS
               value: {{ .Values.javaOpts | quote }}
 
-          startupProbe:
-            httpGet:
-              path: /actuator/health/liveness
-              port: 8080
-            initialDelaySeconds: 60
-            failureThreshold: 120
-            periodSeconds: 10
-
-          livenessProbe:
-            httpGet:
-              path: /actuator/health/liveness
-              port: 8080
-            initialDelaySeconds: 0
-            periodSeconds: 10
-            failureThreshold: 3
-            timeoutSeconds: 5
-
-          readinessProbe:
-            httpGet:
-              path: /actuator/health/readiness
-              port: 8080
-            initialDelaySeconds: 0
-            periodSeconds: 10
-            failureThreshold: 3
-            timeoutSeconds: 5
+          {{- include "baemin.probes" 8080 | nindent 10 }}

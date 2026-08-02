@@ -15,10 +15,7 @@ spec:
     matchLabels:
       app: front-service
   strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 0
-      maxUnavailable: 1
+    {{- include "baemin.rollingUpdate" . | nindent 4 }}
   template:
     metadata:
       labels:
