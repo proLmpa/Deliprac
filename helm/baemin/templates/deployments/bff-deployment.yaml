@@ -1,5 +1,5 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Rollout
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: bff-service
   namespace: baemin
@@ -15,10 +15,10 @@ spec:
     matchLabels:
       app: bff-service
   strategy:
-    blueGreen:
-      activeService: bff-service
-      previewService: bff-service-preview
-      autoPromotionEnabled: false
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   template:
     metadata:
       labels:

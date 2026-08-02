@@ -1,4 +1,3 @@
-# Active service -- receives live traffic
 apiVersion: v1
 kind: Service
 metadata:
@@ -16,17 +15,3 @@ spec:
       port: 80
       targetPort: 8080
       nodePort: 30080
----
-# Preview service -- points to the new (green) version before promotion
-apiVersion: v1
-kind: Service
-metadata:
-  name: bff-service-preview
-  namespace: baemin
-spec:
-  type: ClusterIP
-  selector:
-    app: bff-service
-  ports:
-    - port: 80
-      targetPort: 8080

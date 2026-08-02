@@ -1,5 +1,5 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Rollout
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: user-service
   namespace: baemin
@@ -15,22 +15,10 @@ spec:
     matchLabels:
       app: user-service
   strategy:
-    canary:
-      stableService: user-service-active
-      canaryService: user-service-canary
-      analysis:
-        templates:
-          - templateName: user-service-error-rate
-        startingStep: 1
-        args:
-          - name: canary-hash
-            valueFrom:
-              podTemplateHashValue: Latest
-      steps:
-        - setWeight: 50
-        - pause:
-            duration: 6m
-        - setWeight: 100
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   template:
     metadata:
       labels:

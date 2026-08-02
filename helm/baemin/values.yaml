@@ -58,16 +58,13 @@ config:
   monitoring:
     prometheusAddress: "changeme"
 
-# Canary deployment (Argo Rollouts) — keep running for observation
-userReplicas: 2
-# Blue-green deployment (Argo Rollouts) — keep running for observation
+userReplicas: 1
 bffReplicas: 1
-# Rolling-update services — scaled to 0 while tracking canary/blue-green behaviour
-frontReplicas: 0
-storeReplicas: 0
-orderReplicas: 0
-aiReplicas: 0
-notificationReplicas: 0
+frontReplicas: 1
+storeReplicas: 1
+orderReplicas: 1
+aiReplicas: 1
+notificationReplicas: 1
 
 elk:
   logstashHost: "192.168.160.106"
