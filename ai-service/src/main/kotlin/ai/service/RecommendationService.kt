@@ -75,8 +75,10 @@ class RecommendationService(
         }
 
         return runCatching {
-            val json = raw.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
-            val parsed = objectMapper.readTree(json)
+            val start = raw.indexOf('{')
+            val end   = raw.lastIndexOf('}')
+            require(start != -1 && end > start) { "No JSON object in Claude response" }
+            val parsed = objectMapper.readTree(raw.substring(start, end + 1))
             val items = parsed["recommendations"].map { node ->
                 RecommendedItem(
                     productName = node["productName"].textValue() ?: "",
