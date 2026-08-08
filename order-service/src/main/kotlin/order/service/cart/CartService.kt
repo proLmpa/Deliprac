@@ -14,9 +14,13 @@ import order.entity.order.OrderStatus
 import order.repository.cart.CartProductRepository
 import order.repository.cart.CartRepository
 import order.repository.order.OrderRepository
+import io.github.oshai.kotlinlogging.KotlinLogging
+import net.logstash.logback.marker.Markers.appendEntries
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+
+private val auditLog = KotlinLogging.logger("audit")
 
 @Service
 class CartService(
@@ -89,6 +93,7 @@ class CartService(
         cart.isOrdered = true
         cartRepository.save(cart)
 
+        auditLog.info(appendEntries(mapOf("event" to "ORDER_CREATED", "orderId" to order.id, "userId" to userId, "storeId" to order.storeId, "totalPrice" to order.totalPrice))) { "ORDER_CREATED" }
         return OrderResponse.of(order, items)
     }
 

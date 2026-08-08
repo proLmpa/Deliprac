@@ -10,9 +10,13 @@ import user.entity.User
 import user.entity.UserStatus
 import user.repository.UserRepository
 import user.security.JwtProvider
+import io.github.oshai.kotlinlogging.KotlinLogging
+import net.logstash.logback.marker.Markers.appendEntries
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
+
+private val auditLog = KotlinLogging.logger("audit")
 
 @Service
 class UserService(
@@ -42,7 +46,9 @@ class UserService(
             role = role,
         )
 
-        return userRepository.save(user).id
+        val savedId = userRepository.save(user).id
+        auditLog.info(appendEntries(mapOf("event" to "USER_SIGNUP", "userId" to savedId, "role" to role.name))) { "USER_SIGNUP" }
+        return savedId
     }
 
     @Transactional(readOnly = true)
@@ -58,7 +64,9 @@ class UserService(
             throw IllegalArgumentException("Invalid email or password")
         }
 
-        return jwtProvider.generateToken(user.id, user.email, user.role.name)
+        val token = jwtProvider.generateToken(user.id, user.email, user.role.name)
+        auditLog.info(appendEntries(mapOf("event" to "USER_SIGNIN", "userId" to user.id))) { "USER_SIGNIN" }
+        return token
     }
 
     @Transactional

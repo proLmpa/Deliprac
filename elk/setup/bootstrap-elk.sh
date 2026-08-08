@@ -40,7 +40,17 @@ curl -sf ${AUTH} -X PUT "${ES}/_index_template/baemin-logs" \
           "service":     { "type": "keyword" },
           "traceId":     { "type": "keyword" },
           "message":     { "type": "text" },
-          "stackTrace":  { "type": "text", "index": false }
+          "stackTrace":  { "type": "text", "index": false },
+          "event":       { "type": "keyword" },
+          "userId":      { "type": "long" },
+          "storeId":     { "type": "long" },
+          "orderId":     { "type": "long" },
+          "reviewId":    { "type": "long" },
+          "rating":      { "type": "integer" },
+          "totalPrice":  { "type": "long" },
+          "count":       { "type": "integer" },
+          "branch":      { "type": "keyword" },
+          "role":        { "type": "keyword" }
         }
       }
     },
