@@ -4,6 +4,7 @@ import ai.dto.ChatInfo
 import ai.dto.ChatMessage
 import ai.dto.ChatRequest
 import ai.tools.BaeminTools
+import org.springframework.ai.anthropic.AnthropicChatOptions
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.chat.messages.AssistantMessage
 import org.springframework.ai.chat.messages.UserMessage
@@ -27,6 +28,7 @@ class ChatService(
         }
 
         val reply = chatClient.prompt()
+            .options(AnthropicChatOptions.builder().maxTokens(1024).temperature(0.7))
             .messages(history)
             .tools(baeminTools)
             .call()

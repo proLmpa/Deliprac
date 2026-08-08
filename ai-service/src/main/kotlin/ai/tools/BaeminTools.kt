@@ -1,6 +1,5 @@
 package ai.tools
 
-import ai.client.OrderInfo
 import ai.client.ProductInfo
 import ai.client.StoreClient
 import ai.client.StoreInfo

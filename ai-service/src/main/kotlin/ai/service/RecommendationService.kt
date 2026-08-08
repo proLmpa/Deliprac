@@ -9,6 +9,7 @@ import ai.dto.RecommendRequest
 import ai.dto.RecommendedItem
 import tools.jackson.databind.ObjectMapper
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.springframework.ai.anthropic.AnthropicChatOptions
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.stereotype.Service
 import java.util.concurrent.CompletableFuture
@@ -46,7 +47,7 @@ class RecommendationService(
             "${it.name} | ${it.description} | ₩${it.price}"
         }
 
-        val storeName = "Store #${req.storeId}"   // name is on StoreInfo; tools fetch it separately if needed
+        val storeName = "Store #${req.storeId}"
 
         val (userMessage, showPreferencePicker) = buildUserMessage(
             products   = products,
@@ -58,6 +59,7 @@ class RecommendationService(
 
         val raw = runCatching {
             chatClient.prompt()
+                .options(AnthropicChatOptions.builder().maxTokens(512).temperature(0.3))
                 .system(SYSTEM_PROMPT)
                 .user(userMessage)
                 .call()
