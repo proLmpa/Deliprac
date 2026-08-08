@@ -17,7 +17,6 @@ pipeline {
             steps {
                 sh 'docker image prune -af || true'
                 sh 'docker container prune -f || true'
-                sh 'docker volume prune -f || true'
             }
         }
 
@@ -137,6 +136,9 @@ pipeline {
 
         // ── 5. Deploy ELK Config ──────────────────────────────────────────
         stage('Deploy ELK Config') {
+            when {
+                changeset "elk/**"
+            }
             steps {
                 script {
                     withCredentials([
@@ -196,11 +198,9 @@ pipeline {
 
     post {
         always {
-            node('') {
-                sh 'docker logout || true'
-                sh 'docker image prune -af || true'
-                cleanWs()
-            }
+            sh 'docker logout || true'
+            sh 'docker image prune -af || true'
+            cleanWs()
         }
         success { echo 'All services deployed successfully.' }
         failure { echo 'Deployment failed — check the stage logs above.' }
