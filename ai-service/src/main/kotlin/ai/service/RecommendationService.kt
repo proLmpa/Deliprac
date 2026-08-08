@@ -78,8 +78,8 @@ class RecommendationService(
             val parsed = objectMapper.readTree(raw)
             val items = parsed["recommendations"].map { node ->
                 RecommendedItem(
-                    productName = node["productName"].asText(),
-                    reason      = node["reason"].asText()
+                    productName = node["productName"].textValue() ?: "",
+                    reason      = node["reason"].textValue() ?: ""
                 )
             }
             val branch = when {
