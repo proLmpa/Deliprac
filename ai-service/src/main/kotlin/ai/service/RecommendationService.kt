@@ -11,12 +11,13 @@ import tools.jackson.databind.ObjectMapper
 import common.security.currentUser
 import io.github.oshai.kotlinlogging.KotlinLogging
 import net.logstash.logback.marker.Markers.appendEntries
+import org.slf4j.LoggerFactory
 import org.springframework.ai.anthropic.AnthropicChatOptions
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.stereotype.Service
 import java.util.concurrent.CompletableFuture
 
-private val auditLog = KotlinLogging.logger("audit")
+private val auditLog = LoggerFactory.getLogger("audit")
 
 private val log = KotlinLogging.logger {}
 
@@ -86,7 +87,7 @@ class RecommendationService(
                 req.categoryPreferences.isNotEmpty()   -> "CATEGORY_PREF"
                 else                                   -> "FALLBACK"
             }
-            auditLog.info(appendEntries(mapOf("event" to "AI_RECOMMENDATION", "userId" to currentUser().id, "storeId" to req.storeId, "count" to items.size, "branch" to branch))) { "AI_RECOMMENDATION" }
+            auditLog.info(appendEntries(mapOf("event" to "AI_RECOMMENDATION", "userId" to currentUser().id, "storeId" to req.storeId, "count" to items.size, "branch" to branch)), "AI_RECOMMENDATION")
             RecommendInfo(items, showPreferencePicker)
         }.getOrElse { e ->
             log.warn(e) { "Failed to parse Claude JSON response for storeId=${req.storeId}: $raw" }

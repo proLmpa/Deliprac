@@ -9,14 +9,14 @@ import order.dto.order.OrderResponse
 import order.entity.order.OrderStatus
 import order.repository.cart.CartProductRepository
 import order.repository.order.OrderRepository
-import io.github.oshai.kotlinlogging.KotlinLogging
 import net.logstash.logback.marker.Markers.appendEntries
+import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.stereotype.Service
 
-private val auditLog = KotlinLogging.logger("audit")
+private val auditLog = LoggerFactory.getLogger("audit")
 
 @Service
 class OrderService(
@@ -44,7 +44,7 @@ class OrderService(
         order.status = OrderStatus.SOLD
         val saved = orderRepository.save(order)
         val items = cartProductRepository.findAllByCartId(saved.cartId)
-        auditLog.info(appendEntries(mapOf("event" to "ORDER_CONFIRMED", "orderId" to saved.id, "storeId" to storeId))) { "ORDER_CONFIRMED" }
+        auditLog.info(appendEntries(mapOf("event" to "ORDER_CONFIRMED", "orderId" to saved.id, "storeId" to storeId)), "ORDER_CONFIRMED")
         return OrderResponse.of(saved, items)
     }
 
@@ -60,7 +60,7 @@ class OrderService(
         order.status = OrderStatus.CANCELED
         val saved = orderRepository.save(order)
         val items = cartProductRepository.findAllByCartId(saved.cartId)
-        auditLog.info(appendEntries(mapOf("event" to "ORDER_CANCELLED", "orderId" to saved.id, "storeId" to storeId))) { "ORDER_CANCELLED" }
+        auditLog.info(appendEntries(mapOf("event" to "ORDER_CANCELLED", "orderId" to saved.id, "storeId" to storeId)), "ORDER_CANCELLED")
         return OrderResponse.of(saved, items)
     }
 
