@@ -21,8 +21,10 @@ import bff.dto.RevenueRequest
 import bff.dto.RevenueResponse
 import bff.dto.SpendingRequest
 import bff.dto.SpendingResponse
-import common.logging.runAsyncWithMdc
 import jakarta.servlet.http.HttpServletRequest
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.slf4j.MDCContext
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
@@ -82,22 +84,26 @@ class OrderController(
                 quantity    = item.quantity
             )
         } ?: emptyList()
-        runAsyncWithMdc {
-            try {
-                notificationClient.createNotification(
-                    CreateNotificationRequest(
-                        recipientId = store.userId,
-                        type        = "NEW_ORDER",
-                        title       = "새 주문 접수",
-                        content     = "새 주문이 접수되었습니다.",
-                        storeId     = order.storeId,
-                        storeName   = store.name,
-                        expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
-                        items       = items
+
+        runBlocking {
+            launch(MDCContext()) {
+                try {
+                    notificationClient.createNotification(
+                        CreateNotificationRequest(
+                            recipientId = store.userId,
+                            type        = "NEW_ORDER",
+                            title       = "새 주문 접수",
+                            content     = "새 주문이 접수되었습니다.",
+                            storeId     = order.storeId,
+                            storeName   = store.name,
+                            expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
+                            items       = items
+                        )
                     )
-                )
-            } catch (_: Exception) {}
+                } catch (_: Exception) {}
+            }
         }
+
         return order
     }
 
@@ -121,22 +127,26 @@ class OrderController(
                 quantity    = item.quantity
             )
         }
-        runAsyncWithMdc {
-            try {
-                notificationClient.createNotification(
-                    CreateNotificationRequest(
-                        recipientId = order.userId,
-                        type        = "ORDER_SOLD",
-                        title       = "주문 완료",
-                        content     = "주문이 완료되었습니다.",
-                        storeId     = order.storeId,
-                        storeName   = store.name,
-                        expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
-                        items       = items
+
+        runBlocking {
+            launch (MDCContext()) {
+                try {
+                    notificationClient.createNotification(
+                        CreateNotificationRequest(
+                            recipientId = order.userId,
+                            type        = "ORDER_SOLD",
+                            title       = "주문 완료",
+                            content     = "주문이 완료되었습니다.",
+                            storeId     = order.storeId,
+                            storeName   = store.name,
+                            expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
+                            items       = items
+                        )
                     )
-                )
-            } catch (_: Exception) {}
+                } catch (_: Exception) {}
+            }
         }
+
         return order
     }
 
@@ -154,22 +164,26 @@ class OrderController(
                 quantity    = item.quantity
             )
         }
-        runAsyncWithMdc {
-            try {
-                notificationClient.createNotification(
-                    CreateNotificationRequest(
-                        recipientId = order.userId,
-                        type        = "ORDER_CANCELED",
-                        title       = "주문 취소",
-                        content     = "주문이 취소되었습니다.",
-                        storeId     = order.storeId,
-                        storeName   = store.name,
-                        expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
-                        items       = items
+
+        runBlocking {
+            launch(MDCContext()) {
+                try {
+                    notificationClient.createNotification(
+                        CreateNotificationRequest(
+                            recipientId = order.userId,
+                            type        = "ORDER_CANCELED",
+                            title       = "주문 취소",
+                            content     = "주문이 취소되었습니다.",
+                            storeId     = order.storeId,
+                            storeName   = store.name,
+                            expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
+                            items       = items
+                        )
                     )
-                )
-            } catch (_: Exception) {}
+                } catch (_: Exception) {}
+            }
         }
+
         return order
     }
 
