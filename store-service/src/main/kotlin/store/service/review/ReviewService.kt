@@ -10,12 +10,12 @@ import store.dto.review.ReviewInfo
 import store.entity.review.Review
 import store.repository.review.ReviewRepository
 import store.repository.store.StoreRepository
+import io.github.oshai.kotlinlogging.KotlinLogging
 import net.logstash.logback.marker.Markers.appendEntries
-import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
-private val auditLog = LoggerFactory.getLogger("audit")
+private val auditLog = KotlinLogging.logger("audit")
 
 @Service
 class ReviewService(

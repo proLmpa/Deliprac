@@ -10,13 +10,13 @@ import user.entity.User
 import user.entity.UserStatus
 import user.repository.UserRepository
 import user.security.JwtProvider
+import io.github.oshai.kotlinlogging.KotlinLogging
 import net.logstash.logback.marker.Markers.appendEntries
-import org.slf4j.LoggerFactory
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 
-private val auditLog = LoggerFactory.getLogger("audit")
+private val auditLog = KotlinLogging.logger("audit")
 
 @Service
 class UserService(

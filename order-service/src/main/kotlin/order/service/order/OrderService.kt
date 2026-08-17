@@ -10,14 +10,14 @@ import order.dto.order.OrderResponse
 import order.entity.order.OrderStatus
 import order.repository.cart.CartProductRepository
 import order.repository.order.OrderRepository
+import io.github.oshai.kotlinlogging.KotlinLogging
 import net.logstash.logback.marker.Markers.appendEntries
-import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.stereotype.Service
 
-private val auditLog = LoggerFactory.getLogger("audit")
+private val auditLog = KotlinLogging.logger("audit")
 
 @Service
 class OrderService(
