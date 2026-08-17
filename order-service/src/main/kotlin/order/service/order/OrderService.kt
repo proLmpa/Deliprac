@@ -5,6 +5,7 @@ import common.exception.ForbiddenException
 import common.exception.NotFoundException
 import common.orThrow
 import common.security.UserRole
+import common.security.currentUser
 import order.dto.order.OrderResponse
 import order.entity.order.OrderStatus
 import order.repository.cart.CartProductRepository
@@ -44,7 +45,10 @@ class OrderService(
         order.status = OrderStatus.SOLD
         val saved = orderRepository.save(order)
         val items = cartProductRepository.findAllByCartId(saved.cartId)
-        auditLog.info(appendEntries(mapOf("event" to "ORDER_CONFIRMED", "orderId" to saved.id, "storeId" to storeId)), "ORDER_CONFIRMED")
+        auditLog.info(
+            appendEntries(mapOf("event" to "ORDER_CONFIRMED", "orderId" to saved.id, "storeId" to storeId, "email" to currentUser().email)),
+            "Owner ${currentUser().email} confirmed order ${saved.id} at store $storeId"
+        )
         return OrderResponse.of(saved, items)
     }
 
@@ -60,7 +64,10 @@ class OrderService(
         order.status = OrderStatus.CANCELED
         val saved = orderRepository.save(order)
         val items = cartProductRepository.findAllByCartId(saved.cartId)
-        auditLog.info(appendEntries(mapOf("event" to "ORDER_CANCELLED", "orderId" to saved.id, "storeId" to storeId)), "ORDER_CANCELLED")
+        auditLog.info(
+            appendEntries(mapOf("event" to "ORDER_CANCELLED", "orderId" to saved.id, "storeId" to storeId, "email" to currentUser().email)),
+            "Owner ${currentUser().email} cancelled order ${saved.id} at store $storeId"
+        )
         return OrderResponse.of(saved, items)
     }
 

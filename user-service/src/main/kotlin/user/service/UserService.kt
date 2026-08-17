@@ -47,7 +47,10 @@ class UserService(
         )
 
         val savedId = userRepository.save(user).id
-        auditLog.info(appendEntries(mapOf("event" to "USER_SIGNUP", "userId" to savedId, "role" to role.name)), "USER_SIGNUP")
+        auditLog.info(
+            appendEntries(mapOf("event" to "USER_SIGNUP", "email" to command.email, "role" to role.name)),
+            "${role.name} ${command.email} signed up"
+        )
         return savedId
     }
 
@@ -65,7 +68,10 @@ class UserService(
         }
 
         val token = jwtProvider.generateToken(user.id, user.email, user.role.name)
-        auditLog.info(appendEntries(mapOf("event" to "USER_SIGNIN", "userId" to user.id)), "USER_SIGNIN")
+        auditLog.info(
+            appendEntries(mapOf("event" to "USER_SIGNIN", "email" to user.email, "role" to user.role.name)),
+            "${user.role.name} ${user.email} signed in"
+        )
         return token
     }
 

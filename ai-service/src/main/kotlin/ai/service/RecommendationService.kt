@@ -41,18 +41,18 @@ class RecommendationService(
     fun recommend(req: RecommendRequest): RecommendInfo {
         val token = aiRequestContext.jwt ?: error("JWT not set in AiRequestContext")
 
-        // Fetch products and orders in parallel
+        // Fetch products, orders, and store info in parallel
         val productsFuture = CompletableFuture.supplyAsync { storeClient.listProducts(req.storeId, token) }
         val ordersFuture   = CompletableFuture.supplyAsync { runCatching { orderClient.getUserOrders(token) }.getOrElse { emptyList() } }
+        val storeFuture    = CompletableFuture.supplyAsync { storeClient.findStore(req.storeId, token) }
 
-        val products = productsFuture.get()
-        val orders   = ordersFuture.get()
+        val products  = productsFuture.get()
+        val orders    = ordersFuture.get()
+        val storeName = storeFuture.get().name
 
         val menuText = products.filter { it.status }.joinToString("\n") {
             "${it.name} | ${it.description} | ₩${it.price}"
         }
-
-        val storeName = "Store #${req.storeId}"
 
         val (userMessage, showPreferencePicker) = buildUserMessage(
             products   = products,
@@ -90,7 +90,10 @@ class RecommendationService(
                 req.categoryPreferences.isNotEmpty()   -> "CATEGORY_PREF"
                 else                                   -> "FALLBACK"
             }
-            auditLog.info(appendEntries(mapOf("event" to "AI_RECOMMENDATION", "userId" to currentUser().id, "storeId" to req.storeId, "count" to items.size, "branch" to branch)), "AI_RECOMMENDATION")
+            auditLog.info(
+                appendEntries(mapOf("event" to "AI_RECOMMENDATION", "email" to currentUser().email, "storeId" to req.storeId, "storeName" to storeName, "count" to items.size, "branch" to branch)),
+                "Customer ${currentUser().email} received ${items.size} AI recommendations at '$storeName' [branch: $branch]"
+            )
             RecommendInfo(items, showPreferencePicker)
         }.getOrElse { e ->
             log.warn(e) { "Failed to parse Claude JSON response for storeId=${req.storeId}: $raw" }

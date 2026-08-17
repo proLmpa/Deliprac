@@ -4,6 +4,7 @@ import common.exception.ConflictException
 import common.exception.ForbiddenException
 import common.exception.NotFoundException
 import common.orThrow
+import common.security.currentUser
 import order.dto.cart.AddCartItemRequest
 import order.dto.cart.CartResponse
 import order.dto.order.OrderResponse
@@ -93,7 +94,10 @@ class CartService(
         cart.isOrdered = true
         cartRepository.save(cart)
 
-        auditLog.info(appendEntries(mapOf("event" to "ORDER_CREATED", "orderId" to order.id, "userId" to userId, "storeId" to order.storeId, "totalPrice" to order.totalPrice)), "ORDER_CREATED")
+        auditLog.info(
+            appendEntries(mapOf("event" to "ORDER_CREATED", "orderId" to order.id, "storeId" to order.storeId, "totalPrice" to order.totalPrice, "email" to currentUser().email)),
+            "Customer ${currentUser().email} placed order ${order.id} at store ${order.storeId} (total: ${order.totalPrice})"
+        )
         return OrderResponse.of(order, items)
     }
 

@@ -28,7 +28,7 @@ class ReviewService(
         if (principal.role != UserRole.CUSTOMER) throw ForbiddenException("Forbidden")
         if (request.rating !in 1 .. 5) throw IllegalArgumentException("Invalid request")
 
-        storeRepository.findById(storeId).orThrow("Not found")
+        val store = storeRepository.findById(storeId).orThrow("Not found")
 
         val review = Review(
             id      = 0L,
@@ -39,7 +39,10 @@ class ReviewService(
         )
 
         val saved = reviewRepository.save(review)
-        auditLog.info(appendEntries(mapOf("event" to "REVIEW_CREATED", "reviewId" to saved.id, "storeId" to storeId, "userId" to principal.id, "rating" to request.rating)), "REVIEW_CREATED")
+        auditLog.info(
+            appendEntries(mapOf("event" to "REVIEW_CREATED", "reviewId" to saved.id, "storeId" to storeId, "storeName" to store.name, "rating" to request.rating, "email" to principal.email)),
+            "Customer ${principal.email} posted review ${saved.id} at '${store.name}' (rating: ${request.rating}/5)"
+        )
         return ReviewInfo.of(saved)
     }
 

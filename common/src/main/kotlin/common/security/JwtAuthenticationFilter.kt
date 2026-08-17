@@ -19,8 +19,9 @@ class JwtAuthenticationFilter(private val jwtParser: JwtParser) : OncePerRequest
         if (token != null) {
             val claims = jwtParser.parseSignedClaims(token).payload
             val principal = UserPrincipal(
-                id   = claims.subject.toLong(),
-                role = UserRole.valueOf(claims["role"] as String)
+                id    = claims.subject.toLong(),
+                email = claims["email"] as String,
+                role  = UserRole.valueOf(claims["role"] as String)
             )
             val auth = UsernamePasswordAuthenticationToken(
                 principal, null, listOf(SimpleGrantedAuthority(principal.role.name))
