@@ -20,7 +20,6 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: filebeat
-          # v1.1: version is now templated from values.yaml to stay in sync with ELK VM.
           image: docker.elastic.co/beats/filebeat:{{ .Values.elk.filebeatVersion }}
           args: ["-c", "/etc/filebeat/filebeat.yml", "-e"]
           env:
