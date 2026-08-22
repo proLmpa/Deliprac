@@ -11,12 +11,13 @@ import tools.jackson.databind.ObjectMapper
 import common.security.currentUser
 import io.github.oshai.kotlinlogging.KotlinLogging
 import net.logstash.logback.marker.Markers.appendEntries
+import org.slf4j.LoggerFactory
 import org.springframework.ai.anthropic.AnthropicChatOptions
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.stereotype.Service
 import java.util.concurrent.CompletableFuture
 
-private val auditLog = KotlinLogging.logger("audit")
+private val auditLog = LoggerFactory.getLogger("audit")
 
 private val log = KotlinLogging.logger {}
 
@@ -89,7 +90,7 @@ class RecommendationService(
                 req.categoryPreferences.isNotEmpty()   -> "CATEGORY_PREF"
                 else                                   -> "FALLBACK"
             }
-            auditLog.underlyingLogger.info(
+            auditLog.info(
                 appendEntries(mapOf("event" to "AI_RECOMMENDATION", "email" to currentUser().email, "storeId" to req.storeId, "storeName" to storeName, "count" to items.size, "branch" to branch)),
                 "Customer ${currentUser().email} received ${items.size} AI recommendations at '$storeName' [branch: $branch]"
             )
