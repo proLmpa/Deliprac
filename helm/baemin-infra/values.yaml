@@ -1,0 +1,12 @@
+secrets:
+  jwt: "changeme"
+
+config:
+  redis:
+    host: "192.168.160.104"
+    port: "6379"
+
+elk:
+  logstashHost: "192.168.160.106"
+  logstashPort: 5044
+  filebeatVersion: "8.17.3"

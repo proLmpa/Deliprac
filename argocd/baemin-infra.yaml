@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: baemin-infra
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/proLmpa/Deliprac.git
+    targetRevision: main
+    path: helm/baemin-infra
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: baemin
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

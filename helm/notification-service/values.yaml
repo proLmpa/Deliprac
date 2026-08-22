@@ -1,0 +1,14 @@
+images:
+  registry: prolmpa
+  tag: "734eec26f463"
+
+replicas: 0
+javaOpts: "-Xms128m -Xmx512m"
+
+config:
+  dbUrl: "jdbc:postgresql://192.168.160.104:5432/notificationdb"
+
+secrets:
+  dbUser:    "changeme"
+  dbPass:    "changeme"
+  hmacNotif: "changeme"

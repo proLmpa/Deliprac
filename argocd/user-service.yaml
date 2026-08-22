@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: user-service
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/proLmpa/Deliprac.git
+    targetRevision: main
+    path: helm/user-service
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: baemin
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

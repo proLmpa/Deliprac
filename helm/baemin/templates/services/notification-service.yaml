@@ -1,1 +1,0 @@
-{{- include "baemin.clusterIPService" (dict "name" "notification-service" "port" 8084 "root" .) }}

@@ -1,0 +1,5 @@
+apiVersion: v2
+name: store-service
+description: Baemin store-service
+type: application
+version: 0.1.0

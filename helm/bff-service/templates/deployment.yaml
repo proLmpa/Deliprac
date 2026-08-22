@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bff-service
+  namespace: baemin
+  labels:
+    app: bff-service
+spec:
+  replicas: {{ .Values.replicas }}
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: bff-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: bff-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8080"
+    spec:
+      containers:
+        - name: bff-service
+          image: "{{ .Values.images.registry }}/bff-service:{{ .Values.images.tag }}"
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: USER_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-urls
+                  key: USER_SERVICE_URL
+            - name: STORE_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-urls
+                  key: STORE_SERVICE_URL
+            - name: ORDER_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-urls
+                  key: ORDER_SERVICE_URL
+            - name: NOTIFICATION_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-urls
+                  key: NOTIFICATION_SERVICE_URL
+            - name: AI_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-urls
+                  key: AI_SERVICE_URL
+            - name: BFF_HMAC_USER_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: bff-secret
+                  key: BFF_HMAC_USER_SECRET
+            - name: BFF_HMAC_STORE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: bff-secret
+                  key: BFF_HMAC_STORE_SECRET
+            - name: BFF_HMAC_ORDER_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: bff-secret
+                  key: BFF_HMAC_ORDER_SECRET
+            - name: BFF_HMAC_NOTIF_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: bff-secret
+                  key: BFF_HMAC_NOTIF_SECRET
+            - name: BFF_HMAC_AI_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: bff-secret
+                  key: BFF_HMAC_AI_SECRET
+            - name: JAVA_OPTS
+              value: {{ .Values.javaOpts | quote }}
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 60
+            failureThreshold: 120
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
