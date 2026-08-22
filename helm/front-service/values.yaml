@@ -1,5 +1,5 @@
 images:
   registry: prolmpa
-  tag: "734eec26f463"
+  tag: "1f03e18cfb2b"
 
 replicas: 1
