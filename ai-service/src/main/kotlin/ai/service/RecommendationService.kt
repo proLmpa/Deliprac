@@ -89,7 +89,7 @@ class RecommendationService(
                 req.categoryPreferences.isNotEmpty()   -> "CATEGORY_PREF"
                 else                                   -> "FALLBACK"
             }
-            auditLog.info(
+            auditLog.underlyingLogger.info(
                 appendEntries(mapOf("event" to "AI_RECOMMENDATION", "email" to currentUser().email, "storeId" to req.storeId, "storeName" to storeName, "count" to items.size, "branch" to branch)),
                 "Customer ${currentUser().email} received ${items.size} AI recommendations at '$storeName' [branch: $branch]"
             )
