@@ -184,10 +184,12 @@ pipeline {
                     passwordVariable: 'GIT_PASS'
                 )]) {
                     sh """
-                        sed -i 's/^  tag: .*/  tag: "${env.IMAGE_TAG}"/' helm/baemin/values.yaml
+                        for svc in bff-service user-service store-service order-service notification-service ai-service front-service; do
+                            sed -i 's/^  tag: .*/  tag: "${env.IMAGE_TAG}"/' helm/\${svc}/values.yaml
+                        done
                         git config user.email "kheeyeoul@gmail.com"
                         git config user.name "proLmpa"
-                        git add helm/baemin/values.yaml
+                        git add helm/bff-service/values.yaml helm/user-service/values.yaml helm/store-service/values.yaml helm/order-service/values.yaml helm/notification-service/values.yaml helm/ai-service/values.yaml helm/front-service/values.yaml
                         git commit -m "ci: bump images.tag to ${env.IMAGE_TAG}"
                         git push https://\${GIT_USER}:\${GIT_PASS}@github.com/proLmpa/Deliprac.git HEAD:main
                     """
