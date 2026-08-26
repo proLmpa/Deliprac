@@ -17,4 +17,5 @@ receivers:
           {{ if eq .Status "firing" }}🔴{{ else }}🟢{{ end }} <b>{{ .GroupLabels.alertname }}</b>
           {{ range .Alerts }}
           {{ .Annotations.summary }}
+          {{ .Annotations.description }}
           {{ end }}
