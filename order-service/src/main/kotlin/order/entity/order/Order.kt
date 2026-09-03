@@ -29,6 +29,12 @@ open class Order(
     @Column(name = "total_price", nullable = false)
     val totalPrice: Long,
 
+    @Column(name = "store_owner_id", nullable = false)
+    val storeOwnerId: Long,
+
+    @Column(name = "store_name", nullable = false)
+    val storeName: String,
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     var status: OrderStatus,

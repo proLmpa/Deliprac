@@ -7,6 +7,7 @@ javaOpts: "-Xms128m -Xmx512m"
 
 config:
   dbUrl: "jdbc:postgresql://192.168.160.102:5432/storedb"
+  kafkaBootstrapServers: "baemin-kafka:9092"
 
 secrets:
   dbUser:    "changeme"

@@ -69,6 +69,8 @@ spec:
                 configMapKeyRef:
                   name: redis-config
                   key: REDIS_PORT
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: {{ .Values.config.kafkaBootstrapServers | quote }}
             - name: JAVA_OPTS
               value: {{ .Values.javaOpts | quote }}
           startupProbe:

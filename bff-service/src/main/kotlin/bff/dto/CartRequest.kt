@@ -1,6 +1,5 @@
 package bff.dto
 
-// unitPrice is intentionally omitted — the BFF fetches it from store-service
 data class AddToCartRequest(
     val productId: Long,
     val storeId: Long,
@@ -12,3 +11,12 @@ data class RemoveCartItemRequest(val cartId: Long, val productId: Long)
 data class ClearCartRequest(val cartId: Long)
 
 data class CheckoutRequest(val cartId: Long)
+
+data class CheckoutItemMeta(val productId: Long, val productName: String)
+
+data class EnrichedCheckoutRequest(
+    val cartId: Long,
+    val storeOwnerId: Long,
+    val storeName: String,
+    val items: List<CheckoutItemMeta>
+)

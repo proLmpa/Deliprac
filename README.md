@@ -9,21 +9,35 @@ Built with **Kotlin 2.x + Spring Boot 4** as a hands-on microservices architectu
 
 ```mermaid
 flowchart TB
-    C["Client\n(front-service)"]
+    %% ── Entry ───────────────────────────────────────────────────────────────
+    CLIENT(["Client\n(front-service)"])
 
-    subgraph bff ["BFF Layer :8080"]
-        BFF["BFF Server"]
+    %% ── Kubernetes cluster ───────────────────────────────────────────────────
+    subgraph K8S ["minikube cluster"]
+        subgraph BAEMIN ["baemin namespace"]
+            subgraph BFF_LAYER ["BFF Layer  :8080"]
+                BFF["BFF Server"]
+            end
+
+            subgraph SVCS ["Backend Services"]
+                direction LR
+                US["user-service :8081\nAuth · JWT"]
+                SS["store-service :8082\nStores · Products · Reviews · Stats"]
+                OS["order-service :8083\nCart · Orders · Stats"]
+                NS["notification-service :8084\nNotifications"]
+                AS["ai-service :8085\nRecommendation · Chat"]
+            end
+
+            FB["Filebeat DaemonSet"]
+        end
+
+        subgraph MON_NS ["monitoring namespace"]
+            PA[["Prometheus Agent"]]
+        end
     end
 
-    subgraph svc ["Backend Services"]
-        direction LR
-        US["user-service :8081\nAuth · JWT issue"]
-        SS["store-service :8082\nStores · Products · Reviews · Statistics"]
-        OS["order-service :8083\nCart · Orders · Statistics"]
-        NS["notification-service :8084\nNotifications"]
-    end
-
-    subgraph db ["PostgreSQL Databases"]
+    %% ── Persistence ──────────────────────────────────────────────────────────
+    subgraph DBS ["PostgreSQL  (separate VMs)"]
         direction LR
         UD[("userdb\n:5432")]
         SD[("storedb\n:5432")]
@@ -31,35 +45,59 @@ flowchart TB
         ND[("notificationdb\n:5432")]
     end
 
-    RD[("Redis\n:6379")]
+    REDIS[("Redis :6379")]
+    ANTHROPIC(["Anthropic API"])
 
-    subgraph mon ["Monitoring"]
+    %% ── External observability ───────────────────────────────────────────────
+    subgraph MON ["Monitoring  (vm-monitoring)"]
         direction LR
-        PR["Prometheus :9090"] --> AM["Alertmanager :9093"] --> TG(["Telegram"])
-        PR --> GF["Grafana :3000"]
+        PROM["Prometheus :9090"] --> ALERT["Alertmanager :9093"] --> TG(["Telegram"])
+        PROM --> GRAFANA["Grafana :3000"]
     end
 
-    FB["Filebeat DaemonSet\n(baemin namespace)"]
-
-    subgraph elk ["ELK VM"]
+    subgraph ELK ["ELK VM"]
         direction LR
-        LS["Logstash :5044"] --> ES["Elasticsearch :9200"]
-        ES --> KB["Kibana :5601"]
+        LS["Logstash :5044"] --> ES["Elasticsearch :9200"] --> KB["Kibana :5601"]
     end
 
-    C --> BFF
-    BFF --> US & SS & OS & NS
+    %% ── Request flow ─────────────────────────────────────────────────────────
+    CLIENT --> BFF
+    BFF --> US & SS & OS & AS
+    BFF -.->|async fire-and-forget| NS
 
+    %% ── Persistence flows ────────────────────────────────────────────────────
     US --> UD
     SS --> SD
     OS --> OD
     NS --> ND
+    SS & OS & NS -.-|cache| REDIS
 
-    SS & OS & NS -->|cache| RD
+    %% ── AI ───────────────────────────────────────────────────────────────────
+    AS --> SS & OS
+    AS -->|Claude API| ANTHROPIC
 
-    BFF & US & SS & OS & NS -->|metrics| PR
-    BFF & US & SS & OS & NS -->|stdout JSON| FB
+    %% ── Observability flows ──────────────────────────────────────────────────
+    BFF & US & SS & OS & NS & AS -->|metrics| PA
+    PA -->|remote_write| PROM
+    BFF & US & SS & OS & NS & AS -->|stdout JSON| FB
     FB -->|Beats :5044| LS
+
+    %% ── Styles ───────────────────────────────────────────────────────────────
+    classDef svc     fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f,font-weight:bold
+    classDef db      fill:#dcfce7,stroke:#22c55e,color:#14532d
+    classDef cache   fill:#fef9c3,stroke:#eab308,color:#713f12
+    classDef monitor fill:#f3e8ff,stroke:#a855f7,color:#581c87,font-weight:bold
+    classDef log     fill:#ffedd5,stroke:#f97316,color:#7c2d12
+    classDef ext     fill:#fce7f3,stroke:#ec4899,color:#831843
+    classDef agent   fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e,font-weight:bold
+
+    class BFF,US,SS,OS,NS,AS svc
+    class UD,SD,OD,ND db
+    class REDIS cache
+    class PROM,ALERT,GRAFANA monitor
+    class TG,ANTHROPIC,CLIENT ext
+    class LS,ES,KB,FB log
+    class PA agent
 ```
 
 All client requests flow through the BFF, which aggregates cross-service calls and forwards them to the appropriate backend service. There are no direct service-to-service calls between backend services. Each service owns its own PostgreSQL database. Foreign-key-like references across services (e.g. `store_id` in `orders`) are plain `BIGINT` columns — no ORM join, no FK constraint across DB boundaries.
@@ -539,40 +577,62 @@ erDiagram
 
 ```mermaid
 flowchart LR
-    GH["GitHub\n(main branch)"]
-    DH["Docker Hub\nprolmpa/*"]
-    AC["ArgoCD\n(auto-sync)"]
+    %% ── External ─────────────────────────────────────────────────────────────
+    GH(["GitHub\nmain branch"])
+    DH(["Docker Hub\nprolmpa/*"])
+    AC(["ArgoCD\nauto-sync"])
 
-    subgraph jenkins ["Jenkins Server"]
+    %% ── Jenkins pipeline ─────────────────────────────────────────────────────
+    subgraph JENKINS ["Jenkins Server"]
+        PC["0. Pre-cleanup\ndocker prune"]
         CO["1. Checkout"]
-        BI["2. Build Images\n./gradlew bootJar\ndocker build x 6"]
-        PI["3. Push Images\ndocker push x 6"]
-        DP["4. Deploy Monitoring\nenvsubst → SCP → systemctl reload"]
-        ELK["5. Deploy ELK Config\nSCP baemin.conf + bootstrap-elk.sh\nssh restart logstash"]
-        UH["6. Update Helm values\nvalues.yaml images.tag\ngit commit + push"]
+        BI["2. Build Images\nbootJar · docker build x7"]
+        PI["3. Push Images\ndocker push x7"]
+        DP["4. Deploy Monitoring\nenvsubst → SCP → reload/restart"]
+        ELK["5. Deploy ELK Config\nSCP conf · restart logstash\nonly when elk/** changes"]
+        UH["6. Update Helm Tag\nper-service values.yaml · images.tag\ngit commit + push"]
     end
 
-    subgraph k8s ["minikube cluster (baemin namespace)"]
-        direction LR
-        BFF["bff-service :30080"]
-        US["user-service"]
-        SS["store-service"]
-        OS["order-service"]
-        NS["notification-service"]
-        FS["front-service :30000"]
+    %% ── Cluster (nested namespaces) ──────────────────────────────────────────
+    subgraph K8S ["minikube cluster"]
+        subgraph BAEMIN ["baemin namespace"]
+            direction LR
+            KBF["bff-service :30080"]
+            KUS["user-service"]
+            KSS["store-service"]
+            KOS["order-service"]
+            KNS["notification-service"]
+            KAS["ai-service"]
+            KFS["front-service :30000"]
+        end
+        subgraph MON_NS ["monitoring namespace"]
+            KPA[["Prometheus Agent"]]
+        end
     end
 
-    VM["vm-monitoring\nPrometheus · Alertmanager · Grafana"]
-    ELKVM["ELK VM\nLogstash · Elasticsearch · Kibana"]
+    %% ── Infrastructure VMs ───────────────────────────────────────────────────
+    VM(["vm-monitoring\nPrometheus · Alertmanager · Grafana"])
+    ELKVM(["ELK VM\nLogstash · Elasticsearch · Kibana"])
 
-    GH -->|push| CO --> BI --> PI --> DP & ELK
-    DP & ELK --> UH
+    %% ── Pipeline flow ────────────────────────────────────────────────────────
+    GH -->|push| PC --> CO --> BI --> PI --> DP --> ELK --> UH
     PI --> DH
     UH -->|git push| GH
     GH -->|detects change| AC
-    AC --> k8s
+    AC --> K8S
     DP -->|SSH| VM
-    ELK -->|SSH| ELKVM
+    ELK -.->|SSH, conditional| ELKVM
+
+    %% ── Styles ───────────────────────────────────────────────────────────────
+    classDef stage  fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f,font-weight:bold
+    classDef ext    fill:#f1f5f9,stroke:#94a3b8,color:#334155
+    classDef svc    fill:#dcfce7,stroke:#22c55e,color:#14532d
+    classDef infra  fill:#f3e8ff,stroke:#a855f7,color:#581c87
+
+    class PC,CO,BI,PI,DP,ELK,UH stage
+    class GH,DH,AC ext
+    class KBF,KUS,KSS,KOS,KNS,KAS,KFS,KPA svc
+    class VM,ELKVM infra
 ```
 
 ### Stages

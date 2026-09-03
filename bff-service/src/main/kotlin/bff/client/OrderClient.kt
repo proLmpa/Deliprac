@@ -1,8 +1,8 @@
 package bff.client
 
 import bff.dto.CartResponse
-import bff.dto.CheckoutRequest
 import bff.dto.ClearCartRequest
+import bff.dto.EnrichedCheckoutRequest
 import bff.dto.ListOrderRequest
 import bff.dto.MarkOrderRequest
 import bff.dto.OrderResponse
@@ -68,7 +68,7 @@ class OrderClient(@Qualifier("orderRestClient") private val client: RestClient) 
             .toBodilessEntity()
             .let {}
 
-    fun checkout(request: CheckoutRequest, token: String): OrderResponse =
+    fun checkout(request: EnrichedCheckoutRequest, token: String): OrderResponse =
         client.put()
             .uri("/api/carts/checkout")
             .header("Authorization", token)

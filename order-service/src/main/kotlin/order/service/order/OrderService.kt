@@ -1,5 +1,8 @@
 package order.service.order
 
+import common.event.OrderEvent
+import common.event.OrderEventItem
+import common.event.OrderEventType
 import common.exception.ConflictException
 import common.exception.ForbiddenException
 import common.exception.NotFoundException
@@ -14,6 +17,7 @@ import net.logstash.logback.marker.Markers.appendEntries
 import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
+import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.stereotype.Service
 
@@ -23,6 +27,7 @@ private val auditLog = LoggerFactory.getLogger("audit")
 class OrderService(
     private val orderRepository: OrderRepository,
     private val cartProductRepository: CartProductRepository,
+    private val kafkaTemplate: KafkaTemplate<String, OrderEvent>
 ) {
 
     @Transactional(readOnly = true)
@@ -45,6 +50,22 @@ class OrderService(
         order.status = OrderStatus.SOLD
         val saved = orderRepository.save(order)
         val items = cartProductRepository.findAllByCartId(saved.cartId)
+
+        kafkaTemplate.send(
+            "baemin.order.events",
+            saved.storeId.toString(),
+            OrderEvent(
+                eventType    = OrderEventType.ORDER_SOLD,
+                orderId      = saved.id,
+                userId       = saved.userId,
+                storeId      = saved.storeId,
+                storeOwnerId = saved.storeOwnerId,
+                storeName    = saved.storeName,
+                totalPrice   = saved.totalPrice,
+                items        = items.map { OrderEventItem(it.productId, "", it.quantity, it.unitPrice) }
+            )
+        )
+
         auditLog.info(
             appendEntries(mapOf("event" to "ORDER_CONFIRMED", "orderId" to saved.id, "storeId" to storeId, "email" to currentUser().email)),
             "Owner ${currentUser().email} confirmed order ${saved.id} at store $storeId"
@@ -64,6 +85,22 @@ class OrderService(
         order.status = OrderStatus.CANCELED
         val saved = orderRepository.save(order)
         val items = cartProductRepository.findAllByCartId(saved.cartId)
+
+        kafkaTemplate.send(
+            "baemin.order.events",
+            saved.storeId.toString(),
+            OrderEvent(
+                eventType    = OrderEventType.ORDER_CANCELLED,
+                orderId      = saved.id,
+                userId       = saved.userId,
+                storeId      = saved.storeId,
+                storeOwnerId = saved.storeOwnerId,
+                storeName    = saved.storeName,
+                totalPrice   = saved.totalPrice,
+                items        = items.map { OrderEventItem(it.productId, "", it.quantity, it.unitPrice) }
+            )
+        )
+
         auditLog.info(
             appendEntries(mapOf("event" to "ORDER_CANCELLED", "orderId" to saved.id, "storeId" to storeId, "email" to currentUser().email)),
             "Owner ${currentUser().email} cancelled order ${saved.id} at store $storeId"

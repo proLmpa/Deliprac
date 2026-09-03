@@ -113,4 +113,17 @@ class ProductService(
 
         productRepository.save(product)
     }
+
+    @Caching(evict = [
+        CacheEvict(value = ["products"], key = "#storeId + ':' + #productId"),
+        CacheEvict(value = ["products-by-store"], key = "#storeId",)
+    ])
+    @Transactional
+    fun incrementPopularityInternal(storeId: Long, productId: Long, delta: Long) {
+        val product = productRepository.findById(productId).orThrow("Not found")
+        if (product.storeId != storeId) throw NotFoundException("Not found")
+
+        product.popularity += delta
+        productRepository.save(product)
+    }
 }

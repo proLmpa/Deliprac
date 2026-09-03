@@ -41,5 +41,5 @@ class CartController(private val cartService: CartService) {
 
     @PutMapping("/api/carts/checkout")
     fun checkout(@RequestBody request: CheckoutRequest): OrderResponse =
-        cartService.checkout(request.cartId, currentUser().id)
+        cartService.checkout(request, currentUser().id)
 }

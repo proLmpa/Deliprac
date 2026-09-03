@@ -1,5 +1,8 @@
 package order.service.cart
 
+import common.event.OrderEvent
+import common.event.OrderEventItem
+import common.event.OrderEventType
 import common.exception.ConflictException
 import common.exception.ForbiddenException
 import common.exception.NotFoundException
@@ -16,8 +19,10 @@ import order.repository.cart.CartProductRepository
 import order.repository.cart.CartRepository
 import order.repository.order.OrderRepository
 import net.logstash.logback.marker.Markers.appendEntries
+import order.dto.cart.CheckoutRequest
 import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.CacheEvict
+import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -28,6 +33,7 @@ class CartService(
     private val cartRepository: CartRepository,
     private val cartProductRepository: CartProductRepository,
     private val orderRepository: OrderRepository,
+    private val kafkaTemplate: KafkaTemplate<String, OrderEvent>
 ) {
 
     @Transactional
@@ -79,20 +85,35 @@ class CartService(
 
     @CacheEvict(value = ["orders-by-user"], key = "#userId")
     @Transactional
-    fun checkout(cartId: Long, userId: Long): OrderResponse {
-        val cart = cartRepository.findById(cartId).orThrow("Not found")
+    fun checkout(request: CheckoutRequest, userId: Long): OrderResponse {
+        val cart = cartRepository.findById(request.cartId).orThrow("Not found")
         if (cart.userId != userId) throw ForbiddenException("Forbidden")
-        if (cart.isOrdered or orderRepository.existsByCartId(cartId)) throw ConflictException("Invalid operation")
+        if (cart.isOrdered or orderRepository.existsByCartId(request.cartId)) throw ConflictException("Invalid operation")
 
-        val items = cartProductRepository.findAllByCartId(cartId)
+        val items = cartProductRepository.findAllByCartId(request.cartId)
         if (items.isEmpty()) throw ConflictException("Invalid operation")
 
         val order = orderRepository.save(
-            Order(0L, cartId, userId, cart.storeId, items.sumOf { it.unitPrice * it.quantity }, OrderStatus.PENDING)
+            Order(0L, request.cartId, userId, cart.storeId, items.sumOf { it.unitPrice * it.quantity }, request.storeOwnerId, request.storeName, OrderStatus.PENDING)
         )
 
         cart.isOrdered = true
         cartRepository.save(cart)
+
+        val event = OrderEvent(
+            eventType = OrderEventType.NEW_ORDER,
+            orderId = order.id,
+            userId = userId,
+            storeId = order.storeId,
+            storeOwnerId = request.storeOwnerId,
+            storeName = request.storeName,
+            totalPrice = order.totalPrice,
+            items = items.map { cp ->
+                val meta = request.items.find { it.productId == cp.productId }
+                OrderEventItem(cp.productId, meta?.productName ?: "", cp.quantity, cp.unitPrice)
+            }
+        )
+        kafkaTemplate.send("baemin.order.events", order.storeId.toString(), event)
 
         auditLog.info(
             appendEntries(mapOf("event" to "ORDER_CREATED", "orderId" to order.id, "storeId" to order.storeId, "totalPrice" to order.totalPrice, "email" to currentUser().email)),

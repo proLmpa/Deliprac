@@ -1,11 +1,13 @@
 package notification.service.user
 
+import common.event.OrderEventItem
 import common.exception.ForbiddenException
 import common.orThrow
 import notification.dto.user.CreateNotificationRequest
 import notification.dto.user.NotificationResponse
 import notification.entity.user.Notification
 import notification.entity.user.NotificationItemData
+import notification.entity.user.NotificationType
 import notification.repository.user.NotificationRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -51,5 +53,30 @@ class NotificationService(private val notificationRepository: NotificationReposi
         val unread = notificationRepository.findByUserIdAndIsReadFalseOrderByCreatedAtDesc(userId)
         unread.forEach { it.isRead = true }
         notificationRepository.saveAll(unread)
+    }
+
+    fun createFromEvent(
+        recipientId: Long,
+        type: NotificationType,
+        title: String,
+        content: String,
+        storeId: Long,
+        storeName: String?,
+        items: List<OrderEventItem>,
+        occurredAt: Long
+    ) {
+        val expiry = occurredAt + 24 * 60 * 60 * 1000L // 24h
+        notificationRepository.save(Notification(
+            userId = recipientId,
+            type = type,
+            title = title,
+            content = content,
+            storeId = storeId,
+            storeName = storeName,
+            items = items.map { NotificationItemData(it.productName, it.unitPrice, it.quantity) },
+            issuedAt = occurredAt,
+            expiry = expiry,
+            createdAt = System.currentTimeMillis()
+        ))
     }
 }

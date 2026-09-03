@@ -32,3 +32,5 @@ CREATE TABLE IF NOT EXISTS orders
 );
 CREATE INDEX IF NOT EXISTS idx_orders_store_status ON orders (store_id, status);
 CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders (user_id);
+ALTER TABLE orders ADD COLUMN store_owner_id BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN store_name VARCHAR(255) NOT NULL DEFAULT '';
