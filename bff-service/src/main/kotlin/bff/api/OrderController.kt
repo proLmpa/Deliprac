@@ -1,15 +1,14 @@
 package bff.api
 
 import bff.client.AddCartItemRequest
-import bff.client.CreateNotificationRequest
-import bff.client.NotificationClient
-import bff.client.NotificationItemData
 import bff.client.OrderClient
 import bff.client.StoreClient
 import bff.dto.AddToCartRequest
 import bff.dto.CartResponse
+import bff.dto.CheckoutItemMeta
 import bff.dto.CheckoutRequest
 import bff.dto.ClearCartRequest
+import bff.dto.EnrichedCheckoutRequest
 import bff.dto.FindProductRequest
 import bff.dto.FindStoreRequest
 import bff.dto.ListOrderRequest
@@ -21,10 +20,8 @@ import bff.dto.RevenueRequest
 import bff.dto.RevenueResponse
 import bff.dto.SpendingRequest
 import bff.dto.SpendingResponse
+import common.exception.NotFoundException
 import jakarta.servlet.http.HttpServletRequest
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.slf4j.MDCContext
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
@@ -34,8 +31,7 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 class OrderController(
     private val orderClient: OrderClient,
-    private val storeClient: StoreClient,
-    private val notificationClient: NotificationClient
+    private val storeClient: StoreClient
 ) {
 
     // ── Cart ───────────────────────────────────────────────────────────────
@@ -70,41 +66,25 @@ class OrderController(
     @PutMapping("/api/carts/checkout")
     fun checkout(@RequestBody request: CheckoutRequest, httpRequest: HttpServletRequest): OrderResponse {
         val token = httpRequest.bearerToken()
-        val cart  = orderClient.getMyCart(token)
-        val order = orderClient.checkout(request, token)
-        val store = storeClient.findStore(FindStoreRequest(order.storeId), token)
-        val productNames = cart?.let {
-            storeClient.listProducts(ListProductRequest(it.storeId), token)
-                .associate { p -> p.id to p.name }
-        } ?: emptyMap()
-        val items = cart?.items?.map { item ->
-            NotificationItemData(
-                productName = productNames[item.productId] ?: "상품 #${item.productId}",
-                unitPrice   = item.unitPrice,
-                quantity    = item.quantity
+        val cart  = orderClient.getMyCart(token) ?: throw NotFoundException("Cart not found")
+        val store = storeClient.findStore(FindStoreRequest(cart.storeId), token)
+        val productNames = storeClient.listProducts(ListProductRequest(cart.storeId), token)
+            .associate { p -> p.id to p.name }
+        val items = cart.items.map { item ->
+            CheckoutItemMeta(
+                productId   = item.productId,
+                productName = productNames[item.productId] ?: "상품 #${item.productId}"
             )
-        } ?: emptyList()
-
-        runBlocking {
-            launch(MDCContext()) {
-                try {
-                    notificationClient.createNotification(
-                        CreateNotificationRequest(
-                            recipientId = store.userId,
-                            type        = "NEW_ORDER",
-                            title       = "새 주문 접수",
-                            content     = "새 주문이 접수되었습니다.",
-                            storeId     = order.storeId,
-                            storeName   = store.name,
-                            expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
-                            items       = items
-                        )
-                    )
-                } catch (_: Exception) {}
-            }
         }
-
-        return order
+        return orderClient.checkout(
+            EnrichedCheckoutRequest(
+                cartId       = request.cartId,
+                storeOwnerId = store.userId,
+                storeName    = store.name,
+                items        = items
+            ),
+            token
+        )
     }
 
     // ── Order ──────────────────────────────────────────────────────────────
@@ -114,78 +94,12 @@ class OrderController(
         orderClient.listStoreOrders(request, httpRequest.bearerToken())
 
     @PutMapping("/api/stores/orders/sold")
-    fun markSold(@RequestBody request: MarkOrderRequest, httpRequest: HttpServletRequest): OrderResponse {
-        val token = httpRequest.bearerToken()
-        val order = orderClient.markSold(request, token)
-        val store = storeClient.findStore(FindStoreRequest(order.storeId), token)
-        val productNames = storeClient.listProducts(ListProductRequest(order.storeId), token)
-            .associate { it.id to it.name }
-        val items = order.items.map { item ->
-            NotificationItemData(
-                productName = productNames[item.productId] ?: "상품 #${item.productId}",
-                unitPrice   = item.unitPrice,
-                quantity    = item.quantity
-            )
-        }
-
-        runBlocking {
-            launch (MDCContext()) {
-                try {
-                    notificationClient.createNotification(
-                        CreateNotificationRequest(
-                            recipientId = order.userId,
-                            type        = "ORDER_SOLD",
-                            title       = "주문 완료",
-                            content     = "주문이 완료되었습니다.",
-                            storeId     = order.storeId,
-                            storeName   = store.name,
-                            expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
-                            items       = items
-                        )
-                    )
-                } catch (_: Exception) {}
-            }
-        }
-
-        return order
-    }
+    fun markSold(@RequestBody request: MarkOrderRequest, httpRequest: HttpServletRequest): OrderResponse =
+        orderClient.markSold(request, httpRequest.bearerToken())
 
     @PutMapping("/api/stores/orders/cancel")
-    fun markCanceled(@RequestBody request: MarkOrderRequest, httpRequest: HttpServletRequest): OrderResponse {
-        val token = httpRequest.bearerToken()
-        val order = orderClient.markCanceled(request, token)
-        val store = storeClient.findStore(FindStoreRequest(order.storeId), token)
-        val productNames = storeClient.listProducts(ListProductRequest(order.storeId), token)
-            .associate { it.id to it.name }
-        val items = order.items.map { item ->
-            NotificationItemData(
-                productName = productNames[item.productId] ?: "상품 #${item.productId}",
-                unitPrice   = item.unitPrice,
-                quantity    = item.quantity
-            )
-        }
-
-        runBlocking {
-            launch(MDCContext()) {
-                try {
-                    notificationClient.createNotification(
-                        CreateNotificationRequest(
-                            recipientId = order.userId,
-                            type        = "ORDER_CANCELED",
-                            title       = "주문 취소",
-                            content     = "주문이 취소되었습니다.",
-                            storeId     = order.storeId,
-                            storeName   = store.name,
-                            expiry      = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
-                            items       = items
-                        )
-                    )
-                } catch (_: Exception) {}
-            }
-        }
-
-        return order
-    }
+    fun markCanceled(@RequestBody request: MarkOrderRequest, httpRequest: HttpServletRequest): OrderResponse =
+        orderClient.markCanceled(request, httpRequest.bearerToken())
 
     @PostMapping("/api/users/me/orders")
     fun myOrders(httpRequest: HttpServletRequest): List<OrderResponse> =

@@ -13,37 +13,10 @@ import org.springframework.core.ParameterizedTypeReference
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 
-// Internal DTOs: match notification-service's CreateNotificationRequest
-data class NotificationItemData(val productName: String, val unitPrice: Long, val quantity: Long)
-
-data class CreateNotificationRequest(
-    val recipientId: Long,
-    val type: String,           // "NEW_ORDER" | "ORDER_SOLD" | "ORDER_CANCELED"
-    val title: String,
-    val content: String,
-    val storeId: Long? = null,
-    val storeName: String? = null,
-    val expiry: Long,
-    val items: List<NotificationItemData> = emptyList(),
-)
-
 @Component
 class NotificationClient(@Qualifier("notificationRestClient") private val client: RestClient) {
 
     private val log = KotlinLogging.logger {}
-
-    @CircuitBreaker(name = "notification", fallbackMethod = "createNotificationFallback")
-    fun createNotification(request: CreateNotificationRequest) {
-        client.post()
-            .uri("/internal/notifications")
-            .body(request)
-            .retrieve()
-            .toBodilessEntity()
-    }
-
-    private fun createNotificationFallback(request: CreateNotificationRequest, ex: Throwable) {
-        log.warn { "${"[CB] createNotification skipped ({}): {}"} ${ex.javaClass.simpleName} ${ex.message}" }
-    }
 
     @CircuitBreaker(name = "notification", fallbackMethod = "listMyNotificationsFallback")
     fun listMyNotifications(request: ListNotificationRequest, token: String): List<NotificationResponse> =
