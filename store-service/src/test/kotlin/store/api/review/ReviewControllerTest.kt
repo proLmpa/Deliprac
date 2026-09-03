@@ -40,7 +40,7 @@ class ReviewControllerTest {
     private val customerId        = 1L
     private val storeId           = 10L
     private val reviewId          = 100L
-    private val customerPrincipal = UserPrincipal(customerId, UserRole.CUSTOMER)
+    private val customerPrincipal = UserPrincipal(customerId, "customer@example.com", UserRole.CUSTOMER)
 
     private fun bearerToken(
         userId: Long = customerId,

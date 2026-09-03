@@ -33,8 +33,8 @@ class ProductServiceTest {
     private val ownerId    = 1L
     private val storeId    = 10L
     private val productId  = 100L
-    private val ownerPrincipal    = UserPrincipal(ownerId, UserRole.OWNER)
-    private val customerPrincipal = UserPrincipal(2L,      UserRole.CUSTOMER)
+    private val ownerPrincipal    = UserPrincipal(ownerId, "owner@example.com", UserRole.OWNER)
+    private val customerPrincipal = UserPrincipal(2L,      "customer@example.com", UserRole.CUSTOMER)
 
     private fun makeStore(userId: Long = ownerId) = Store(
         id = storeId, userId = userId, name = "Test Store", address = "Seoul",
@@ -74,14 +74,14 @@ class ProductServiceTest {
     }
 
     @Test
-    fun `create - non-OWNER role throws IllegalStateException`() {
+    fun `create - non-OWNER role throws ForbiddenException`() {
         assertThatThrownBy { productService.create(storeId, makeCreateRequest(), customerPrincipal) }
             .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Forbidden")
     }
 
     @Test
-    fun `create - store not found throws IllegalArgumentException`() {
+    fun `create - store not found throws NotFoundException`() {
         given(storeRepository.findById(storeId)).willReturn(Optional.empty())
 
         assertThatThrownBy { productService.create(storeId, makeCreateRequest(), ownerPrincipal) }
@@ -90,7 +90,7 @@ class ProductServiceTest {
     }
 
     @Test
-    fun `create - wrong owner throws IllegalStateException`() {
+    fun `create - wrong owner throws ForbiddenException`() {
         given(storeRepository.findById(storeId)).willReturn(Optional.of(makeStore(userId = 99L)))
 
         assertThatThrownBy { productService.create(storeId, makeCreateRequest(), ownerPrincipal) }
@@ -121,7 +121,7 @@ class ProductServiceTest {
     }
 
     @Test
-    fun `findById - product not found throws IllegalArgumentException`() {
+    fun `findById - product not found throws NotFoundException`() {
         given(productRepository.findById(productId)).willReturn(Optional.empty())
 
         assertThatThrownBy { productService.findById(storeId, productId) }
@@ -130,7 +130,7 @@ class ProductServiceTest {
     }
 
     @Test
-    fun `findById - product belongs to different store throws IllegalArgumentException`() {
+    fun `findById - product belongs to different store throws NotFoundException`() {
         given(productRepository.findById(productId)).willReturn(Optional.of(makeProduct(storeId = 999L)))
 
         assertThatThrownBy { productService.findById(storeId, productId) }
@@ -155,7 +155,7 @@ class ProductServiceTest {
     }
 
     @Test
-    fun `update - store not found throws IllegalArgumentException`() {
+    fun `update - store not found throws NotFoundException`() {
         given(storeRepository.findById(storeId)).willReturn(Optional.empty())
 
         assertThatThrownBy { productService.update(storeId, productId, makeUpdateRequest(), ownerId) }
@@ -164,7 +164,7 @@ class ProductServiceTest {
     }
 
     @Test
-    fun `update - wrong owner throws IllegalStateException`() {
+    fun `update - wrong owner throws ForbiddenException`() {
         given(storeRepository.findById(storeId)).willReturn(Optional.of(makeStore(userId = 99L)))
 
         assertThatThrownBy { productService.update(storeId, productId, makeUpdateRequest(), ownerId) }
@@ -173,7 +173,7 @@ class ProductServiceTest {
     }
 
     @Test
-    fun `update - product not found throws IllegalArgumentException`() {
+    fun `update - product not found throws NotFoundException`() {
         given(storeRepository.findById(storeId)).willReturn(Optional.of(makeStore()))
         given(productRepository.findById(productId)).willReturn(Optional.empty())
 
@@ -198,7 +198,7 @@ class ProductServiceTest {
     }
 
     @Test
-    fun `deactivate - wrong owner throws IllegalStateException`() {
+    fun `deactivate - wrong owner throws ForbiddenException`() {
         given(storeRepository.findById(storeId)).willReturn(Optional.of(makeStore(userId = 99L)))
 
         assertThatThrownBy { productService.deactivate(storeId, productId, ownerId) }
@@ -207,7 +207,7 @@ class ProductServiceTest {
     }
 
     @Test
-    fun `deactivate - product not found throws IllegalArgumentException`() {
+    fun `deactivate - product not found throws NotFoundException`() {
         given(storeRepository.findById(storeId)).willReturn(Optional.of(makeStore()))
         given(productRepository.findById(productId)).willReturn(Optional.empty())
 
@@ -229,6 +229,28 @@ class ProductServiceTest {
 
         assertThat(product.popularity).isEqualTo(8L)
     }
+
+    // --- incrementPopularityInternal ---
+
+    @Test
+    fun `incrementPopularityInternal - increases popularity without ownership check`() {
+        val product = makeProduct(popularity = 3L)
+        given(productRepository.findById(productId)).willReturn(Optional.of(product))
+        given(productRepository.save(any(Product::class.java))).willReturn(product)
+
+        productService.incrementPopularityInternal(storeId, productId, 5)
+
+        assertThat(product.popularity).isEqualTo(8L)
+    }
+
+    @Test
+    fun `incrementPopularityInternal - product belongs to different store throws NotFoundException`() {
+        given(productRepository.findById(productId)).willReturn(Optional.of(makeProduct(storeId = 999L)))
+
+        assertThatThrownBy { productService.incrementPopularityInternal(storeId, productId, 5) }
+            .isInstanceOf(NotFoundException::class.java)
+            .hasMessage("Not found")
+    }
 }
 
 @ExtendWith(MockitoExtension::class)
@@ -241,8 +263,8 @@ class ProductStatisticsServiceTest {
     private val ownerId   = 1L
     private val storeId   = 10L
     private val productId = 100L
-    private val ownerPrincipal    = UserPrincipal(ownerId, UserRole.OWNER)
-    private val customerPrincipal = UserPrincipal(2L, UserRole.CUSTOMER)
+    private val ownerPrincipal    = UserPrincipal(ownerId, "owner@example.com", UserRole.OWNER)
+    private val customerPrincipal = UserPrincipal(2L, "customer@example.com", UserRole.CUSTOMER)
 
     private fun makeStore(userId: Long = ownerId) = Store(
         id = storeId, userId = userId, name = "Test Store", address = "Seoul",
@@ -268,7 +290,7 @@ class ProductStatisticsServiceTest {
     }
 
     @Test
-    fun `getPopularProducts - store not found throws IllegalArgumentException`() {
+    fun `getPopularProducts - store not found throws NotFoundException`() {
         given(storeRepository.findById(storeId)).willReturn(Optional.empty())
 
         assertThatThrownBy { productStatisticsService.getPopularProducts(storeId, ownerPrincipal) }
@@ -277,14 +299,14 @@ class ProductStatisticsServiceTest {
     }
 
     @Test
-    fun `getPopularProducts - non-OWNER role throws IllegalStateException`() {
+    fun `getPopularProducts - non-OWNER role throws ForbiddenException`() {
         assertThatThrownBy { productStatisticsService.getPopularProducts(storeId, customerPrincipal) }
             .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Forbidden")
     }
 
     @Test
-    fun `getPopularProducts - wrong owner throws IllegalStateException`() {
+    fun `getPopularProducts - wrong owner throws ForbiddenException`() {
         given(storeRepository.findById(storeId)).willReturn(Optional.of(makeStore(userId = 99L)))
 
         assertThatThrownBy { productStatisticsService.getPopularProducts(storeId, ownerPrincipal) }

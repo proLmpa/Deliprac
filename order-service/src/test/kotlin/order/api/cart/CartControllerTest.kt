@@ -4,6 +4,7 @@ import order.config.SecurityConfig
 import order.dto.cart.AddCartItemRequest
 import order.dto.cart.CartProductResponse
 import order.dto.cart.CartResponse
+import order.dto.cart.CheckoutRequest
 import order.dto.order.OrderResponse
 import order.entity.order.OrderStatus
 import common.security.UserRole
@@ -77,6 +78,13 @@ class CartControllerTest {
 
     private val addRequest = AddCartItemRequest(productId = 100L, storeId = 10L, unitPrice = 8000L, quantity = 1L)
 
+    private val checkoutRequest = CheckoutRequest(
+        cartId       = cartId,
+        storeOwnerId = 99L,
+        storeName    = "Test Store",
+        items        = emptyList()
+    )
+
     @Test
     fun `POST carts - 200 with cart response`() {
         given(cartService.addItem(addRequest, userId)).willReturn(sampleCartResponse)
@@ -94,7 +102,7 @@ class CartControllerTest {
     }
 
     @Test
-    fun `POST carts - 400 when cart not found on add`() {
+    fun `POST carts - 404 when cart not found on add`() {
         given(cartService.addItem(addRequest, userId))
             .willThrow(NotFoundException("Cart not found"))
 
@@ -121,7 +129,7 @@ class CartControllerTest {
     }
 
     @Test
-    fun `POST carts me - 400 when cart not found`() {
+    fun `POST carts me - 404 when cart not found`() {
         given(cartService.getMyCart(userId))
             .willThrow(NotFoundException("Cart not found"))
 
@@ -157,13 +165,13 @@ class CartControllerTest {
 
     @Test
     fun `PUT checkout - 200 with order response`() {
-        given(cartService.checkout(cartId, userId)).willReturn(sampleOrderResponse)
+        given(cartService.checkout(checkoutRequest, userId)).willReturn(sampleOrderResponse)
 
         mockMvc.perform(
             put("/api/carts/checkout")
                 .header("Authorization", bearerToken())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"cartId":$cartId}""")
+                .content(objectMapper.writeValueAsString(checkoutRequest))
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("PENDING"))
@@ -172,14 +180,14 @@ class CartControllerTest {
 
     @Test
     fun `PUT checkout - 409 when already checked out`() {
-        given(cartService.checkout(cartId, userId))
+        given(cartService.checkout(checkoutRequest, userId))
             .willThrow(ConflictException("Cart already checked out"))
 
         mockMvc.perform(
             put("/api/carts/checkout")
                 .header("Authorization", bearerToken())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"cartId":$cartId}""")
+                .content(objectMapper.writeValueAsString(checkoutRequest))
         )
             .andExpect(status().isConflict)
     }

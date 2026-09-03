@@ -44,7 +44,7 @@ class StoreControllerTest {
     private val ownerId = 1L
     private val storeId = 2L
 
-    private val ownerPrincipal = UserPrincipal(ownerId, UserRole.OWNER)
+    private val ownerPrincipal = UserPrincipal(ownerId, "owner@example.com", UserRole.OWNER)
 
     private fun bearerToken(userId: Long = ownerId, email: String = "owner@example.com", role: UserRole = UserRole.OWNER): String {
         val key = Keys.hmacShaKeyFor(jwtProperties.secret.toByteArray(Charsets.UTF_8))

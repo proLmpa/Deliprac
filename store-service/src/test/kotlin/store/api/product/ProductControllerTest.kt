@@ -42,7 +42,7 @@ class ProductControllerTest {
     private val ownerId   = 1L
     private val storeId   = 10L
     private val productId = 100L
-    private val ownerPrincipal = UserPrincipal(ownerId, UserRole.OWNER)
+    private val ownerPrincipal = UserPrincipal(ownerId, "owner@example.com", UserRole.OWNER)
 
     private fun bearerToken(
         userId: Long = ownerId,
@@ -232,7 +232,7 @@ class StoreStatisticsControllerTest {
     private val ownerId  = 1L
     private val storeId  = 10L
     private val productId = 100L
-    private val ownerPrincipal = UserPrincipal(ownerId, UserRole.OWNER)
+    private val ownerPrincipal = UserPrincipal(ownerId, "owner@example.com", UserRole.OWNER)
 
     private fun bearerToken(): String {
         val key = Keys.hmacShaKeyFor(jwtProperties.secret.toByteArray(Charsets.UTF_8))

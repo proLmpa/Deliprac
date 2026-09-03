@@ -1,9 +1,13 @@
 package order.service.cart
+
+import common.event.OrderEvent
 import common.exception.ConflictException
 import common.exception.ForbiddenException
 import common.exception.NotFoundException
-
+import common.security.UserPrincipal
+import common.security.UserRole
 import order.dto.cart.AddCartItemRequest
+import order.dto.cart.CheckoutRequest
 import order.entity.cart.Cart
 import order.entity.cart.CartProduct
 import order.entity.order.Order
@@ -13,6 +17,7 @@ import order.repository.cart.CartRepository
 import order.repository.order.OrderRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.ArgumentMatchers.any
@@ -21,6 +26,9 @@ import org.mockito.BDDMockito.then
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.springframework.kafka.core.KafkaTemplate
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
+import org.springframework.security.core.context.SecurityContextHolder
 import java.util.Optional
 
 @ExtendWith(MockitoExtension::class)
@@ -29,13 +37,21 @@ class CartServiceTest {
     @Mock private lateinit var cartRepository: CartRepository
     @Mock private lateinit var cartProductRepository: CartProductRepository
     @Mock private lateinit var orderRepository: OrderRepository
+    @Mock private lateinit var kafkaTemplate: KafkaTemplate<String, OrderEvent>
     @InjectMocks private lateinit var cartService: CartService
 
-    private val userId    = 1L
-    private val storeId   = 10L
-    private val cartId    = 50L
-    private val productId = 100L
-    private val unitPrice = 8000L
+    private val userId       = 1L
+    private val storeId      = 10L
+    private val cartId       = 50L
+    private val productId    = 100L
+    private val unitPrice    = 8000L
+    private val storeOwnerId = 99L
+    private val storeName    = "Test Store"
+
+    @AfterEach
+    fun clearSecurityContext() {
+        SecurityContextHolder.clearContext()
+    }
 
     private fun makeCart(storeId: Long = this.storeId) =
         Cart(id = cartId, userId = userId, storeId = storeId, isOrdered = false)
@@ -45,6 +61,9 @@ class CartServiceTest {
 
     private fun makeRequest(qty: Long = 1L, storeId: Long = this.storeId) =
         AddCartItemRequest(productId = productId, storeId = storeId, unitPrice = unitPrice, quantity = qty)
+
+    private fun makeCheckoutRequest() =
+        CheckoutRequest(cartId = cartId, storeOwnerId = storeOwnerId, storeName = storeName, items = emptyList())
 
     // --- addItem ---
 
@@ -119,7 +138,7 @@ class CartServiceTest {
     }
 
     @Test
-    fun `getMyCart - no active cart throws IllegalArgumentException`() {
+    fun `getMyCart - no active cart throws NotFoundException`() {
         given(cartRepository.findFirstByUserIdAndIsOrderedFalse(userId)).willReturn(null)
 
         assertThatThrownBy { cartService.getMyCart(userId) }
@@ -139,7 +158,7 @@ class CartServiceTest {
     }
 
     @Test
-    fun `removeItem - wrong user throws IllegalStateException`() {
+    fun `removeItem - wrong user throws ForbiddenException`() {
         given(cartRepository.findById(cartId)).willReturn(Optional.of(makeCart()))
 
         assertThatThrownBy { cartService.removeItem(cartId, productId, 99L) }
@@ -160,7 +179,7 @@ class CartServiceTest {
     }
 
     @Test
-    fun `clearCart - wrong user throws IllegalStateException`() {
+    fun `clearCart - wrong user throws ForbiddenException`() {
         given(cartRepository.findById(cartId)).willReturn(Optional.of(makeCart()))
 
         assertThatThrownBy { cartService.clearCart(cartId, 99L) }
@@ -172,15 +191,18 @@ class CartServiceTest {
 
     @Test
     fun `checkout - happy path creates order and marks cart as ordered`() {
-        val cart = makeCart()
+        SecurityContextHolder.getContext().authentication = UsernamePasswordAuthenticationToken(
+            UserPrincipal(userId, "customer@example.com", UserRole.CUSTOMER), null
+        )
+        val cart  = makeCart()
         val items = listOf(makeCartProduct())
-        val order = Order(1L, cartId, userId, storeId, 8000, OrderStatus.PENDING)
+        val order = Order(1L, cartId, userId, storeId, 8000, storeOwnerId, storeName, OrderStatus.PENDING)
         given(cartRepository.findById(cartId)).willReturn(Optional.of(cart))
         given(cartProductRepository.findAllByCartId(cartId)).willReturn(items)
         given(orderRepository.save(any(Order::class.java))).willReturn(order)
         given(cartRepository.save(any(Cart::class.java))).willReturn(cart)
 
-        val result = cartService.checkout(cartId, userId)
+        val result = cartService.checkout(makeCheckoutRequest(), userId)
 
         assertThat(result.totalPrice).isEqualTo(8000L)
         assertThat(result.status).isEqualTo("PENDING")
@@ -188,30 +210,30 @@ class CartServiceTest {
     }
 
     @Test
-    fun `checkout - already checked out throws IllegalStateException`() {
+    fun `checkout - already checked out throws ConflictException`() {
         val orderedCart = Cart(cartId, userId, storeId, isOrdered = true)
         given(cartRepository.findById(cartId)).willReturn(Optional.of(orderedCart))
 
-        assertThatThrownBy { cartService.checkout(cartId, userId) }
+        assertThatThrownBy { cartService.checkout(makeCheckoutRequest(), userId) }
             .isInstanceOf(ConflictException::class.java)
             .hasMessage("Invalid operation")
     }
 
     @Test
-    fun `checkout - empty cart throws IllegalArgumentException`() {
+    fun `checkout - empty cart throws ConflictException`() {
         given(cartRepository.findById(cartId)).willReturn(Optional.of(makeCart()))
         given(cartProductRepository.findAllByCartId(cartId)).willReturn(emptyList())
 
-        assertThatThrownBy { cartService.checkout(cartId, userId) }
+        assertThatThrownBy { cartService.checkout(makeCheckoutRequest(), userId) }
             .isInstanceOf(ConflictException::class.java)
             .hasMessage("Invalid operation")
     }
 
     @Test
-    fun `checkout - wrong user throws IllegalStateException`() {
+    fun `checkout - wrong user throws ForbiddenException`() {
         given(cartRepository.findById(cartId)).willReturn(Optional.of(makeCart()))
 
-        assertThatThrownBy { cartService.checkout(cartId, 99L) }
+        assertThatThrownBy { cartService.checkout(makeCheckoutRequest(), 99L) }
             .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Forbidden")
     }

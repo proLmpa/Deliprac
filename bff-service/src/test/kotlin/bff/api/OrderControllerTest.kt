@@ -1,16 +1,19 @@
 package bff.api
 
 import bff.client.AddCartItemRequest
-import bff.client.NotificationClient
 import bff.client.OrderClient
 import bff.client.StoreClient
 import bff.config.SecurityConfig
 import bff.dto.AddToCartRequest
 import bff.dto.CartProductResponse
 import bff.dto.CartResponse
+import bff.dto.CheckoutItemMeta
 import bff.dto.CheckoutRequest
+import bff.dto.EnrichedCheckoutRequest
 import bff.dto.FindProductRequest
 import bff.dto.FindStoreRequest
+import bff.dto.ListProductRequest
+import bff.dto.MarkOrderRequest
 import bff.dto.OrderResponse
 import bff.dto.ProductResponse
 import bff.dto.StoreResponse
@@ -35,7 +38,6 @@ class OrderControllerTest {
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var orderClient: OrderClient
     @MockitoBean private lateinit var storeClient: StoreClient
-    @MockitoBean private lateinit var notificationClient: NotificationClient
 
     private val token = "Bearer test-token"
 
@@ -65,8 +67,8 @@ class OrderControllerTest {
 
     @Test
     fun `POST carts - fetches price from store-service then calls order-service`() {
-        val bffRequest = AddToCartRequest(productId = 100L, storeId = 10L, quantity = 2L)
-        val findRequest = FindProductRequest(storeId = 10L, productId = 100L)
+        val bffRequest   = AddToCartRequest(productId = 100L, storeId = 10L, quantity = 2L)
+        val findRequest  = FindProductRequest(storeId = 10L, productId = 100L)
         val orderRequest = AddCartItemRequest(productId = 100L, storeId = 10L, unitPrice = 8000L, quantity = 2L)
 
         given(storeClient.findProduct(findRequest, token)).willReturn(sampleProduct)
@@ -100,9 +102,19 @@ class OrderControllerTest {
     }
 
     @Test
-    fun `PUT checkout - 200 with pending order and triggers notification`() {
-        given(orderClient.checkout(CheckoutRequest(50L), token)).willReturn(sampleOrder)
+    fun `PUT checkout - 200 orchestrates store enrichment before calling order-service`() {
+        given(orderClient.getMyCart(token)).willReturn(sampleCart)
         given(storeClient.findStore(FindStoreRequest(10L), token)).willReturn(sampleStore)
+        given(storeClient.listProducts(ListProductRequest(10L), token)).willReturn(listOf(sampleProduct))
+        given(orderClient.checkout(
+            EnrichedCheckoutRequest(
+                cartId       = 50L,
+                storeOwnerId = 99L,
+                storeName    = "Test Store",
+                items        = listOf(CheckoutItemMeta(productId = 100L, productName = "Burger"))
+            ),
+            token
+        )).willReturn(sampleOrder)
 
         mockMvc.perform(
             put("/api/carts/checkout")
@@ -113,6 +125,36 @@ class OrderControllerTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("PENDING"))
             .andExpect(jsonPath("$.totalPrice").value(16000))
+    }
+
+    @Test
+    fun `PUT mark sold - 200 delegates directly to order-service`() {
+        val soldOrder = OrderResponse(id = 200L, storeId = 10L, totalPrice = 16000L, status = "SOLD", createdAt = 0L, updatedAt = 0L)
+        given(orderClient.markSold(MarkOrderRequest(storeId = 10L, orderId = 200L), token)).willReturn(soldOrder)
+
+        mockMvc.perform(
+            put("/api/stores/orders/sold")
+                .header("Authorization", token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":10,"orderId":200}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("SOLD"))
+    }
+
+    @Test
+    fun `PUT mark cancel - 200 delegates directly to order-service`() {
+        val canceledOrder = OrderResponse(id = 200L, storeId = 10L, totalPrice = 16000L, status = "CANCELED", createdAt = 0L, updatedAt = 0L)
+        given(orderClient.markCanceled(MarkOrderRequest(storeId = 10L, orderId = 200L), token)).willReturn(canceledOrder)
+
+        mockMvc.perform(
+            put("/api/stores/orders/cancel")
+                .header("Authorization", token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"storeId":10,"orderId":200}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("CANCELED"))
     }
 
     @Test

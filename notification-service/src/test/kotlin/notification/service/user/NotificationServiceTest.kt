@@ -1,5 +1,6 @@
 package notification.service.user
 
+import common.event.OrderEventItem
 import common.exception.ForbiddenException
 import common.exception.NotFoundException
 import notification.dto.user.CreateNotificationRequest
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.ArgumentMatchers.any
 import org.mockito.BDDMockito.given
+import org.mockito.BDDMockito.then
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
@@ -133,5 +135,27 @@ class NotificationServiceTest {
         notificationService.markAllRead(userId)
 
         assertThat(unread).allMatch { it.isRead }
+    }
+
+    // --- createFromEvent ---
+
+    @Test
+    fun `createFromEvent - saves notification from Kafka event`() {
+        val notification = makeNotification()
+        given(notificationRepository.save(any(Notification::class.java))).willReturn(notification)
+        val occurredAt = System.currentTimeMillis() - 1000L
+
+        notificationService.createFromEvent(
+            recipientId = userId,
+            type        = NotificationType.NEW_ORDER,
+            title       = "새 주문 접수",
+            content     = "새 주문이 접수되었습니다.",
+            storeId     = 10L,
+            storeName   = "Test Store",
+            items       = emptyList<OrderEventItem>(),
+            occurredAt  = occurredAt
+        )
+
+        then(notificationRepository).should().save(any(Notification::class.java))
     }
 }

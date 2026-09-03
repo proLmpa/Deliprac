@@ -32,8 +32,8 @@ class StoreServiceTest {
     @InjectMocks private lateinit var storeService: StoreService
 
     private val ownerId = 1L
-    private val ownerPrincipal = UserPrincipal(ownerId, UserRole.OWNER)
-    private val customerPrincipal = UserPrincipal(2L, UserRole.CUSTOMER)
+    private val ownerPrincipal = UserPrincipal(ownerId, "owner@example.com", UserRole.OWNER)
+    private val customerPrincipal = UserPrincipal(2L, "customer@example.com", UserRole.CUSTOMER)
 
     private fun makeStore(userId: Long = ownerId, id: Long = 10L, status: StoreStatus = StoreStatus.ACTIVE) = Store(
         id                 = id,

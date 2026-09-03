@@ -32,8 +32,8 @@ class ReviewServiceTest {
     private val customerId        = 1L
     private val storeId           = 10L
     private val reviewId          = 100L
-    private val customerPrincipal = UserPrincipal(customerId, UserRole.CUSTOMER)
-    private val ownerPrincipal    = UserPrincipal(2L, UserRole.OWNER)
+    private val customerPrincipal = UserPrincipal(customerId, "customer@example.com", UserRole.CUSTOMER)
+    private val ownerPrincipal    = UserPrincipal(2L, "owner@example.com", UserRole.OWNER)
 
     private fun makeStore() = Store(
         id = storeId, userId = 99L, name = "Test Store", address = "Seoul",
@@ -141,7 +141,7 @@ class ReviewServiceTest {
 
     @Test
     fun `delete - ADMIN can delete another user's review`() {
-        val adminPrincipal = UserPrincipal(99L, UserRole.ADMIN)
+        val adminPrincipal = UserPrincipal(99L, "admin@example.com", UserRole.ADMIN)
         val review = makeReview(userId = 999L)
         given(reviewRepository.findById(reviewId)).willReturn(Optional.of(review))
 

@@ -1,17 +1,19 @@
 package order.service.order
 
-import common.security.UserRole
+import common.event.OrderEvent
 import common.exception.ConflictException
 import common.exception.ForbiddenException
 import common.exception.NotFoundException
+import common.security.UserPrincipal
+import common.security.UserRole
 import order.entity.cart.CartProduct
 import order.entity.order.Order
 import order.entity.order.OrderStatus
 import order.repository.cart.CartProductRepository
 import order.repository.order.OrderRepository
 import org.assertj.core.api.Assertions.assertThat
-import java.time.ZoneId
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.ArgumentMatchers.any
@@ -19,6 +21,10 @@ import org.mockito.BDDMockito.given
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.springframework.kafka.core.KafkaTemplate
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
+import org.springframework.security.core.context.SecurityContextHolder
+import java.time.ZoneId
 import java.util.Optional
 
 @ExtendWith(MockitoExtension::class)
@@ -26,6 +32,7 @@ class OrderServiceTest {
 
     @Mock private lateinit var orderRepository: OrderRepository
     @Mock private lateinit var cartProductRepository: CartProductRepository
+    @Mock private lateinit var kafkaTemplate: KafkaTemplate<String, OrderEvent>
     @InjectMocks private lateinit var orderService: OrderService
 
     private val ownerId    = 1L
@@ -35,8 +42,13 @@ class OrderServiceTest {
     private val orderId    = 200L
     private val productId  = 100L
 
+    @AfterEach
+    fun clearSecurityContext() {
+        SecurityContextHolder.clearContext()
+    }
+
     private fun makeOrder(status: OrderStatus = OrderStatus.PENDING, storeId: Long = this.storeId) =
-        Order(orderId, cartId, customerId, storeId, 8000, status)
+        Order(orderId, cartId, customerId, storeId, 8000, ownerId, "Test Store", status)
 
     private fun makeCartProduct() =
         CartProduct(1L, cartId, productId, 2, 8000)
@@ -53,7 +65,7 @@ class OrderServiceTest {
     }
 
     @Test
-    fun `listByStore - non-OWNER throws IllegalStateException`() {
+    fun `listByStore - non-OWNER throws ForbiddenException`() {
         assertThatThrownBy { orderService.listByStore(storeId, UserRole.CUSTOMER) }
             .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Forbidden")
@@ -63,9 +75,13 @@ class OrderServiceTest {
 
     @Test
     fun `markSold - happy path sets status SOLD`() {
+        SecurityContextHolder.getContext().authentication = UsernamePasswordAuthenticationToken(
+            UserPrincipal(ownerId, "owner@example.com", UserRole.OWNER), null
+        )
         val order = makeOrder()
         given(orderRepository.findById(orderId)).willReturn(Optional.of(order))
         given(orderRepository.save(any(Order::class.java))).willReturn(order)
+        given(cartProductRepository.findAllByCartId(order.cartId)).willReturn(emptyList())
 
         val result = orderService.markSold(storeId, orderId, UserRole.OWNER)
 
@@ -74,7 +90,7 @@ class OrderServiceTest {
     }
 
     @Test
-    fun `markSold - order not found throws IllegalArgumentException`() {
+    fun `markSold - order not found throws NotFoundException`() {
         given(orderRepository.findById(orderId)).willReturn(Optional.empty())
 
         assertThatThrownBy { orderService.markSold(storeId, orderId, UserRole.OWNER) }
@@ -83,7 +99,7 @@ class OrderServiceTest {
     }
 
     @Test
-    fun `markSold - order belongs to different store throws IllegalArgumentException`() {
+    fun `markSold - order belongs to different store throws NotFoundException`() {
         given(orderRepository.findById(orderId)).willReturn(Optional.of(makeOrder(storeId = 999L)))
 
         assertThatThrownBy { orderService.markSold(storeId, orderId, UserRole.OWNER) }
@@ -92,7 +108,7 @@ class OrderServiceTest {
     }
 
     @Test
-    fun `markSold - non-PENDING status throws IllegalStateException`() {
+    fun `markSold - non-PENDING status throws ConflictException`() {
         given(orderRepository.findById(orderId)).willReturn(Optional.of(makeOrder(status = OrderStatus.CANCELED)))
 
         assertThatThrownBy { orderService.markSold(storeId, orderId, UserRole.OWNER) }
@@ -104,9 +120,13 @@ class OrderServiceTest {
 
     @Test
     fun `markCanceled - happy path sets status CANCELED`() {
+        SecurityContextHolder.getContext().authentication = UsernamePasswordAuthenticationToken(
+            UserPrincipal(ownerId, "owner@example.com", UserRole.OWNER), null
+        )
         val order = makeOrder()
         given(orderRepository.findById(orderId)).willReturn(Optional.of(order))
         given(orderRepository.save(any(Order::class.java))).willReturn(order)
+        given(cartProductRepository.findAllByCartId(order.cartId)).willReturn(emptyList())
 
         val result = orderService.markCanceled(storeId, orderId, UserRole.OWNER)
 
@@ -115,7 +135,7 @@ class OrderServiceTest {
     }
 
     @Test
-    fun `markCanceled - non-PENDING status throws IllegalStateException`() {
+    fun `markCanceled - non-PENDING status throws ConflictException`() {
         given(orderRepository.findById(orderId)).willReturn(Optional.of(makeOrder(status = OrderStatus.SOLD)))
 
         assertThatThrownBy { orderService.markCanceled(storeId, orderId, UserRole.OWNER) }
@@ -146,7 +166,7 @@ class OrderServiceTest {
     }
 
     @Test
-    fun `getById - not found throws IllegalArgumentException`() {
+    fun `getById - not found throws NotFoundException`() {
         given(orderRepository.findById(orderId)).willReturn(Optional.empty())
 
         assertThatThrownBy { orderService.getById(orderId) }
@@ -176,7 +196,7 @@ class StatisticsServiceTest {
     }
 
     @Test
-    fun `getRevenue - non-OWNER throws IllegalStateException`() {
+    fun `getRevenue - non-OWNER throws ForbiddenException`() {
         assertThatThrownBy { statisticsService.getRevenue(storeId, 2026, 3, utc, UserRole.CUSTOMER) }
             .isInstanceOf(ForbiddenException::class.java)
             .hasMessage("Forbidden")
