@@ -38,20 +38,16 @@ pipeline {
                 sh './gradlew bootJar -x test --parallel --build-cache'
 
                 script {
-                    def springServices = [
+                    def allServices = [
                         'bff-service', 'user-service', 'store-service',
-                        'order-service', 'notification-service', 'ai-service'
+                        'order-service', 'notification-service', 'ai-service', 'front-service'
                     ]
-                    // Build all images in parallel
                     def buildTasks = [:]
-                    for (svc in springServices) {
+                    for (svc in allServices) {
                         def s = svc
                         buildTasks[s] = {
                             sh "docker build -t ${DOCKER_HUB_USER}/${s}:${IMAGE_TAG} -t ${DOCKER_HUB_USER}/${s}:latest ./${s}"
                         }
-                    }
-                    buildTasks['front-service'] = {
-                        sh "docker build -t ${DOCKER_HUB_USER}/front-service:${IMAGE_TAG} -t ${DOCKER_HUB_USER}/front-service:latest ./front-service"
                     }
                     parallel buildTasks
                 }
