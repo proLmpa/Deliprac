@@ -1,3 +1,6 @@
+global:
+  imageRegistry: oci.bitnami.com
+
 kafka:
   replicaCount: 1
   kraft:
