@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: baemin-kafka
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: baemin-kafka
+spec:
+  selector:
+    app: baemin-kafka
+  ports:
+    - name: client
+      port: {{ .Values.service.port }}
+      targetPort: 9092

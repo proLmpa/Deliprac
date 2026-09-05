@@ -1,10 +1,6 @@
 apiVersion: v2
 name: kafka
-description: Bitnami Kafka (KRaft) for Baemin
+description: Single-node Apache Kafka (KRaft) for Baemin
 type: application
-version: 0.1.0
-dependencies:
-  - name: kafka
-    version: ">=26.0.0 <27.0.0"
-    repository: "https://charts.bitnami.com/bitnami"
-    alias: kafka
+version: 0.2.0
+appVersion: "3.7.1"

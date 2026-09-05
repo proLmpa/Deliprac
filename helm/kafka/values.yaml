@@ -1,11 +1,13 @@
+image:
+  repository: apache/kafka
+  tag: "3.7.1"
+
+service:
+  port: 9092
+
 kafka:
-  replicaCount: 1
-  kraft:
-    enabled: true
-  listeners:
-    client:
-      protocol: PLAINTEXT
-  persistence:
-    size: 5Gi
-  provisioning:
-    enabled: false
+  nodeId: 1
+  offsetsTopicReplicationFactor: 1
+  transactionStateLogReplicationFactor: 1
+  transactionStateLogMinIsr: 1
+  autoCreateTopicsEnable: true
