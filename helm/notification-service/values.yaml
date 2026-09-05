@@ -1,6 +1,6 @@
 images:
   registry: prolmpa
-  tag: "1f03e18cfb2b"
+  tag: "e7415298ff4e"
 
 replicas: 0
 javaOpts: "-Xms128m -Xmx512m"
