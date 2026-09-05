@@ -13,11 +13,4 @@ kafka:
   persistence:
     size: 5Gi
   provisioning:
-    enabled: true
-    topics:
-      - name: baemin.order.events
-        partitions: 3
-        replicationFactor: 1
-        config:
-          retention.ms: "604800000"
-          cleanup.policy: delete
+    enabled: false
