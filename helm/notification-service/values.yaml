@@ -2,7 +2,7 @@ images:
   registry: prolmpa
   tag: "e7415298ff4e"
 
-replicas: 0
+replicas: 1
 javaOpts: "-Xms128m -Xmx512m"
 
 config:
