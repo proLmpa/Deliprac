@@ -187,6 +187,7 @@ pipeline {
                         git config user.name "proLmpa"
                         git add helm/bff-service/values.yaml helm/user-service/values.yaml helm/store-service/values.yaml helm/order-service/values.yaml helm/notification-service/values.yaml helm/ai-service/values.yaml helm/front-service/values.yaml
                         git commit -m "ci: bump images.tag to ${env.IMAGE_TAG}"
+                        git pull --rebase https://\${GIT_USER}:\${GIT_PASS}@github.com/proLmpa/Deliprac.git main
                         git push https://\${GIT_USER}:\${GIT_PASS}@github.com/proLmpa/Deliprac.git HEAD:main
                     """
                 }
