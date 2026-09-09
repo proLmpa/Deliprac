@@ -26,7 +26,7 @@ Two fixes work around a Kotlin 2.3.21 POM bug: `extra["kotlin.version"] = "2.3.2
 
 ## Database
 
-Four PostgreSQL instances run natively on dedicated VMs. Redis is shared at `192.168.160.104:6379`.
+Four PostgreSQL instances run natively on dedicated VMs. Redis is shared at `192.168.160.104:6379`. Kafka (`helm/kafka`, in-cluster) backs the order-event pipeline described below.
 
 | Service              | VM IP           | Port | DB             | User      | Password   |
 |----------------------|-----------------|------|----------------|-----------|------------|
@@ -61,7 +61,7 @@ notification-service/  ← port 8084 — per-user notifications + public notific
 
 Helm chart at `helm/baemin/` — deployed via ArgoCD GitOps (auto-syncs on `main` push). `values.yaml` holds `images.tag` (CI-managed), `replicas`, `javaOpts`.
 
-**Tech stack:** Kotlin 2.3.21, Spring Boot 4, Spring Security, Spring Data JPA + QueryDSL 5.1, PostgreSQL, jjwt 0.12, Resilience4j 2.3, Spring Boot Actuator + Micrometer, JUnit 5, Kubernetes (minikube), Helm, ArgoCD
+**Tech stack:** Kotlin 2.3.21, Spring Boot 4, Spring Security, Spring Data JPA + QueryDSL 5.1, PostgreSQL, jjwt 0.12, Resilience4j 2.3, Spring for Apache Kafka, Spring Boot Actuator + Micrometer, JUnit 5, Kubernetes (minikube), Helm, ArgoCD
 
 ---
 
@@ -106,6 +106,24 @@ fun jwtAuthFilterRegistration(jwtAuthFilter: JwtAuthenticationFilter): FilterReg
 
 ---
 
+## Order Events (Kafka)
+
+order-service publishes an `OrderEvent` (`common/event/OrderEvent.kt`) to the `baemin.order.events` topic (3 partitions, keyed by `storeId`) on checkout, markSold, and markCanceled. store-service and notification-service each consume it independently with their own `groupId` (`store-service`, `notification-service`), so both get every event.
+
+| Producer action | `OrderEventType` | store-service consumer | notification-service consumer |
+|---|---|---|---|
+| `checkout` | `NEW_ORDER` | — | notifies store owner |
+| `markSold` | `ORDER_SOLD` | increments product popularity | notifies customer |
+| `markCanceled` | `ORDER_CANCELLED` | — | notifies customer |
+
+**Transactional boundary:** producers never call `KafkaTemplate` directly inside a `@Transactional` method. They publish the event via `ApplicationEventPublisher`; `order/config/OrderEventRelay.kt` listens with `@TransactionalEventListener(phase = AFTER_COMMIT)` and only then sends to Kafka — so a rolled-back transaction never leaks an event onto the topic. Send failures are logged via `KafkaTemplate.send(...).whenComplete { ... }`, not swallowed.
+
+**Consumer resilience:** both consumers wrap their value deserializer in `ErrorHandlingDeserializer` (delegating to `JacksonJsonDeserializer`) so a malformed record fails inside the listener container instead of throwing out of `Consumer.poll()` and blocking the partition. Each service defines a `DefaultErrorHandler` bean (`FixedBackOff`: 3 attempts, 1s apart) that Spring Boot auto-associates with the autoconfigured `@KafkaListener` container factory.
+
+This replaced the original BFF fire-and-forget notification call (`POST /internal/notifications`, no JWT) as the trigger for order-related notifications — that endpoint still exists but is no longer invoked by the BFF for order flows.
+
+---
+
 ## Service Details
 
 ### bff-service (port 8080)
@@ -116,19 +134,21 @@ Stateless gateway. No own database. Does **not** validate JWTs — only forwards
 
 ### store-service (port 8082)
 **Store:** OWNER-only create; 1:N owner→stores. Soft-delete sets `StoreStatus.INACTIVE`. `userId: Long` — no `@ManyToOne`. Ownership: `store.userId != principal.id`.
-**Product:** `popularity: Long` incremented post-SOLD via dedicated endpoint. Deactivate sets `status = false`. Popular-products: QueryDSL `ORDER BY popularity DESC`.
+**Product:** `popularity: Long` auto-incremented by `OrderEventConsumer` on `ORDER_SOLD` (see [Order Events (Kafka)](#order-events-kafka)); `PUT /api/stores/products/popularity` remains as an ownership-checked manual-adjustment endpoint, not called as part of the order flow. Deactivate sets `status = false`. Popular-products: QueryDSL `ORDER BY popularity DESC`.
 **Review:** `rating: Int` (1–5). Delete allowed by owner or ADMIN.
 **Cache:** `stores`, `stores-all`, `products`, `products-by-store` cached in Redis via `@Cacheable` / `@CacheEvict`.
+**Kafka:** consumes `baemin.order.events` (`groupId = store-service`) to drive the popularity increment above.
 
 ### order-service (port 8083)
 **Cart:** One active cart per user (`is_ordered = false`). Adding from a different store resets the active cart in-place. Ordered carts preserved as history. `unit_price` snapshotted at add-time.
 **Order:** `PENDING → SOLD | CANCELED` (only PENDING can transition). Transitions owned by OWNER.
 **Cache:** `orders-by-user` cached in Redis via `@Cacheable` / `@CacheEvict`.
+**Kafka:** sole producer of `baemin.order.events`. `CartService`/`OrderService` publish via `ApplicationEventPublisher`, not `KafkaTemplate` directly; `OrderEventRelay` sends to Kafka only `@TransactionalEventListener(phase = AFTER_COMMIT)`.
 
 ### notification-service (port 8084)
 Two entity types: `notifications` (per-user, JWT-gated) and `public_notifications` (system-wide, unauthenticated).
 
-**Per-user notifications:** `/internal/notifications` is `permitAll()` — BFF trusted caller, no JWT. All `/api/**` require JWT. `userId` always from `currentUser()`, never from request body. `expiry` must be ≥ 10 min after `issuedAt`. Ownership enforced in `markRead`.
+**Per-user notifications:** created by `OrderEventConsumer` (`groupId = notification-service`) consuming `baemin.order.events` — this is now the sole trigger for order-related notifications. `/internal/notifications` still exists (`permitAll()`, no JWT) but is no longer called by the BFF for order flows. All `/api/**` require JWT. `userId` always from `currentUser()`, never from request body. `expiry` must be ≥ 10 min after `issuedAt`. Ownership enforced in `markRead`.
 
 **Public notifications:** `POST /api/public-notifications/list` — unauthenticated, highest-frequency read endpoint. Uses a **two-level cache**: Caffeine L1 (in-process, TTL 1 min) → Redis L2 (shared, TTL 10 min) → PostgreSQL. Both cache layers are evicted atomically on create/deactivate. Cache key: `public-notifications:active` (entire active list as single JSON array).
 
