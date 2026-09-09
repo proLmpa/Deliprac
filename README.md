@@ -46,6 +46,7 @@ flowchart TB
     end
 
     REDIS[("Redis :6379")]
+    KAFKA[["Kafka\nbaemin.order.events"]]
     ANTHROPIC(["Anthropic API"])
 
     %% ── External observability ───────────────────────────────────────────────
@@ -62,8 +63,11 @@ flowchart TB
 
     %% ── Request flow ─────────────────────────────────────────────────────────
     CLIENT --> BFF
-    BFF --> US & SS & OS & AS
-    BFF -.->|async fire-and-forget| NS
+    BFF --> US & SS & OS & NS & AS
+
+    %% ── Event flow ───────────────────────────────────────────────────────────
+    OS -->|produce| KAFKA
+    KAFKA -->|consume| SS & NS
 
     %% ── Persistence flows ────────────────────────────────────────────────────
     US --> UD
@@ -90,10 +94,12 @@ flowchart TB
     classDef log     fill:#ffedd5,stroke:#f97316,color:#7c2d12
     classDef ext     fill:#fce7f3,stroke:#ec4899,color:#831843
     classDef agent   fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e,font-weight:bold
+    classDef queue   fill:#fef3c7,stroke:#d97706,color:#78350f,font-weight:bold
 
     class BFF,US,SS,OS,NS,AS svc
     class UD,SD,OD,ND db
     class REDIS cache
+    class KAFKA queue
     class PROM,ALERT,GRAFANA monitor
     class TG,ANTHROPIC,CLIENT ext
     class LS,ES,KB,FB log
@@ -106,7 +112,7 @@ The JWT secret is shared across all services via configuration — user-service 
 
 Every BFF→backend call is signed with HMAC-SHA256. The BFF attaches `X-Bff-Timestamp` and `X-Bff-Signature` headers to each outgoing `RestClient` request; each backend service validates the signature before Spring Security runs, rejecting direct callers with `401 Unauthorized`. Each service has its own independent HMAC secret.
 
-Notifications are created asynchronously (fire-and-forget) by the BFF after order mutations. After a checkout the BFF looks up the store owner and calls notification-service to notify them; after marking an order sold or canceled it calls notification-service to notify the customer. The BFF calls `/internal/notifications` (no JWT) — notification-service treats the BFF as a trusted internal caller. The notification call runs in a background thread (`runAsyncWithMdc { ... }` from `common/logging/MdcPropagation.kt`) so failures are silent and do not affect the API response. `runAsyncWithMdc` captures the calling thread's MDC context before handing off to the fork-join pool, preserving `traceId` on async log lines. Clients poll the REST endpoint to fetch and mark notifications.
+Order-related notifications are driven by Kafka, not by a direct BFF call. order-service publishes an `OrderEvent` to the `baemin.order.events` topic after checkout, markSold, and markCanceled; notification-service consumes it independently (its own consumer group) and creates the notification. The publish happens only after the enclosing DB transaction commits (`@TransactionalEventListener(phase = AFTER_COMMIT)`), so a rolled-back order never produces a stray event. Clients still poll `/api/notifications/list` to fetch and mark notifications — only how a notification gets *created* changed. `notification-service`'s `/internal/notifications` endpoint (`permitAll()`, no JWT) still exists but is no longer called by the BFF for order flows.
 
 ### BFF Layer
 
@@ -129,6 +135,7 @@ The BFF (Backend for Frontend) sits between the client and the four backend serv
 | Persistence | Spring Data JPA, Hibernate, QueryDSL 5.1 |
 | Database | PostgreSQL 16 |
 | Caching | Spring Cache + Redis (`@Cacheable` — store-service, order-service) · Caffeine L1 + Redis L2 (notification-service public notifications) |
+| Messaging | Spring for Apache Kafka — order-service produces `OrderEvent`; store-service and notification-service consume it independently |
 | Resilience | Resilience4j 2.3 (circuit breaker) |
 | Observability | Spring Boot Actuator, Micrometer, Prometheus, Grafana, Alertmanager |
 | Log aggregation | Elasticsearch 8.x · Logstash · Kibana · Filebeat (DaemonSet) · logstash-logback-encoder 8.0 · kotlin-logging-jvm 7.0.3 |
@@ -194,7 +201,7 @@ stateDiagram-v2
 Only `PENDING` orders can transition.
 
 ### 4. Popularity tracking
-`products.popularity` is a `BIGINT` incremented by the client calling `PUT /api/stores/products/popularity` with `{ storeId, productId, delta }` after marking an order `SOLD`. Queried via QueryDSL (`ORDER BY popularity DESC`) to surface popular items.
+`products.popularity` is a `BIGINT`, queried via QueryDSL (`ORDER BY popularity DESC`) to surface popular items. It is incremented automatically: store-service's Kafka consumer calls `ProductService.incrementPopularityInternal` (no ownership check) for every item on an `ORDER_SOLD` event (see [§8](#8-kafka-driven-order-event-notifications)). A separate owner-facing endpoint, `PUT /api/stores/products/popularity` with `{ storeId, productId, delta }` (ownership-checked `incrementPopularity`), still exists for manual adjustment but is not called as part of the order flow — nothing currently double-counts.
 
 ### 5. No shared database
 Each service has its own PostgreSQL instance. Foreign-key-like references across services (e.g. `store_id` in `orders`) are plain `BIGINT` columns — no ORM join, no FK constraint across DB boundaries.
@@ -208,18 +215,24 @@ Monthly aggregates compute UTC epoch-millis boundaries from a caller-supplied ti
 ZonedDateTime.of(year, month, 1, 0, 0, 0, 0, zoneId).toInstant().toEpochMilli()
 ```
 
-### 8. BFF-triggered fire-and-forget notifications
-Notifications are created by the BFF immediately after order mutations — no message broker is involved. Every notification includes a full item snapshot (product name, unit price, quantity) and the store name.
+### 8. Kafka-driven order-event notifications
+order-service publishes an `OrderEvent` (`common/event/OrderEvent.kt`) to the `baemin.order.events` topic (3 partitions, keyed by `storeId`) after checkout, markSold, and markCanceled. store-service and notification-service each consume it independently, with their own consumer group, so both receive every event. Every event carries a full item snapshot (product name, unit price, quantity) and the store name — no follow-up call to store-service is needed downstream.
 
-| BFF action | Recipient | Type | Item source |
+| Producer action | `OrderEventType` | store-service consumer | notification-service consumer |
 |---|---|---|---|
-| `checkout` | Store owner | `NEW_ORDER` | BFF fetches active cart + product names from store-service |
-| `markSold` | Customer | `ORDER_SOLD` | order-service returns cart snapshot in `OrderResponse.items` |
-| `markCanceled` | Customer | `ORDER_CANCELED` | order-service returns cart snapshot in `OrderResponse.items` |
+| `checkout` | `NEW_ORDER` | — | notifies store owner |
+| `markSold` | `ORDER_SOLD` | increments product popularity | notifies customer |
+| `markCanceled` | `ORDER_CANCELLED` | — | notifies customer |
 
-**userId security:** `StoreResponse.userId` and `OrderResponse.userId` are annotated `@get:JsonIgnore` / `@param:JsonProperty` — deserialized from backend services, never serialized to the frontend. The recipient's `userId` only ever exists inside the BFF at request time.
+**userId security:** `StoreResponse.userId` and `OrderResponse.userId` (the BFF's client-facing DTOs) are annotated `@get:JsonIgnore` / `@param:JsonProperty` — deserialized from backend services, never serialized to the frontend. This is independent of the Kafka path: `OrderEvent` carries `userId`/`storeOwnerId` as an internal payload between order-service, store-service, and notification-service, and is never exposed over HTTP to the client.
 
-**Delivery:** notifications are created in a background thread (`runAsyncWithMdc { ... }`) after the BFF returns its response to the client. Failures are swallowed silently and do not affect the API caller. The frontend polls `/api/notifications/list` every 30 seconds; recipients see new notifications within one poll cycle assuming the async call succeeds.
+**Transactional boundary:** producers never call `KafkaTemplate` directly inside a `@Transactional` method. `CartService`/`OrderService` publish the event via `ApplicationEventPublisher`; `order/config/OrderEventRelay.kt` listens with `@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)` and only then sends to Kafka — so a transaction that later rolls back never leaks an event onto the topic. `KafkaTemplate.send(...)` failures are logged via `.whenComplete { ... }` rather than swallowed.
+
+**Consumer resilience:** both consumers wrap their value deserializer in `ErrorHandlingDeserializer` (delegating to `JacksonJsonDeserializer`) so a malformed record fails inside the listener container — where a `DefaultErrorHandler` bean (`FixedBackOff`: 3 attempts, 1s apart) can retry and eventually skip it — instead of throwing out of `Consumer.poll()` and blocking the partition indefinitely.
+
+**Superseded design:** this replaced an earlier BFF fire-and-forget call (`POST /internal/notifications`, no JWT, run via `runAsyncWithMdc { ... }` after the API response) as the trigger for order-related notifications. That endpoint still exists on notification-service (still `permitAll()`) but the BFF no longer calls it for order flows — Kafka is now the sole trigger.
+
+**Delivery:** the frontend still polls `/api/notifications/list` every 30 seconds; recipients see new notifications within one poll cycle once the consumer has processed the event.
 
 ### 9. Spring Cache (@Cacheable) in store-service and order-service
 
@@ -379,6 +392,7 @@ sequenceDiagram
     participant BFF as bff-service :8080
     participant SS as store-service :8082
     participant OS as order-service :8083
+    participant K as Kafka (baemin.order.events)
     participant NS as notification-service :8084
 
     Cu->>BFF: POST /api/users/signup
@@ -399,17 +413,14 @@ sequenceDiagram
     OS-->>BFF: CartResponse
     BFF-->>Cu: CartResponse
 
-    Note over BFF,NS: BFF aggregates store + product info to build notification
     Cu->>BFF: PUT /api/carts/checkout { cartId }
     BFF->>OS: PUT /api/carts/checkout
+    Note over OS,K: after DB commit — @TransactionalEventListener(AFTER_COMMIT)
+    OS-)K: publish OrderEvent (NEW_ORDER, items, storeOwnerId)
     OS-->>BFF: OrderResponse (PENDING)
-    BFF->>SS: POST /api/stores/find { storeId }
-    SS-->>BFF: StoreResponse (owner userId, name)
-    BFF->>SS: POST /api/stores/products/list { storeId }
-    SS-->>BFF: List[ProductResponse] (names)
     BFF-->>Cu: OrderResponse (PENDING)
-    Note over BFF,NS: async — fire and forget
-    BFF-)NS: POST /internal/notifications (NEW_ORDER → owner, items)
+    K--)NS: consume OrderEvent
+    Note over NS: notification created for store owner — visible on next poll
 
     Cu->>BFF: POST /api/users/me/orders
     BFF-->>Cu: List[OrderResponse]
@@ -424,6 +435,7 @@ sequenceDiagram
     participant BFF as bff-service :8080
     participant SS as store-service :8082
     participant OS as order-service :8083
+    participant K as Kafka (baemin.order.events)
     participant NS as notification-service :8084
 
     Ow->>BFF: POST /api/users/signin
@@ -432,20 +444,19 @@ sequenceDiagram
     Ow->>BFF: POST /api/stores/orders/list { storeId }
     BFF-->>Ow: List[OrderResponse]
 
-    Note over BFF,NS: OrderResponse includes cart item snapshot (productId, unitPrice, quantity)
+    Note over OS,K: OrderEvent carries a cart item snapshot (productId, unitPrice, quantity)
     Ow->>BFF: PUT /api/stores/orders/sold { storeId, orderId }
     BFF->>OS: PUT /api/stores/orders/sold
+    Note over OS,K: after DB commit — @TransactionalEventListener(AFTER_COMMIT)
+    OS-)K: publish OrderEvent (ORDER_SOLD, items)
     OS-->>BFF: OrderResponse (SOLD, items[])
-    BFF->>SS: POST /api/stores/find { storeId }
-    SS-->>BFF: StoreResponse (name)
-    BFF->>SS: POST /api/stores/products/list { storeId }
-    SS-->>BFF: List[ProductResponse] (names)
     BFF-->>Ow: OrderResponse (SOLD)
-    Note over BFF,NS: async — fire and forget
-    BFF-)NS: POST /internal/notifications (ORDER_SOLD → customer, items)
+    K--)SS: consume OrderEvent → increment product popularity
+    K--)NS: consume OrderEvent → notify customer
     NS--)Cu: notification visible on next poll
 
-    Ow->>BFF: PUT /api/stores/products/popularity { storeId, productId, delta: 1 }
+    Note over Ow,BFF: popularity was already incremented above via the Kafka consumer;<br/>this endpoint is for manual/owner-driven adjustment only
+    Ow->>BFF: PUT /api/stores/products/popularity { storeId, productId, delta }
     BFF-->>Ow: ProductResponse
 
     Ow->>BFF: POST /api/stores/statistics/revenue { storeId, year, month }
