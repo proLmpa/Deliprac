@@ -26,7 +26,7 @@ import org.mockito.BDDMockito.then
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
-import org.springframework.kafka.core.KafkaTemplate
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
 import java.util.Optional
@@ -37,7 +37,7 @@ class CartServiceTest {
     @Mock private lateinit var cartRepository: CartRepository
     @Mock private lateinit var cartProductRepository: CartProductRepository
     @Mock private lateinit var orderRepository: OrderRepository
-    @Mock private lateinit var kafkaTemplate: KafkaTemplate<String, OrderEvent>
+    @Mock private lateinit var eventPublisher: ApplicationEventPublisher
     @InjectMocks private lateinit var cartService: CartService
 
     private val userId       = 1L
@@ -207,6 +207,7 @@ class CartServiceTest {
         assertThat(result.totalPrice).isEqualTo(8000L)
         assertThat(result.status).isEqualTo("PENDING")
         assertThat(cart.isOrdered).isTrue()
+        then(eventPublisher).should().publishEvent(any(OrderEvent::class.java))
     }
 
     @Test
