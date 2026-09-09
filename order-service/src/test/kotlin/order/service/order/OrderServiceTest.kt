@@ -20,8 +20,9 @@ import org.mockito.ArgumentMatchers.any
 import org.mockito.BDDMockito.given
 import org.mockito.InjectMocks
 import org.mockito.Mock
+import org.mockito.BDDMockito.then
 import org.mockito.junit.jupiter.MockitoExtension
-import org.springframework.kafka.core.KafkaTemplate
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
 import java.time.ZoneId
@@ -32,7 +33,7 @@ class OrderServiceTest {
 
     @Mock private lateinit var orderRepository: OrderRepository
     @Mock private lateinit var cartProductRepository: CartProductRepository
-    @Mock private lateinit var kafkaTemplate: KafkaTemplate<String, OrderEvent>
+    @Mock private lateinit var eventPublisher: ApplicationEventPublisher
     @InjectMocks private lateinit var orderService: OrderService
 
     private val ownerId    = 1L
@@ -87,6 +88,7 @@ class OrderServiceTest {
 
         assertThat(result.status).isEqualTo("SOLD")
         assertThat(order.status).isEqualTo(OrderStatus.SOLD)
+        then(eventPublisher).should().publishEvent(any(OrderEvent::class.java))
     }
 
     @Test
@@ -132,6 +134,7 @@ class OrderServiceTest {
 
         assertThat(result.status).isEqualTo("CANCELED")
         assertThat(order.status).isEqualTo(OrderStatus.CANCELED)
+        then(eventPublisher).should().publishEvent(any(OrderEvent::class.java))
     }
 
     @Test
