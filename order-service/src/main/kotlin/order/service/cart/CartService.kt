@@ -22,7 +22,7 @@ import net.logstash.logback.marker.Markers.appendEntries
 import order.dto.cart.CheckoutRequest
 import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.CacheEvict
-import org.springframework.kafka.core.KafkaTemplate
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -33,7 +33,7 @@ class CartService(
     private val cartRepository: CartRepository,
     private val cartProductRepository: CartProductRepository,
     private val orderRepository: OrderRepository,
-    private val kafkaTemplate: KafkaTemplate<String, OrderEvent>
+    private val eventPublisher: ApplicationEventPublisher
 ) {
 
     @Transactional
@@ -113,7 +113,7 @@ class CartService(
                 OrderEventItem(cp.productId, meta?.productName ?: "", cp.quantity, cp.unitPrice)
             }
         )
-        kafkaTemplate.send("baemin.order.events", order.storeId.toString(), event)
+        eventPublisher.publishEvent(event)
 
         auditLog.info(
             appendEntries(mapOf("event" to "ORDER_CREATED", "orderId" to order.id, "storeId" to order.storeId, "totalPrice" to order.totalPrice, "email" to currentUser().email)),

@@ -17,7 +17,7 @@ import net.logstash.logback.marker.Markers.appendEntries
 import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
-import org.springframework.kafka.core.KafkaTemplate
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.stereotype.Service
 
@@ -27,7 +27,7 @@ private val auditLog = LoggerFactory.getLogger("audit")
 class OrderService(
     private val orderRepository: OrderRepository,
     private val cartProductRepository: CartProductRepository,
-    private val kafkaTemplate: KafkaTemplate<String, OrderEvent>
+    private val eventPublisher: ApplicationEventPublisher
 ) {
 
     @Transactional(readOnly = true)
@@ -51,9 +51,7 @@ class OrderService(
         val saved = orderRepository.save(order)
         val items = cartProductRepository.findAllByCartId(saved.cartId)
 
-        kafkaTemplate.send(
-            "baemin.order.events",
-            saved.storeId.toString(),
+        eventPublisher.publishEvent(
             OrderEvent(
                 eventType    = OrderEventType.ORDER_SOLD,
                 orderId      = saved.id,
@@ -86,9 +84,7 @@ class OrderService(
         val saved = orderRepository.save(order)
         val items = cartProductRepository.findAllByCartId(saved.cartId)
 
-        kafkaTemplate.send(
-            "baemin.order.events",
-            saved.storeId.toString(),
+        eventPublisher.publishEvent(
             OrderEvent(
                 eventType    = OrderEventType.ORDER_CANCELLED,
                 orderId      = saved.id,
