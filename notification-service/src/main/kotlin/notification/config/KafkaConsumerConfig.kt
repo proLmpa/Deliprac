@@ -18,7 +18,7 @@ class KafkaConsumerConfig(private val kafkaProperties: KafkaProperties) {
 
     @Bean
     fun orderEventDltTopic(): NewTopic =
-        TopicBuilder.name("baemin.order.events.DLT").partitions(3).replicas(1).build()
+        TopicBuilder.name("baemin.order.events-dlt").partitions(3).replicas(1).build()
 
     @Bean
     fun dltProducerFactory(): ProducerFactory<String, OrderEvent> =
