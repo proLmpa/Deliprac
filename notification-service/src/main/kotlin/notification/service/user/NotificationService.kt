@@ -55,6 +55,7 @@ class NotificationService(private val notificationRepository: NotificationReposi
         notificationRepository.saveAll(unread)
     }
 
+    @Transactional
     fun createFromEvent(
         recipientId: Long,
         type: NotificationType,

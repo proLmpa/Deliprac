@@ -1,34 +1,40 @@
 package store.config
 
+import common.event.OrderEvent
+import org.apache.kafka.clients.admin.NewTopic
 import org.slf4j.LoggerFactory
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.kafka.config.TopicBuilder
+import org.springframework.kafka.core.DefaultKafkaProducerFactory
+import org.springframework.kafka.core.KafkaTemplate
+import org.springframework.kafka.core.ProducerFactory
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer
 import org.springframework.kafka.listener.DefaultErrorHandler
 import org.springframework.util.backoff.FixedBackOff
 
 private val log = LoggerFactory.getLogger(KafkaConsumerConfig::class.java)
 
 @Configuration
-class KafkaConsumerConfig {
+class KafkaConsumerConfig(private val kafkaProperties: KafkaProperties) {
 
-    /**
-     * Spring Boot auto-associates a DefaultErrorHandler bean with the auto-configured
-     * @KafkaListener container factory. Without this, a record that keeps failing (a
-     * malformed payload, a transient downstream error) retries with the framework default
-     * (FixedBackOff(0, 9) -- 10 immediate attempts) before being logged and skipped.
-     * Wrapping the value deserializer in ErrorHandlingDeserializer (see application.yml)
-     * ensures a deserialization failure surfaces here too, instead of throwing out of
-     * Consumer.poll() and blocking the partition indefinitely.
-     */
     @Bean
-    fun kafkaErrorHandler(): DefaultErrorHandler =
+    fun orderEventDltTopic(): NewTopic =
+        TopicBuilder.name("baemin.order.events.DLT").partitions(3).replicas(1).build()
+
+    @Bean
+    fun dltProducerFactory(): ProducerFactory<String, OrderEvent> =
+        DefaultKafkaProducerFactory(kafkaProperties.buildProducerProperties())
+
+    @Bean
+    fun dltKafkaTemplate(pf: ProducerFactory<String, OrderEvent>): KafkaTemplate<String, OrderEvent> =
+        KafkaTemplate(pf)
+
+    @Bean
+    fun kafkaErrorHandler(dltKafkaTemplate: KafkaTemplate<String, OrderEvent>): DefaultErrorHandler =
         DefaultErrorHandler(
-            { record, ex ->
-                log.error(
-                    "Giving up on Kafka record after retries: topic={} partition={} offset={}: {}",
-                    record.topic(), record.partition(), record.offset(), ex.message, ex
-                )
-            },
+            DeadLetterPublishingRecoverer(dltKafkaTemplate),
             FixedBackOff(1000L, 2L)
         )
 }
