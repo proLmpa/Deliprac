@@ -2,6 +2,7 @@ package order.config
 
 import common.event.OrderEvent
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Component
 import org.springframework.transaction.event.TransactionPhase
@@ -18,11 +19,14 @@ private val log = LoggerFactory.getLogger(OrderEventRelay::class.java)
  * rolled back; AFTER_COMMIT guarantees the DB write has succeeded first.
  */
 @Component
-class OrderEventRelay(private val kafkaTemplate: KafkaTemplate<String, OrderEvent>) {
+class OrderEventRelay(
+    private val kafkaTemplate: KafkaTemplate<String, OrderEvent>,
+    @Value("\${kafka.topics.order-events.name}") private val orderEventTopicName: String,
+) {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     fun onOrderEvent(event: OrderEvent) {
-        kafkaTemplate.send("baemin.order.events", event.storeId.toString(), event)
+        kafkaTemplate.send(orderEventTopicName, event.storeId.toString(), event)
             .whenComplete { result, ex ->
                 if (ex != null) {
                     log.error("Failed to publish {} for order {}: {}", event.eventType, event.orderId, ex.message, ex)

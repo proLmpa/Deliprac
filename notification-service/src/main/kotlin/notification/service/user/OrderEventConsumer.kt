@@ -16,7 +16,7 @@ private data class NotifContext (
 @Component
 class OrderEventConsumer (private val notificationService: NotificationService) {
 
-    @KafkaListener(topics = ["baemin.order.events"], groupId = "notification-service")
+    @KafkaListener(topics = ["\${kafka.topics.order-events.name}"], groupId = "notification-service")
     fun consume(event: OrderEvent) {
         val ctx = when (event.eventType) {
             OrderEventType.NEW_ORDER -> NotifContext(

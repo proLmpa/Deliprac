@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component
 @Component
 class OrderEventConsumer (private val productService: ProductService) {
 
-    @KafkaListener(topics = ["baemin.order.events"], groupId = "store-service")
+    @KafkaListener(topics = ["\${kafka.topics.order-events.name}"], groupId = "store-service")
     fun consume(event: OrderEvent) {
         if (event.eventType != OrderEventType.ORDER_SOLD) return
         event.items.forEach { item ->
