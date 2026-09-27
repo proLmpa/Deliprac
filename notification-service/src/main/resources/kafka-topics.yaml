@@ -1,0 +1,11 @@
+kafka:
+  topics:
+    order-events:
+      name: baemin.order.events
+    order-events-dlt:
+      name: baemin.order.events-dlt
+      partitions: 3
+      replicas: 1
+  consumer:
+    backoff-interval-ms: 1000
+    max-attempts: 2

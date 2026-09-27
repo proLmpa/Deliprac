@@ -1,0 +1,6 @@
+kafka:
+  topics:
+    order-events:
+      name: baemin.order.events
+      partitions: 3
+      replicas: 1
