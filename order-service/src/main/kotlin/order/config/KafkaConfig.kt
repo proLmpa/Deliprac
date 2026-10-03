@@ -1,6 +1,7 @@
 package order.config
 
 import common.event.OrderEvent
+import io.micrometer.core.instrument.MeterRegistry
 import org.apache.kafka.clients.admin.NewTopic
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties
@@ -9,6 +10,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.kafka.config.TopicBuilder
 import org.springframework.kafka.core.DefaultKafkaProducerFactory
 import org.springframework.kafka.core.KafkaTemplate
+import org.springframework.kafka.core.MicrometerProducerListener
 import org.springframework.kafka.core.ProducerFactory
 
 @Configuration
@@ -16,6 +18,7 @@ import org.springframework.kafka.core.ProducerFactory
 class KafkaConfig(
     private val kafkaProperties: KafkaProperties,
     private val props: KafkaTopicProperties,
+    private val meterRegistry: MeterRegistry,
 ) {
 
     @Bean
@@ -27,7 +30,9 @@ class KafkaConfig(
 
     @Bean
     fun orderEventProducerFactory(): ProducerFactory<String, OrderEvent> =
-        DefaultKafkaProducerFactory(kafkaProperties.buildProducerProperties())
+        DefaultKafkaProducerFactory<String, OrderEvent>(kafkaProperties.buildProducerProperties()).also {
+            it.addListener(MicrometerProducerListener(meterRegistry))
+        }
 
     @Bean
     fun orderEventKafkaTemplate(pf: ProducerFactory<String, OrderEvent>): KafkaTemplate<String, OrderEvent> =

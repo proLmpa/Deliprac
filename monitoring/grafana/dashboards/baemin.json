@@ -247,7 +247,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "kafka_consumer_group_lag{topic=\"baemin.order.events\"}",
+          "expr": "kafka_consumergroup_lag{topic=\"baemin.order.events\"}",
           "legendFormat": "{{consumergroup}} p{{partition}}"
         }
       ]
