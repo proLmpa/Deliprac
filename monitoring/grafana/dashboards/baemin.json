@@ -173,6 +173,110 @@
           "legendFormat": "{{application}}"
         }
       ]
+    },
+    {
+      "id": 12,
+      "title": "Kafka Producer Send Rate (records/s)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 48, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "kafka_producer_record_send_rate{application=~\"$service\"}",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Kafka Producer Error Rate (records/s)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 48, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "kafka_producer_record_error_rate{application=~\"$service\"}",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Kafka Consumer Lag (records)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 56, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "kafka_consumer_fetch_manager_records_lag{application=~\"store-service|notification-service\"}",
+          "legendFormat": "{{application}} p{{partition}}"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "Kafka Consumer Consume Rate (records/s)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 56, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "kafka_consumer_fetch_manager_records_consumed_rate{application=~\"store-service|notification-service\"}",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "Topic Current Offset",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 64, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "kafka_topic_partition_current_offset{topic=~\"baemin\\\\.order\\\\.events|baemin\\\\.order\\\\.events-dlt\"}",
+          "legendFormat": "{{topic}} p{{partition}}"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "title": "Consumer Group Lag — broker view (records)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 64, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "kafka_consumer_group_lag{topic=\"baemin.order.events\"}",
+          "legendFormat": "{{consumergroup}} p{{partition}}"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "DLT Cumulative Records",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 72, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "kafka_topic_partition_current_offset{topic=\"baemin.order.events-dlt\"}",
+          "legendFormat": "p{{partition}}"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "title": "DLT Publish Rate (records/s)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 72, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "increase(kafka_topic_partition_current_offset{topic=\"baemin.order.events-dlt\"}[1m])",
+          "legendFormat": "p{{partition}}"
+        }
+      ]
     }
   ]
 }

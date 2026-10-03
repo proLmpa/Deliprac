@@ -1,0 +1,9 @@
+image:
+  repository: danielqsj/kafka-exporter
+  tag: "v1.7.0"
+
+kafka:
+  server: "baemin-kafka:9092"
+
+metrics:
+  port: 9308
