@@ -3,6 +3,7 @@ package bff.api
 import org.springframework.context.MessageSource
 import org.springframework.context.NoSuchMessageException
 import org.springframework.core.io.ClassPathResource
+import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import java.util.Locale
@@ -19,6 +20,7 @@ class I18nController(private val messageSource: MessageSource) {
             .mapNotNull { it.substringBefore('=').trim().takeIf(String::isNotEmpty) }
     }
 
+    @PostMapping("/api/i18n/messages")
     fun getMessage(@RequestBody body: Map<String, String>): Map<String, String> {
         val locale = if (body["lang"] == "ko") Locale.KOREAN else Locale.ENGLISH
         return keys.associateWith { key ->
