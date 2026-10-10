@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { signin } from '../../api/auth'
 import { useAuthStore } from '../../store/auth'
+import { useTranslation } from '../../context/I18nContext'
 import Button from '../../components/ui/Button'
 
 export default function SignIn() {
@@ -10,6 +11,7 @@ export default function SignIn() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { login } = useAuthStore()
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -21,7 +23,7 @@ export default function SignIn() {
       login(res.data.accessToken)
       navigate('/stores')
     } catch {
-      setError('Invalid email or password.')
+      setError(t('auth.sign_in.error'))
     } finally {
       setLoading(false)
     }
@@ -29,11 +31,11 @@ export default function SignIn() {
 
   return (
     <div className="max-w-sm mx-auto mt-20">
-      <h1 className="text-2xl font-bold mb-6 text-center">Sign In</h1>
+      <h1 className="text-2xl font-bold mb-6 text-center">{t('auth.sign_in.title')}</h1>
       <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-lg shadow">
         {error && <p className="text-red-600 text-sm">{error}</p>}
         <div>
-          <label className="block text-sm font-medium mb-1">Email</label>
+          <label className="block text-sm font-medium mb-1">{t('auth.sign_in.email')}</label>
           <input
             type="email"
             value={email}
@@ -43,7 +45,7 @@ export default function SignIn() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Password</label>
+          <label className="block text-sm font-medium mb-1">{t('auth.sign_in.password')}</label>
           <input
             type="password"
             value={password}
@@ -53,12 +55,12 @@ export default function SignIn() {
           />
         </div>
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? 'Signing in…' : 'Sign In'}
+          {loading ? t('auth.sign_in.submitting') : t('auth.sign_in.submit')}
         </Button>
         <p className="text-center text-sm text-gray-500">
-          No account?{' '}
+          {t('auth.sign_in.no_account')}{' '}
           <Link to="/signup" className="text-orange-600 hover:underline">
-            Sign up
+            {t('auth.sign_in.sign_up_link')}
           </Link>
         </p>
       </form>

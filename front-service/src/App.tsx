@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useAuthStore } from './store/auth'
 import type { UserRole } from './store/auth'
 import Layout from './components/layout/Layout'
+import { I18nProvider } from './context/I18nContext'
 
 // Auth pages
 import SignIn from './pages/auth/SignIn'
@@ -37,6 +38,7 @@ function RequireAuth({ children, role }: { children: ReactNode; role?: UserRole 
 
 export default function App() {
   return (
+    <I18nProvider>
     <BrowserRouter>
       <Routes>
         <Route element={<Layout />}>
@@ -104,5 +106,6 @@ export default function App() {
         </Route>
       </Routes>
     </BrowserRouter>
+    </I18nProvider>
   )
 }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getRevenue } from '../../api/orders'
+import { useTranslation } from '../../context/I18nContext'
 import Card from '../../components/ui/Card'
 
 export default function RevenueStats() {
@@ -10,6 +11,7 @@ export default function RevenueStats() {
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
+  const { t } = useTranslation()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['revenue', storeId, year, month],
@@ -18,11 +20,11 @@ export default function RevenueStats() {
 
   return (
     <div className="max-w-md mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Revenue (Store #{storeId})</h1>
+      <h1 className="text-2xl font-bold mb-6">{t('owner.revenue.title', { 0: storeId })}</h1>
       <Card className="mb-6">
         <div className="flex gap-4 items-end">
           <div>
-            <label className="block text-sm font-medium mb-1">Year</label>
+            <label className="block text-sm font-medium mb-1">{t('owner.revenue.year')}</label>
             <input
               type="number"
               value={year}
@@ -33,7 +35,7 @@ export default function RevenueStats() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Month</label>
+            <label className="block text-sm font-medium mb-1">{t('owner.revenue.month')}</label>
             <select
               value={month}
               onChange={(e) => setMonth(Number(e.target.value))}
@@ -48,8 +50,8 @@ export default function RevenueStats() {
           </div>
         </div>
       </Card>
-      {isLoading && <p className="text-gray-500">Loading…</p>}
-      {error && <p className="text-red-500">Failed to load revenue.</p>}
+      {isLoading && <p className="text-gray-500">{t('owner.revenue.loading')}</p>}
+      {error && <p className="text-red-500">{t('owner.revenue.error')}</p>}
       {data && (
         <Card>
           <p className="text-lg text-gray-600">

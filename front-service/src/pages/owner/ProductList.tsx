@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { listProducts, createProduct, updateProduct, deactivateProduct } from '../../api/products'
+import { useTranslation } from '../../context/I18nContext'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import StatusBadge from '../../components/ui/StatusBadge'
@@ -18,6 +19,7 @@ export default function ProductList() {
   const { id } = useParams<{ id: string }>()
   const storeId = Number(id)
   const queryClient = useQueryClient()
+  const { t } = useTranslation()
 
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
@@ -38,7 +40,7 @@ export default function ProductList() {
       setForm(emptyForm)
       setFormError('')
     },
-    onError: (err: any) => setFormError(err.response?.data?.message ?? 'Failed.'),
+    onError: (err: any) => setFormError(err.response?.data?.message ?? t('owner.products.error')),
   })
 
   const updateMutation = useMutation({
@@ -50,7 +52,7 @@ export default function ProductList() {
       setForm(emptyForm)
       setFormError('')
     },
-    onError: (err: any) => setFormError(err.response?.data?.message ?? 'Failed.'),
+    onError: (err: any) => setFormError(err.response?.data?.message ?? t('owner.products.error')),
   })
 
   const deactivateMutation = useMutation({
@@ -67,33 +69,35 @@ export default function ProductList() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name.trim() || !form.price) { setFormError('Name and price required.'); return }
+    if (!form.name.trim() || !form.price) { setFormError(t('owner.products.validation_error')); return }
     setFormError('')
     editId !== null ? updateMutation.mutate() : createMutation.mutate()
   }
 
-  if (isLoading) return <p className="text-center mt-10 text-gray-500">Loading…</p>
+  if (isLoading) return <p className="text-center mt-10 text-gray-500">{t('owner.products.loading')}</p>
 
   const activeForm = showForm || editId !== null
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Products (Store #{storeId})</h1>
+        <h1 className="text-2xl font-bold">{t('owner.products.title', { 0: storeId })}</h1>
         {!activeForm && (
           <Button onClick={() => { setShowForm(true); setEditId(null); setForm(emptyForm) }}>
-            + Add Product
+            {t('owner.products.add')}
           </Button>
         )}
       </div>
 
       {activeForm && (
         <form onSubmit={handleSubmit} className="bg-white p-4 rounded-lg shadow mb-6 space-y-3">
-          <h2 className="font-semibold">{editId !== null ? 'Edit Product' : 'New Product'}</h2>
+          <h2 className="font-semibold">
+            {editId !== null ? t('owner.products.edit_title') : t('owner.products.new_title')}
+          </h2>
           {formError && <p className="text-red-600 text-sm">{formError}</p>}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-sm font-medium mb-1">Name</label>
+              <label className="block text-sm font-medium mb-1">{t('owner.products.name')}</label>
               <input
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -102,7 +106,7 @@ export default function ProductList() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Description</label>
+              <label className="block text-sm font-medium mb-1">{t('owner.products.description')}</label>
               <input
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -110,7 +114,7 @@ export default function ProductList() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Price (₩)</label>
+              <label className="block text-sm font-medium mb-1">{t('owner.products.price')}</label>
               <input
                 type="number"
                 min={0}
@@ -127,16 +131,16 @@ export default function ProductList() {
               variant="secondary"
               onClick={() => { setShowForm(false); setEditId(null); setForm(emptyForm) }}
             >
-              Cancel
+              {t('owner.products.cancel')}
             </Button>
             <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-              {editId !== null ? 'Update' : 'Create'}
+              {editId !== null ? t('owner.products.update') : t('owner.products.create')}
             </Button>
           </div>
         </form>
       )}
 
-      {products?.length === 0 && <p className="text-gray-500">No products yet.</p>}
+      {products?.length === 0 && <p className="text-gray-500">{t('owner.products.empty')}</p>}
       <div className="space-y-3">
         {products?.map((p) => (
           <Card key={p.id} className="flex justify-between items-center">
@@ -147,11 +151,11 @@ export default function ProductList() {
               </div>
               <p className="text-sm text-gray-500">{p.description}</p>
               <p className="text-sm font-semibold text-orange-600">₩{p.price.toLocaleString()}</p>
-              <p className="text-xs text-gray-400">Popularity: {p.popularity}</p>
+              <p className="text-xs text-gray-400">{t('owner.products.popularity')} {p.popularity}</p>
             </div>
             <div className="flex gap-2 flex-shrink-0">
               <Button variant="secondary" size="sm" onClick={() => startEdit(p)}>
-                Edit
+                {t('owner.products.edit')}
               </Button>
               {p.status && (
                 <Button
@@ -160,7 +164,7 @@ export default function ProductList() {
                   onClick={() => deactivateMutation.mutate(p.id)}
                   disabled={deactivateMutation.isPending}
                 >
-                  Deactivate
+                  {t('owner.products.deactivate')}
                 </Button>
               )}
             </div>

@@ -6,6 +6,7 @@ import { listProducts } from '../../api/products'
 import { listReviews, createReview, deleteReview } from '../../api/reviews'
 import { addToCart } from '../../api/cart'
 import { useAuthStore } from '../../store/auth'
+import { useTranslation } from '../../context/I18nContext'
 import { format } from 'date-fns'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
@@ -22,6 +23,7 @@ export default function StoreDetail() {
   const { id } = useParams<{ id: string }>()
   const storeId = Number(id)
   const { role, token } = useAuthStore()
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const [reviewRating, setReviewRating] = useState(5)
@@ -51,7 +53,7 @@ export default function StoreDetail() {
   const addMutation = useMutation({
     mutationFn: (productId: number) => addToCart(productId, storeId, 1),
     onSuccess: () => {
-      setCartMsg('Added to cart!')
+      setCartMsg(t('store.detail.added_to_cart'))
       setTimeout(() => setCartMsg(''), 2000)
     },
   })
@@ -64,7 +66,7 @@ export default function StoreDetail() {
       setReviewRating(5)
       setReviewError('')
     },
-    onError: (err: any) => setReviewError(err.response?.data?.message ?? 'Failed to submit review.'),
+    onError: (err: any) => setReviewError(err.response?.data?.message ?? t('store.detail.review_error')),
   })
 
   const deleteMutation = useMutation({
@@ -72,7 +74,7 @@ export default function StoreDetail() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reviews', storeId] }),
   })
 
-  if (!store) return <p className="text-center mt-10 text-gray-500">Loading…</p>
+  if (!store) return <p className="text-center mt-10 text-gray-500">{t('store.detail.loading')}</p>
 
   return (
     <div className="space-y-8">
@@ -91,9 +93,9 @@ export default function StoreDetail() {
 
       {/* Products */}
       <section>
-        <h2 className="text-xl font-semibold mb-3">Menu</h2>
+        <h2 className="text-xl font-semibold mb-3">{t('store.detail.menu')}</h2>
         {cartMsg && <p className="mb-2 text-green-600 text-sm">{cartMsg}</p>}
-        {products?.length === 0 && <p className="text-gray-500">No products yet.</p>}
+        {products?.length === 0 && <p className="text-gray-500">{t('store.detail.no_products')}</p>}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {products?.filter((p) => p.status).map((p) => (
             <Card key={p.id} className="flex flex-col justify-between">
@@ -109,7 +111,7 @@ export default function StoreDetail() {
                     onClick={() => addMutation.mutate(p.id)}
                     disabled={addMutation.isPending}
                   >
-                    Add
+                    {t('store.detail.add')}
                   </Button>
                 )}
               </div>
@@ -128,16 +130,16 @@ export default function StoreDetail() {
       {/* Reviews */}
       {token && (
         <section>
-          <h2 className="text-xl font-semibold mb-3">Reviews</h2>
+          <h2 className="text-xl font-semibold mb-3">{t('store.detail.reviews')}</h2>
           {role === 'CUSTOMER' && (
             <Card className="mb-4">
-              <h3 className="font-medium mb-2">Write a Review</h3>
+              <h3 className="font-medium mb-2">{t('store.detail.write_review')}</h3>
               {reviewError && <p className="text-red-600 text-sm mb-2">{reviewError}</p>}
               <StarRating value={reviewRating} onChange={setReviewRating} />
               <textarea
                 value={reviewContent}
                 onChange={(e) => setReviewContent(e.target.value)}
-                placeholder="Share your experience…"
+                placeholder={t('store.detail.review_placeholder')}
                 rows={3}
                 className="mt-2 w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
               />
@@ -147,11 +149,11 @@ export default function StoreDetail() {
                 onClick={() => reviewMutation.mutate()}
                 disabled={!reviewContent.trim() || reviewMutation.isPending}
               >
-                Submit
+                {t('store.detail.submit')}
               </Button>
             </Card>
           )}
-          {reviews?.length === 0 && <p className="text-gray-500">No reviews yet.</p>}
+          {reviews?.length === 0 && <p className="text-gray-500">{t('store.detail.no_reviews')}</p>}
           <div className="space-y-3">
             {reviews?.map((r) => (
               <Card key={r.id}>
@@ -169,7 +171,7 @@ export default function StoreDetail() {
                       size="sm"
                       onClick={() => deleteMutation.mutate(r.id)}
                     >
-                      Delete
+                      {t('store.detail.delete')}
                     </Button>
                   )}
                 </div>

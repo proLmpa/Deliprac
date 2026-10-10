@@ -2,11 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import { listNotifications, markRead, markAllRead, type NotificationResponse } from '../api/notifications'
+import { useTranslation } from '../context/I18nContext'
 import Button from '../components/ui/Button'
 
 export default function NotificationsPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['notifications'],
@@ -41,24 +43,24 @@ export default function NotificationsPage() {
     }
   }
 
-  if (isLoading) return <div className="p-6 text-gray-500">Loading...</div>
+  if (isLoading) return <div className="p-6 text-gray-500">{t('notifications.loading')}</div>
 
   return (
     <div className="max-w-2xl mx-auto p-6">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Notifications</h1>
+        <h1 className="text-2xl font-bold">{t('notifications.title')}</h1>
         <Button
           variant="secondary"
           size="sm"
           onClick={() => markAllReadMutation.mutate()}
           disabled={notifications.every((n) => n.isRead)}
         >
-          Mark all read
+          {t('notifications.mark_all_read')}
         </Button>
       </div>
 
       {notifications.length === 0 ? (
-        <p className="text-gray-500 text-center py-8">No notifications yet.</p>
+        <p className="text-gray-500 text-center py-8">{t('notifications.empty')}</p>
       ) : (
         <ul className="space-y-2">
           {notifications.map((n) => (
@@ -85,7 +87,7 @@ export default function NotificationsPage() {
                           </tr>
                         ))}
                         <tr className="border-t border-gray-200">
-                          <td colSpan={2} className="pt-1 font-semibold">Total</td>
+                          <td colSpan={2} className="pt-1 font-semibold">{t('notifications.total')}</td>
                           <td className="pt-1 font-semibold">
                             ₩{n.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0).toLocaleString()}
                           </td>
@@ -107,7 +109,7 @@ export default function NotificationsPage() {
                   size="sm"
                   onClick={(e) => { e.stopPropagation(); markReadMutation.mutate(n.id) }}
                 >
-                  Mark read
+                  {t('notifications.mark_read')}
                 </Button>
               )}
             </li>

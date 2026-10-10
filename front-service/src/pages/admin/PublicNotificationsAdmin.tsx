@@ -6,10 +6,12 @@ import {
   createPublicNotification,
   deactivatePublicNotification,
 } from '../../api/publicNotifications'
+import { useTranslation } from '../../context/I18nContext'
 import Button from '../../components/ui/Button'
 
 export default function PublicNotificationsAdmin() {
   const queryClient = useQueryClient()
+  const { t } = useTranslation()
 
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -37,7 +39,7 @@ export default function PublicNotificationsAdmin() {
       setError('')
     },
     onError: (err: any) =>
-      setError(err.response?.data?.detail ?? 'Failed to create announcement.'),
+      setError(err.response?.data?.detail ?? t('admin.announcements.create_error')),
   })
 
   const deactivateMutation = useMutation({
@@ -49,11 +51,11 @@ export default function PublicNotificationsAdmin() {
     e.preventDefault()
     setError('')
     if (!title.trim() || !content.trim() || !expiresAt) {
-      setError('All fields are required.')
+      setError(t('admin.announcements.validation_error'))
       return
     }
     if (new Date(expiresAt).getTime() <= Date.now()) {
-      setError('Expiry must be in the future.')
+      setError(t('admin.announcements.expiry_error'))
       return
     }
     createMutation.mutate()
@@ -63,14 +65,14 @@ export default function PublicNotificationsAdmin() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
-      <h1 className="text-2xl font-bold">Manage Announcements</h1>
+      <h1 className="text-2xl font-bold">{t('admin.announcements.title')}</h1>
 
       <section className="bg-white p-6 rounded-lg shadow space-y-4">
-        <h2 className="text-lg font-semibold">New Announcement</h2>
+        <h2 className="text-lg font-semibold">{t('admin.announcements.new')}</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && <p className="text-red-600 text-sm">{error}</p>}
           <div>
-            <label className="block text-sm font-medium mb-1">Title</label>
+            <label className="block text-sm font-medium mb-1">{t('admin.announcements.title_field')}</label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -79,7 +81,7 @@ export default function PublicNotificationsAdmin() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Content</label>
+            <label className="block text-sm font-medium mb-1">{t('admin.announcements.content')}</label>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
@@ -89,7 +91,7 @@ export default function PublicNotificationsAdmin() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Expires At</label>
+            <label className="block text-sm font-medium mb-1">{t('admin.announcements.expires_at')}</label>
             <input
               type="datetime-local"
               value={expiresAt}
@@ -100,16 +102,16 @@ export default function PublicNotificationsAdmin() {
           </div>
           <div className="flex justify-end">
             <Button type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending ? 'Creating…' : 'Create'}
+              {createMutation.isPending ? t('admin.announcements.creating') : t('admin.announcements.create')}
             </Button>
           </div>
         </form>
       </section>
 
       <section className="bg-white p-6 rounded-lg shadow space-y-3">
-        <h2 className="text-lg font-semibold">Active Announcements</h2>
+        <h2 className="text-lg font-semibold">{t('admin.announcements.active_list')}</h2>
         {active.length === 0 ? (
-          <p className="text-gray-500 text-sm">No active announcements.</p>
+          <p className="text-gray-500 text-sm">{t('admin.announcements.empty')}</p>
         ) : (
           <ul className="space-y-3">
             {active.map((n) => (
@@ -118,7 +120,7 @@ export default function PublicNotificationsAdmin() {
                   <p className="font-semibold text-sm">{n.title}</p>
                   <p className="text-sm text-gray-600 mt-0.5">{n.content}</p>
                   <p className="text-xs text-gray-400 mt-1">
-                    Expires {format(n.expiresAt, 'yyyy-MM-dd HH:mm')}
+                    {t('admin.announcements.expires')} {format(n.expiresAt, 'yyyy-MM-dd HH:mm')}
                   </p>
                 </div>
                 <Button
@@ -127,7 +129,7 @@ export default function PublicNotificationsAdmin() {
                   onClick={() => deactivateMutation.mutate(n.id)}
                   disabled={deactivateMutation.isPending}
                 >
-                  Deactivate
+                  {t('admin.announcements.deactivate')}
                 </Button>
               </li>
             ))}

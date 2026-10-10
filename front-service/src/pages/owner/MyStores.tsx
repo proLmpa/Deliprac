@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { listMyStores, deactivateStore } from '../../api/stores'
 import { format } from 'date-fns'
+import { useTranslation } from '../../context/I18nContext'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import StatusBadge from '../../components/ui/StatusBadge'
@@ -12,6 +13,7 @@ function epochToTime(ms: number) {
 
 export default function MyStores() {
   const queryClient = useQueryClient()
+  const { t } = useTranslation()
   const { data: stores, isLoading, error } = useQuery({
     queryKey: ['myStores'],
     queryFn: listMyStores,
@@ -22,18 +24,18 @@ export default function MyStores() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['myStores'] }),
   })
 
-  if (isLoading) return <p className="text-center mt-10 text-gray-500">Loading…</p>
-  if (error) return <p className="text-center mt-10 text-red-500">Failed to load stores.</p>
+  if (isLoading) return <p className="text-center mt-10 text-gray-500">{t('owner.stores.loading')}</p>
+  if (error) return <p className="text-center mt-10 text-red-500">{t('owner.stores.error')}</p>
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">My Stores</h1>
+        <h1 className="text-2xl font-bold">{t('owner.stores.title')}</h1>
         <Link to="/owner/stores/new">
-          <Button>+ New Store</Button>
+          <Button>{t('owner.stores.new')}</Button>
         </Link>
       </div>
-      {stores?.length === 0 && <p className="text-gray-500">No stores yet. Create one!</p>}
+      {stores?.length === 0 && <p className="text-gray-500">{t('owner.stores.empty')}</p>}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {stores?.map((store) => (
           <Card key={store.id}>
@@ -47,16 +49,16 @@ export default function MyStores() {
             </p>
             <div className="flex flex-wrap gap-2">
               <Link to={`/owner/stores/${store.id}/edit`}>
-                <Button variant="secondary" size="sm">Edit</Button>
+                <Button variant="secondary" size="sm">{t('owner.stores.edit')}</Button>
               </Link>
               <Link to={`/owner/stores/${store.id}/products`}>
-                <Button variant="secondary" size="sm">Products</Button>
+                <Button variant="secondary" size="sm">{t('owner.stores.products')}</Button>
               </Link>
               <Link to={`/owner/stores/${store.id}/orders`}>
-                <Button variant="secondary" size="sm">Orders</Button>
+                <Button variant="secondary" size="sm">{t('owner.stores.orders')}</Button>
               </Link>
               <Link to={`/owner/stores/${store.id}/revenue`}>
-                <Button variant="secondary" size="sm">Revenue</Button>
+                <Button variant="secondary" size="sm">{t('owner.stores.revenue')}</Button>
               </Link>
               {store.status === 'ACTIVE' && (
                 <Button
@@ -65,7 +67,7 @@ export default function MyStores() {
                   onClick={() => deactivateMutation.mutate(store.id)}
                   disabled={deactivateMutation.isPending}
                 >
-                  Deactivate
+                  {t('owner.stores.deactivate')}
                 </Button>
               )}
             </div>

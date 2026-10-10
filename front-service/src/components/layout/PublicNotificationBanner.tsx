@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { listPublicNotifications } from '../../api/publicNotifications'
+import { useTranslation } from '../../context/I18nContext'
 
 export default function PublicNotificationBanner() {
   const [index, setIndex] = useState(0)
   const [dismissed, setDismissed] = useState<Set<number>>(new Set())
+  const { t } = useTranslation()
 
   const { data = [] } = useQuery({
     queryKey: ['public-notifications'],
@@ -36,7 +38,7 @@ export default function PublicNotificationBanner() {
             onClick={prev}
             disabled={safeIndex === 0}
             className="text-amber-700 hover:text-amber-900 disabled:opacity-30 font-bold text-lg leading-none"
-            aria-label="Previous announcement"
+            aria-label={t('banner.prev')}
           >
             ‹
           </button>
@@ -54,7 +56,7 @@ export default function PublicNotificationBanner() {
               onClick={next}
               disabled={safeIndex === visible.length - 1}
               className="text-amber-700 hover:text-amber-900 disabled:opacity-30 font-bold text-lg leading-none"
-              aria-label="Next announcement"
+              aria-label={t('banner.next')}
             >
               ›
             </button>
@@ -63,7 +65,7 @@ export default function PublicNotificationBanner() {
         <button
           onClick={dismiss}
           className="text-amber-700 hover:text-amber-900 font-bold text-lg leading-none ml-1"
-          aria-label="Dismiss announcement"
+          aria-label={t('banner.dismiss')}
         >
           ×
         </button>

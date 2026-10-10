@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getStore, createStore, updateStore } from '../../api/stores'
+import { useTranslation } from '../../context/I18nContext'
 import Button from '../../components/ui/Button'
 
 function timeToEpoch(timeStr: string): number {
@@ -22,6 +23,7 @@ export default function StoreForm() {
   const storeId = Number(id)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { t } = useTranslation()
 
   const [name, setName] = useState('')
   const [address, setAddress] = useState('')
@@ -67,7 +69,7 @@ export default function StoreForm() {
       queryClient.invalidateQueries({ queryKey: ['myStores'] })
       navigate('/owner/stores')
     },
-    onError: (err: any) => setError(err.response?.data?.message ?? 'Failed to create store.'),
+    onError: (err: any) => setError(err.response?.data?.message ?? t('owner.store_form.create_error')),
   })
 
   const updateMutation = useMutation({
@@ -77,14 +79,14 @@ export default function StoreForm() {
       queryClient.invalidateQueries({ queryKey: ['store', storeId] })
       navigate('/owner/stores')
     },
-    onError: (err: any) => setError(err.response?.data?.message ?? 'Failed to update store.'),
+    onError: (err: any) => setError(err.response?.data?.message ?? t('owner.store_form.update_error')),
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     if (!name.trim() || !address.trim() || !phone.trim() || !content.trim()) {
-      setError('Name, address, phone, and description are required.')
+      setError(t('owner.store_form.validation_error'))
       return
     }
     isEdit ? updateMutation.mutate() : createMutation.mutate()
@@ -94,11 +96,13 @@ export default function StoreForm() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <h1 className="text-2xl font-bold mb-6">{isEdit ? 'Edit Store' : 'New Store'}</h1>
+      <h1 className="text-2xl font-bold mb-6">
+        {isEdit ? t('owner.store_form.edit_title') : t('owner.store_form.new_title')}
+      </h1>
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow space-y-4">
         {error && <p className="text-red-600 text-sm">{error}</p>}
         <div>
-          <label className="block text-sm font-medium mb-1">Store Name</label>
+          <label className="block text-sm font-medium mb-1">{t('owner.store_form.name')}</label>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -107,7 +111,7 @@ export default function StoreForm() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Address</label>
+          <label className="block text-sm font-medium mb-1">{t('owner.store_form.address')}</label>
           <input
             value={address}
             onChange={(e) => setAddress(e.target.value)}
@@ -116,7 +120,7 @@ export default function StoreForm() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Phone</label>
+          <label className="block text-sm font-medium mb-1">{t('owner.store_form.phone')}</label>
           <input
             type="tel"
             value={phone}
@@ -127,19 +131,19 @@ export default function StoreForm() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Description</label>
+          <label className="block text-sm font-medium mb-1">{t('owner.store_form.description')}</label>
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={3}
-            placeholder="Describe your store…"
+            placeholder={t('owner.store_form.description_placeholder')}
             required
             className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
           />
         </div>
         <div className="flex gap-4">
           <div className="flex-1">
-            <label className="block text-sm font-medium mb-1">Open Time</label>
+            <label className="block text-sm font-medium mb-1">{t('owner.store_form.open_time')}</label>
             <input
               type="time"
               value={openedTime}
@@ -148,7 +152,7 @@ export default function StoreForm() {
             />
           </div>
           <div className="flex-1">
-            <label className="block text-sm font-medium mb-1">Close Time</label>
+            <label className="block text-sm font-medium mb-1">{t('owner.store_form.close_time')}</label>
             <input
               type="time"
               value={closedTime}
@@ -158,20 +162,20 @@ export default function StoreForm() {
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Closed Days</label>
+          <label className="block text-sm font-medium mb-1">{t('owner.store_form.closed_days')}</label>
           <input
             value={closedDays}
             onChange={(e) => setClosedDays(e.target.value)}
-            placeholder="e.g. Mon,Tue or leave empty"
+            placeholder={t('owner.store_form.closed_days_placeholder')}
             className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
           />
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={() => navigate('/owner/stores')}>
-            Cancel
+            {t('owner.store_form.cancel')}
           </Button>
           <Button type="submit" disabled={isPending}>
-            {isPending ? 'Saving…' : isEdit ? 'Update' : 'Create'}
+            {isPending ? t('owner.store_form.saving') : isEdit ? t('owner.store_form.update') : t('owner.store_form.create')}
           </Button>
         </div>
       </form>

@@ -1,3 +1,5 @@
+import { useTranslation } from '../../context/I18nContext'
+
 type Status = 'ACTIVE' | 'INACTIVE' | 'PENDING' | 'SOLD' | 'CANCELED'
 
 const colorMap: Record<Status, string> = {
@@ -8,10 +10,19 @@ const colorMap: Record<Status, string> = {
   CANCELED: 'bg-red-100 text-red-600',
 }
 
+const keyMap: Record<Status, string> = {
+  ACTIVE: 'status.active',
+  INACTIVE: 'status.inactive',
+  PENDING: 'status.pending',
+  SOLD: 'status.sold',
+  CANCELED: 'status.canceled',
+}
+
 export default function StatusBadge({ status }: { status: Status }) {
+  const { t } = useTranslation()
   return (
     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${colorMap[status]}`}>
-      {status}
+      {t(keyMap[status])}
     </span>
   )
 }

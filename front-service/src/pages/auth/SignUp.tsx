@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { signup } from '../../api/auth'
+import { useTranslation } from '../../context/I18nContext'
 import Button from '../../components/ui/Button'
 
 export default function SignUp() {
@@ -9,6 +10,7 @@ export default function SignUp() {
   const [role, setRole] = useState<'CUSTOMER' | 'OWNER'>('CUSTOMER')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -19,7 +21,7 @@ export default function SignUp() {
       await signup({ email, password, role })
       navigate('/signin')
     } catch (err: any) {
-      setError(err.response?.data?.message ?? 'Registration failed.')
+      setError(err.response?.data?.message ?? t('auth.sign_up.error'))
     } finally {
       setLoading(false)
     }
@@ -27,11 +29,11 @@ export default function SignUp() {
 
   return (
     <div className="max-w-sm mx-auto mt-20">
-      <h1 className="text-2xl font-bold mb-6 text-center">Sign Up</h1>
+      <h1 className="text-2xl font-bold mb-6 text-center">{t('auth.sign_up.title')}</h1>
       <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-lg shadow">
         {error && <p className="text-red-600 text-sm">{error}</p>}
         <div>
-          <label className="block text-sm font-medium mb-1">Email</label>
+          <label className="block text-sm font-medium mb-1">{t('auth.sign_up.email')}</label>
           <input
             type="email"
             value={email}
@@ -41,7 +43,7 @@ export default function SignUp() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Password</label>
+          <label className="block text-sm font-medium mb-1">{t('auth.sign_up.password')}</label>
           <input
             type="password"
             value={password}
@@ -51,7 +53,7 @@ export default function SignUp() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-2">Role</label>
+          <label className="block text-sm font-medium mb-2">{t('auth.sign_up.role')}</label>
           <div className="flex gap-4">
             {(['CUSTOMER', 'OWNER'] as const).map((r) => (
               <label key={r} className="flex items-center gap-2 cursor-pointer">
@@ -68,12 +70,12 @@ export default function SignUp() {
           </div>
         </div>
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? 'Creating account…' : 'Sign Up'}
+          {loading ? t('auth.sign_up.submitting') : t('auth.sign_up.submit')}
         </Button>
         <p className="text-center text-sm text-gray-500">
-          Already have an account?{' '}
+          {t('auth.sign_up.already_account')}{' '}
           <Link to="/signin" className="text-orange-600 hover:underline">
-            Sign in
+            {t('auth.sign_up.sign_in_link')}
           </Link>
         </p>
       </form>

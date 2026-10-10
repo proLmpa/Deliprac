@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { listStores } from '../../api/stores'
 import { format } from 'date-fns'
+import { useTranslation } from '../../context/I18nContext'
 import Card from '../../components/ui/Card'
 import StatusBadge from '../../components/ui/StatusBadge'
 
@@ -10,19 +11,20 @@ function epochToTime(ms: number) {
 }
 
 export default function StoreList() {
+  const { t } = useTranslation()
   const { data: stores, isLoading, error } = useQuery({
     queryKey: ['stores'],
     queryFn: () => listStores(),
   })
 
-  if (isLoading) return <p className="text-center mt-10 text-gray-500">Loading stores…</p>
-  if (error) return <p className="text-center mt-10 text-red-500">Failed to load stores.</p>
+  if (isLoading) return <p className="text-center mt-10 text-gray-500">{t('store.list.loading')}</p>
+  if (error) return <p className="text-center mt-10 text-red-500">{t('store.list.error')}</p>
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">All Stores</h1>
+      <h1 className="text-2xl font-bold mb-6">{t('store.list.title')}</h1>
       {stores?.length === 0 && (
-        <p className="text-gray-500">No stores available yet.</p>
+        <p className="text-gray-500">{t('store.list.empty')}</p>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {stores?.map((store) => (
