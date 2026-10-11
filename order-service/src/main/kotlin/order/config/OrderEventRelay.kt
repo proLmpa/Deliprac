@@ -1,14 +1,14 @@
 package order.config
 
 import common.event.OrderEvent
-import org.slf4j.LoggerFactory
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Component
 import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
 
-private val log = LoggerFactory.getLogger(OrderEventRelay::class.java)
+private val log = KotlinLogging.logger {}
 
 /**
  * Publishes [OrderEvent]s to Kafka only after the enclosing DB transaction commits.
@@ -29,13 +29,12 @@ class OrderEventRelay(
         kafkaTemplate.send(orderEventTopicName, event.storeId.toString(), event)
             .whenComplete { result, ex ->
                 if (ex != null) {
-                    log.error("Failed to publish {} for order {}: {}", event.eventType, event.orderId, ex.message, ex)
+                    log.error(ex) { "Failed to publish ${event.eventType} for order ${event.orderId}: ${ex.message}" }
                 } else {
-                    log.debug(
-                        "Published {} for order {} (partition={}, offset={})",
-                        event.eventType, event.orderId,
-                        result.recordMetadata.partition(), result.recordMetadata.offset()
-                    )
+                    log.debug {
+                        "Published ${event.eventType} for order ${event.orderId} " +
+                        "(partition=${result.recordMetadata.partition()}, offset=${result.recordMetadata.offset()})"
+                    }
                 }
             }
     }

@@ -10,12 +10,13 @@ import store.dto.review.ReviewInfo
 import store.entity.review.Review
 import store.repository.review.ReviewRepository
 import store.repository.store.StoreRepository
+import io.github.oshai.kotlinlogging.slf4j.toKotlinLogging
 import net.logstash.logback.marker.Markers.appendEntries
-import org.slf4j.LoggerFactory
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
-private val auditLog = LoggerFactory.getLogger("audit")
+private val auditLog = KotlinLogging.logger("audit")
 
 @Service
 class ReviewService(
@@ -39,10 +40,9 @@ class ReviewService(
         )
 
         val saved = reviewRepository.save(review)
-        auditLog.info(
-            appendEntries(mapOf("event" to "REVIEW_CREATED", "reviewId" to saved.id, "storeId" to storeId, "storeName" to store.name, "rating" to request.rating, "email" to principal.email)),
-            "Customer ${principal.email} posted review ${saved.id} at '${store.name}' (rating: ${request.rating}/5)"
-        )
+        auditLog.atInfo(appendEntries(mapOf("event" to "REVIEW_CREATED", "reviewId" to saved.id, "storeId" to storeId, "storeName" to store.name, "rating" to request.rating, "email" to principal.email)).toKotlinLogging()) {
+            message = "Customer ${principal.email} posted review ${saved.id} at '${store.name}' (rating: ${request.rating}/5)"
+        }
         return ReviewInfo.of(saved)
     }
 

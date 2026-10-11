@@ -10,13 +10,14 @@ import user.entity.User
 import user.entity.UserStatus
 import user.repository.UserRepository
 import user.security.JwtProvider
+import io.github.oshai.kotlinlogging.slf4j.toKotlinLogging
 import net.logstash.logback.marker.Markers.appendEntries
-import org.slf4j.LoggerFactory
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 
-private val auditLog = LoggerFactory.getLogger("audit")
+private val auditLog = KotlinLogging.logger("audit")
 
 @Service
 class UserService(
@@ -47,10 +48,9 @@ class UserService(
         )
 
         val savedId = userRepository.save(user).id
-        auditLog.info(
-            appendEntries(mapOf("event" to "USER_SIGNUP", "email" to command.email, "role" to role.name)),
-            "${role.name} ${command.email} signed up"
-        )
+        auditLog.atInfo(appendEntries(mapOf("event" to "USER_SIGNUP", "email" to command.email, "role" to role.name)).toKotlinLogging()) {
+            message = "${role.name} ${command.email} signed up"
+        }
         return savedId
     }
 
@@ -68,10 +68,9 @@ class UserService(
         }
 
         val token = jwtProvider.generateToken(user.id, user.email, user.role.name)
-        auditLog.info(
-            appendEntries(mapOf("event" to "USER_SIGNIN", "email" to user.email, "role" to user.role.name)),
-            "${user.role.name} ${user.email} signed in"
-        )
+        auditLog.atInfo(appendEntries(mapOf("event" to "USER_SIGNIN", "email" to user.email, "role" to user.role.name)).toKotlinLogging()) {
+            message = "${user.role.name} ${user.email} signed in"
+        }
         return token
     }
 

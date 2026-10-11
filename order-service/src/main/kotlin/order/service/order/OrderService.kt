@@ -13,15 +13,16 @@ import order.dto.order.OrderResponse
 import order.entity.order.OrderStatus
 import order.repository.cart.CartProductRepository
 import order.repository.order.OrderRepository
+import io.github.oshai.kotlinlogging.slf4j.toKotlinLogging
 import net.logstash.logback.marker.Markers.appendEntries
-import org.slf4j.LoggerFactory
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.stereotype.Service
 
-private val auditLog = LoggerFactory.getLogger("audit")
+private val auditLog = KotlinLogging.logger("audit")
 
 @Service
 class OrderService(
@@ -64,10 +65,9 @@ class OrderService(
             )
         )
 
-        auditLog.info(
-            appendEntries(mapOf("event" to "ORDER_CONFIRMED", "orderId" to saved.id, "storeId" to storeId, "email" to currentUser().email)),
-            "Owner ${currentUser().email} confirmed order ${saved.id} at store $storeId"
-        )
+        auditLog.atInfo(appendEntries(mapOf("event" to "ORDER_CONFIRMED", "orderId" to saved.id, "storeId" to storeId, "email" to currentUser().email)).toKotlinLogging()) {
+            message = "Owner ${currentUser().email} confirmed order ${saved.id} at store $storeId"
+        }
         return OrderResponse.of(saved, items)
     }
 
@@ -97,10 +97,9 @@ class OrderService(
             )
         )
 
-        auditLog.info(
-            appendEntries(mapOf("event" to "ORDER_CANCELLED", "orderId" to saved.id, "storeId" to storeId, "email" to currentUser().email)),
-            "Owner ${currentUser().email} cancelled order ${saved.id} at store $storeId"
-        )
+        auditLog.atInfo(appendEntries(mapOf("event" to "ORDER_CANCELLED", "orderId" to saved.id, "storeId" to storeId, "email" to currentUser().email)).toKotlinLogging()) {
+            message = "Owner ${currentUser().email} cancelled order ${saved.id} at store $storeId"
+        }
         return OrderResponse.of(saved, items)
     }
 

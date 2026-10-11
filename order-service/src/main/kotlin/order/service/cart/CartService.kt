@@ -18,15 +18,16 @@ import order.entity.order.OrderStatus
 import order.repository.cart.CartProductRepository
 import order.repository.cart.CartRepository
 import order.repository.order.OrderRepository
+import io.github.oshai.kotlinlogging.slf4j.toKotlinLogging
 import net.logstash.logback.marker.Markers.appendEntries
 import order.dto.cart.CheckoutRequest
-import org.slf4j.LoggerFactory
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
-private val auditLog = LoggerFactory.getLogger("audit")
+private val auditLog = KotlinLogging.logger("audit")
 
 @Service
 class CartService(
@@ -115,10 +116,9 @@ class CartService(
         )
         eventPublisher.publishEvent(event)
 
-        auditLog.info(
-            appendEntries(mapOf("event" to "ORDER_CREATED", "orderId" to order.id, "storeId" to order.storeId, "totalPrice" to order.totalPrice, "email" to currentUser().email)),
-            "Customer ${currentUser().email} placed order ${order.id} at store ${order.storeId} (total: ${order.totalPrice})"
-        )
+        auditLog.atInfo(appendEntries(mapOf("event" to "ORDER_CREATED", "orderId" to order.id, "storeId" to order.storeId, "totalPrice" to order.totalPrice, "email" to currentUser().email)).toKotlinLogging()) {
+            message = "Customer ${currentUser().email} placed order ${order.id} at store ${order.storeId} (total: ${order.totalPrice})"
+        }
         return OrderResponse.of(order, items)
     }
 
