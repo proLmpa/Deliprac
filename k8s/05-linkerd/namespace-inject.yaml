@@ -1,0 +1,29 @@
+# Adding the inject annotation to the namespace causes Linkerd's
+# MutatingAdmissionWebhook to inject the linkerd-proxy sidecar into
+# every new pod created in this namespace.
+#
+# HOW INJECTION WORKS:
+#   1. You create a Pod (via kubectl or Helm).
+#   2. The API server calls Linkerd's webhook: "should I inject a sidecar?"
+#   3. Linkerd patches the PodSpec to add:
+#      - An initContainer (iptables mode) or uses CNI (no init needed)
+#      - A `linkerd-proxy` sidecar container (Rust micro-proxy)
+#      - Environment variables for proxy configuration
+#   4. All inbound/outbound traffic is transparently redirected through linkerd-proxy.
+#
+# AFTER APPLYING: existing pods are NOT injected. You must restart them:
+#   kubectl rollout restart deploy -n baemin
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: baemin
+  annotations:
+    linkerd.io/inject: enabled    # all new pods in this namespace get a sidecar
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/enforce-version: v1.32
+    pod-security.kubernetes.io/warn-version: v1.32
+    # Note: with CNI mode, linkerd-proxy runs as UID 2102, non-root, no capabilities.
+    # This is COMPATIBLE with PSA Restricted.

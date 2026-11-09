@@ -1,0 +1,67 @@
+# Allow Prometheus Agent to scrape metrics from all backend services.
+#
+# KEY TEACHING POINT:
+#   Prometheus uses pod ANNOTATIONS for autodiscovery (prometheus.io/scrape: "true").
+#   But NetworkPolicy uses pod LABELS for selectors. Annotations are invisible to K8s
+#   network machinery. So you need to either:
+#     a) add a label (e.g., monitored: "true") to all scrapeable pods, OR
+#     b) allow prometheus to reach ALL pods in the namespace (simpler, used here)
+#
+# For production: use option (a) for tighter control.
+
+---
+# Ingress: allow prometheus-agent to reach actuator port on any pod
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: baemin
+spec:
+  podSelector: {}   # all pods — prometheus scrapes all annotated pods
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus   # Prometheus Agent pod label
+      ports:
+        - port: 8081
+          protocol: TCP
+        - port: 8082
+          protocol: TCP
+        - port: 8083
+          protocol: TCP
+        - port: 8084
+          protocol: TCP
+        - port: 8080
+          protocol: TCP
+---
+# Egress: allow prometheus-agent to reach backend pods + K8s API
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-egress
+  namespace: baemin
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector: {}     # reach any pod in baemin (for scraping)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 443   # K8s API (for pod autodiscovery via service account)
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: 192.168.160.105/32   # remote_write to vm-monitoring Prometheus
+      ports:
+        - port: 9090
+          protocol: TCP

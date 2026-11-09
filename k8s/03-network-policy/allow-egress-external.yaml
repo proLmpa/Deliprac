@@ -1,0 +1,107 @@
+# Egress to external VMs (PostgreSQL + Redis).
+#
+# TOPOLOGY:
+#   192.168.160.101:5432 — userdb       (user-service)
+#   192.168.160.102:5432 — storedb      (store-service)
+#   192.168.160.103:5432 — orderdb      (order-service)
+#   192.168.160.104:5432 — notificationdb (notification-service)
+#   192.168.160.104:6379 — Redis        (store-service, order-service cache)
+#
+# ipBlock is used for non-pod destinations (VMs outside the cluster).
+# We allow the entire /24 subnet to avoid a policy per VM.
+# except: exclude the monitoring VM (no need for Spring Boot → monitoring direct calls)
+
+---
+# user-service needs access to userdb only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-user-egress-db
+  namespace: baemin
+spec:
+  podSelector:
+    matchLabels:
+      app: user-service
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 192.168.160.101/32    # only userdb VM
+      ports:
+        - port: 5432
+          protocol: TCP
+---
+# store-service needs storedb + Redis
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-store-egress-db
+  namespace: baemin
+spec:
+  podSelector:
+    matchLabels:
+      app: store-service
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 192.168.160.102/32    # storedb
+      ports:
+        - port: 5432
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: 192.168.160.104/32    # Redis VM
+      ports:
+        - port: 6379
+          protocol: TCP
+---
+# order-service needs orderdb + Redis
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-order-egress-db
+  namespace: baemin
+spec:
+  podSelector:
+    matchLabels:
+      app: order-service
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 192.168.160.103/32    # orderdb
+      ports:
+        - port: 5432
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: 192.168.160.104/32    # Redis VM
+      ports:
+        - port: 6379
+          protocol: TCP
+---
+# notification-service needs notificationdb only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-notification-egress-db
+  namespace: baemin
+spec:
+  podSelector:
+    matchLabels:
+      app: notification-service
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 192.168.160.104/32    # notificationdb + Redis on same VM
+      ports:
+        - port: 5432
+          protocol: TCP
+        - port: 6379
+          protocol: TCP

@@ -1,0 +1,57 @@
+# Linkerd Server + AuthorizationPolicy — layer-7 identity-based access control.
+#
+# DIFFERENCE FROM NETWORKPOLICY:
+#   NetworkPolicy: "IP 10.x.y.z on port 8081 is allowed" (L3/L4)
+#   Linkerd AuthorizationPolicy: "the workload with mTLS identity
+#     bff-service.baemin.serviceaccount.identity.linkerd.cluster.local is allowed" (L7)
+#
+# Combined they give defense-in-depth: even if an attacker bypasses NetworkPolicy
+# (e.g., via a node-level exploit), they still cannot communicate without the
+# correct mTLS certificate issued to a known ServiceAccount identity.
+#
+# The identity format is: {service-account}.{namespace}.serviceaccount.identity.{trust-domain}
+# Default trust domain: cluster.local
+
+---
+# Server: declares that user-service's port 8081 is an HTTP/1.1 server
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
+metadata:
+  name: user-service-server
+  namespace: baemin
+spec:
+  podSelector:
+    matchLabels:
+      app: user-service
+  port: 8081
+  proxyProtocol: HTTP/1   # tells the proxy to do HTTP-level policy (not raw TCP)
+---
+# MeshTLSAuthentication: defines WHICH identity is trusted
+apiVersion: policy.linkerd.io/v1beta3
+kind: MeshTLSAuthentication
+metadata:
+  name: bff-identity
+  namespace: baemin
+spec:
+  identities:
+    # Only pods running as the "bff-service" ServiceAccount in "baemin" namespace are trusted.
+    - "bff-service.baemin.serviceaccount.identity.linkerd.cluster.local"
+---
+# AuthorizationPolicy: binds the Server to the allowed identities
+apiVersion: policy.linkerd.io/v1beta3
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-user-service
+  namespace: baemin
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: user-service-server       # the Server defined above
+  requiredAuthenticationRefs:
+    - name: bff-identity            # the MeshTLSAuthentication defined above
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+# RESULT: only bff-service pods (with their mTLS cert) can reach user-service:8081.
+# Any other pod — even if it somehow bypasses NetworkPolicy — will be rejected
+# by the linkerd-proxy because its cert doesn't match.

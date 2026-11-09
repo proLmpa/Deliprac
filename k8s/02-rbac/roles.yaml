@@ -1,0 +1,18 @@
+# Role is NAMESPACE-SCOPED. Use it for all single-namespace use cases.
+# ClusterRole is for: cluster-scoped resources (Nodes, PVs) or cross-namespace access.
+# Filebeat's existing ClusterRole is correct (it reads pod metadata across namespaces).
+# Prometheus Agent only needs to read pods/services/endpoints in baemin — so Role suffices.
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prometheus-pod-reader
+  namespace: baemin
+rules:
+  # Prometheus needs to list/watch pods to find scrape targets via annotations.
+  # It also reads services and endpoints for service discovery.
+  - apiGroups: [""]          # "" means core API group (pods, services, etc.)
+    resources: ["pods", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+    # NO "create", "update", "delete", "patch" — read-only is sufficient.
+    # Principle of least privilege: grant only what is needed.

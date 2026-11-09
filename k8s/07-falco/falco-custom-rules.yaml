@@ -1,0 +1,148 @@
+# Custom Falco rules for Baemin Spring Boot microservices.
+#
+# HOW FALCO RULES WORK:
+#   condition: a boolean expression over syscall fields (proc.name, fd.name, etc.)
+#   output: the alert message template (fields in %field.name% format)
+#   priority: DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL, ALERT, EMERGENCY
+#
+# RULE PHILOSOPHY FOR SPRING BOOT:
+#   Model WHAT SHOULD HAPPEN (a JVM listening on a port, writing to /tmp).
+#   Alert on ANYTHING ELSE. This is the "allowlist" approach.
+
+customRules:
+  baemin-rules.yaml: |-
+
+    # ─── Rule 1: Unexpected process ───────────────────────────────────────────
+    # A Spring Boot container should only run the JVM process.
+    # sh/bash/wget/curl inside a Java container = likely RCE (Log4Shell, Spring4Shell).
+    - rule: Unexpected Process in Spring Boot Container
+      desc: >
+        A process other than the JVM was spawned inside a Spring Boot container.
+        This is a strong indicator of Remote Code Execution (RCE) exploitation.
+        Common CVEs: CVE-2021-44228 (Log4Shell), CVE-2022-22965 (Spring4Shell).
+      condition: >
+        spawned_process
+        and container
+        and container.image.repository startswith "prolmpa/"
+        and not proc.name in (java, sh, bash)
+        and not proc.pname in (java, tini, dumb-init)
+      output: >
+        Unexpected process in Spring Boot container
+        (user=%user.name command=%proc.cmdline container=%container.name
+         image=%container.image.repository:%container.image.tag
+         parent=%proc.pname pid=%proc.pid)
+      priority: CRITICAL
+      tags: [baemin, spring-boot, rce, mitre_execution]
+
+    # ─── Rule 2: Unexpected filesystem write ──────────────────────────────────
+    # Spring Boot logs to stdout (captured by containerd, forwarded to Filebeat).
+    # It should never write to disk paths other than /tmp (Tomcat temp files).
+    # With readOnlyRootFilesystem: true, writes are kernel-blocked anyway —
+    # but Falco detects the ATTEMPT for visibility.
+    - rule: Unexpected Filesystem Write in Spring Boot Container
+      desc: >
+        A Spring Boot container wrote to an unexpected filesystem path.
+        Spring Boot apps should log to stdout, not disk. Writes outside /tmp
+        may indicate persistence attempts (writing a cron, ssh key, etc.).
+      condition: >
+        open_write
+        and container
+        and container.image.repository startswith "prolmpa/"
+        and not fd.name startswith "/tmp/"
+        and not fd.name startswith "/proc/"
+        and not fd.name startswith "/dev/"
+        and not fd.name startswith "/sys/"
+      output: >
+        Unexpected filesystem write in Spring Boot container
+        (user=%user.name file=%fd.name container=%container.name
+         image=%container.image.repository proc=%proc.cmdline)
+      priority: WARNING
+      tags: [baemin, spring-boot, filesystem, mitre_persistence]
+
+    # ─── Rule 3: Unexpected outbound connection ────────────────────────────────
+    # Spring Boot services should only connect to:
+    #   - Other baemin services (pod CIDR: 10.x.x.x)
+    #   - PostgreSQL/Redis VMs (192.168.160.0/24)
+    #   - Kafka (pod CIDR)
+    # An outbound connection to a public IP = potential data exfiltration / C2 beacon.
+    - rule: Unexpected Outbound Connection from Spring Boot
+      desc: >
+        A Spring Boot container connected to an external IP outside the expected ranges.
+        Could indicate data exfiltration, C2 beaconing, or cryptomining.
+      condition: >
+        outbound
+        and container
+        and container.image.repository startswith "prolmpa/"
+        and not fd.sip startswith "10."
+        and not fd.sip startswith "172.16."
+        and not fd.sip startswith "192.168."
+        and fd.sip != "127.0.0.1"
+        and fd.sip != "::1"
+      output: >
+        Unexpected outbound connection from Spring Boot container
+        (user=%user.name destination=%fd.name container=%container.name
+         image=%container.image.repository proc=%proc.cmdline)
+      priority: WARNING
+      tags: [baemin, spring-boot, network, mitre_exfiltration]
+
+    # ─── Rule 4: K8s API access from Spring Boot pod ──────────────────────────
+    # With automountServiceAccountToken: false, the JWT is never mounted.
+    # But even if it were, Spring Boot apps should never call the K8s API.
+    # K8s API server listens on 10.96.0.1:443 (default ClusterIP in most clusters).
+    - rule: Kubernetes API Access from Spring Boot Pod
+      desc: >
+        A Spring Boot container accessed the Kubernetes API server.
+        Spring Boot apps never need K8s API access. This may indicate:
+        container escape, unauthorized K8s resource enumeration, or lateral movement.
+      condition: >
+        outbound
+        and container
+        and container.image.repository startswith "prolmpa/"
+        and (fd.sport = 443 or fd.sport = 6443)
+        and fd.sip = "10.96.0.1"
+      output: >
+        Kubernetes API server access from Spring Boot container
+        (user=%user.name destination=%fd.name container=%container.name
+         image=%container.image.repository)
+      priority: CRITICAL
+      tags: [baemin, spring-boot, k8s-api, mitre_lateral_movement]
+
+    # ─── Rule 5: JVM diagnostic tools ─────────────────────────────────────────
+    # jmap/jstack/jcmd are legitimate debugging tools but should never run
+    # in production containers. Use Spring Boot Actuator instead:
+    #   GET /actuator/heapdump, GET /actuator/threaddump
+    - rule: JVM Diagnostic Tool in Container
+      desc: >
+        A JVM diagnostic tool was executed inside a container.
+        In production, use Spring Boot Actuator endpoints instead.
+        This may indicate unauthorized debugging access or reconnaissance.
+      condition: >
+        spawned_process
+        and container
+        and proc.name in (jmap, jstack, jcmd, jinfo, jhat, jps, jstat)
+      output: >
+        JVM diagnostic tool executed in container
+        (user=%user.name command=%proc.cmdline container=%container.name
+         image=%container.image.repository)
+      priority: WARNING
+      tags: [baemin, jvm, diagnostics]
+
+    # ─── Rule 6: Privilege escalation attempt ─────────────────────────────────
+    # With allowPrivilegeEscalation: false in securityContext, the kernel blocks
+    # setuid/setgid. But Falco provides visibility into attempts anyway.
+    - rule: Privilege Escalation Attempt in Baemin Container
+      desc: >
+        A process in a Baemin container attempted setuid or setgid.
+        The kernel should block this (allowPrivilegeEscalation: false),
+        but the attempt itself warrants investigation.
+      condition: >
+        (syscall.type = setuid or syscall.type = setgid)
+        and container
+        and container.image.repository startswith "prolmpa/"
+        and proc.name != java
+      output: >
+        Privilege escalation attempt in Baemin container
+        (user=%user.name proc=%proc.cmdline container=%container.name
+         image=%container.image.repository)
+      priority: CRITICAL
+      tags: [baemin, privilege-escalation, mitre_privilege_escalation]

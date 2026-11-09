@@ -1,0 +1,132 @@
+# Allow bff-service to reach each backend service.
+#
+# PATTERN EXPLANATION:
+#   Each NetworkPolicy below is attached to the DESTINATION pod (user-service, etc.)
+#   and specifies which SOURCE pod (bff-service) is allowed to send ingress traffic.
+#
+# This models the actual call graph:
+#   bff-service → user-service:8081
+#   bff-service → store-service:8082
+#   bff-service → order-service:8083
+#   bff-service → notification-service:8084
+#
+# We also need egress rules on bff-service to allow outbound to those ports.
+
+---
+# Ingress to user-service from bff-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-bff-to-user
+  namespace: baemin
+spec:
+  podSelector:
+    matchLabels:
+      app: user-service    # this policy guards user-service's ingress
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: bff-service    # only bff-service may send ingress
+      ports:
+        - port: 8081
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-bff-to-store
+  namespace: baemin
+spec:
+  podSelector:
+    matchLabels:
+      app: store-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: bff-service
+      ports:
+        - port: 8082
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-bff-to-order
+  namespace: baemin
+spec:
+  podSelector:
+    matchLabels:
+      app: order-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: bff-service
+      ports:
+        - port: 8083
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-bff-to-notification
+  namespace: baemin
+spec:
+  podSelector:
+    matchLabels:
+      app: notification-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: bff-service
+      ports:
+        - port: 8084
+          protocol: TCP
+---
+# Egress from bff-service to all backends
+# (Ingress policies above prevent traffic arriving, but bff also needs egress permission)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-bff-egress-to-backends
+  namespace: baemin
+spec:
+  podSelector:
+    matchLabels:
+      app: bff-service
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: user-service
+        - podSelector:
+            matchLabels:
+              app: store-service
+        - podSelector:
+            matchLabels:
+              app: order-service
+        - podSelector:
+            matchLabels:
+              app: notification-service
+      ports:
+        - port: 8081
+          protocol: TCP
+        - port: 8082
+          protocol: TCP
+        - port: 8083
+          protocol: TCP
+        - port: 8084
+          protocol: TCP

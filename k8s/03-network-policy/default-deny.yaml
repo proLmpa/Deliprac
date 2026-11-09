@@ -1,0 +1,47 @@
+# Step 1: Default deny ALL ingress and egress for every pod in baemin.
+#
+# HOW IT WORKS:
+#   podSelector: {}   — empty selector matches ALL pods in the namespace
+#   policyTypes: [Ingress, Egress] — this policy governs both directions
+#   No ingress rules + no egress rules = deny everything
+#
+# IMPORTANT: apply allow-dns-egress.yaml immediately after this, or pods
+# cannot resolve service names (DNS breaks, all HTTP calls fail).
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: baemin
+spec:
+  podSelector: {}       # matches ALL pods in baemin namespace
+  policyTypes:
+    - Ingress
+    - Egress
+  # No ingress/egress rules defined = deny all
+---
+# Step 2: Allow DNS egress to kube-dns (kube-system namespace).
+# Without this, pods cannot resolve "user-service", "baemin-kafka", etc.
+# kube-dns runs in kube-system and listens on port 53 UDP+TCP.
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: baemin
+spec:
+  podSelector: {}       # applies to ALL pods — DNS is universal
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+              # This built-in label is automatically applied to every namespace.
+              # It scopes the DNS egress to kube-system only.

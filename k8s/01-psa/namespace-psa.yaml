@@ -1,0 +1,43 @@
+# PodSecurityAdmission (PSA) — applied via labels on the Namespace object.
+#
+# STRATEGY FOR baemin NAMESPACE:
+#   enforce: baseline   — pods violating Baseline are REJECTED at admission
+#   warn:    restricted — pods violating Restricted get a WARNING but are allowed
+#   audit:   restricted — violations are logged to the audit log
+#
+# WHY NOT enforce:restricted?
+#   Two workloads in baemin cannot meet Restricted:
+#   1. filebeat DaemonSet — uses hostNetwork:true and mounts /var/log/containers
+#      These are Baseline violations. Cannot be fixed without replacing Filebeat.
+#   2. baemin-kafka StatefulSet — older Kafka images may need allowPrivilegeEscalation.
+#      After patching the StatefulSet securityContext (see Phase 2 of Helm work),
+#      Kafka can meet Baseline but NOT Restricted (needs readOnlyRootFilesystem work).
+#
+# THE PRODUCTION TARGET (document here, achieve later):
+#   Split the namespace:
+#     baemin           — Baseline enforcement, houses Kafka + Filebeat
+#     baemin-apps      — Restricted enforcement, houses the 6 Spring Boot services
+#     baemin-mesh      — Privileged, houses Linkerd control plane
+#
+# VERSION PINNING (enforce-version):
+#   Pin to the current K8s version. Without pinning, a K8s upgrade that tightens
+#   the Restricted policy could suddenly start rejecting your existing pods.
+#   Run `kubectl version` to find your server version.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: baemin
+  labels:
+    # --- ENFORCE: pods violating Baseline are blocked ---
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/enforce-version: v1.32
+
+    # --- WARN: pods violating Restricted get a warning (but run) ---
+    # You will see warnings for pods without seccomp, with allowPrivilegeEscalation, etc.
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: v1.32
+
+    # --- AUDIT: violations written to audit log ---
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: v1.32

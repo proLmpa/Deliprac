@@ -1,0 +1,35 @@
+# HTTPRoute with retry — Linkerd-level traffic management.
+#
+# HOW IT RELATES TO RESILIENCE4J:
+#   Resilience4j CircuitBreaker (in bff-service Java code): application-level,
+#     counts failures per downstream, opens after threshold, half-opens to test recovery.
+#   Linkerd HTTPRoute retry: infrastructure-level, transparent to the app,
+#     retries individual requests on 5xx responses before the app even sees the failure.
+#
+# THEY ARE COMPLEMENTARY:
+#   Linkerd retries hide transient 500s from individual requests.
+#   Resilience4j opens the circuit when an entire downstream is degraded.
+#
+# CAUTION: only retry IDEMPOTENT endpoints (GET, PUT with same payload).
+#   POST /api/orders/checkout is NOT idempotent — retrying it would create duplicate orders.
+#   The retry below applies only to the /actuator/health probe path as a safe example.
+
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: notification-service-route
+  namespace: baemin
+  annotations:
+    retry.linkerd.io/limit: "2"           # retry up to 2 times on 5xx
+    retry.linkerd.io/timeout: "5s"        # per-attempt timeout
+    timeout.linkerd.io/request: "10s"     # total request timeout including retries
+spec:
+  parentRefs:
+    - name: notification-service
+      kind: Service
+      group: ""
+      port: 8084
+  rules:
+    - backendRefs:
+        - name: notification-service
+          port: 8084

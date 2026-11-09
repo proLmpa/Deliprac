@@ -1,0 +1,31 @@
+# ResourceQuota — enforced at POD CREATION time.
+# If adding a new pod would exceed the quota, the pod is REJECTED.
+#
+# TUNED FOR MINIKUBE (2 CPUs, 4GB RAM by default):
+#   We leave headroom for Kafka, Filebeat, Prometheus Agent, and system pods.
+#   Spring Boot services each use ~128Mi heap → ~200Mi total container memory.
+#
+# KEY INSIGHT: requests ≠ limits.
+#   requests: what the pod is GUARANTEED (scheduler uses this for placement)
+#   limits:   the CEILING the container cannot exceed (OOMKilled if exceeded)
+#   Always set both. requests.memory should be < limits.memory.
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: baemin-quota
+  namespace: baemin
+spec:
+  hard:
+    # CPU budget: 6 replicas × 200m request + headroom
+    requests.cpu: "2"
+    limits.cpu: "4"
+    # Memory budget: 6 replicas × 256Mi request + headroom
+    requests.memory: 2Gi
+    limits.memory: 4Gi
+    # Object count limits
+    pods: "30"
+    services: "20"
+    secrets: "30"
+    configmaps: "20"
+    persistentvolumeclaims: "5"

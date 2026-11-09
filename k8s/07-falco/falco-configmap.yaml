@@ -1,0 +1,28 @@
+# How Falco loads custom rules:
+#
+# When installed via Helm, Falco reads rules from:
+#   /etc/falco/falco_rules.yaml      (default rules, don't edit)
+#   /etc/falco/falco_rules.local.yaml (your overrides/additions, prefer this)
+#   /etc/falco/rules.d/*.yaml        (additional rule files from ConfigMap)
+#
+# The Helm chart supports a `customRules` values key that creates a ConfigMap
+# and mounts it into the DaemonSet at /etc/falco/rules.d/.
+#
+# If Falco is ALREADY INSTALLED, patch its ConfigMap manually:
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-rules
+  namespace: falco
+  labels:
+    app.kubernetes.io/name: falco    # must match Falco's existing ConfigMap labels
+data:
+  baemin-rules.yaml: |
+    # Paste the rule content from falco-custom-rules.yaml here.
+    # Falco merges all files in /etc/falco/rules.d/ alphabetically.
+    # File naming matters: b-aemin sorts before f-alco_rules.local — this is fine
+    # since custom rules can APPEND to or OVERRIDE default rules.
+    #
+    # To OVERRIDE a default rule (e.g., to narrow its condition), duplicate the
+    # rule with the same name and add: override: { condition: replace }

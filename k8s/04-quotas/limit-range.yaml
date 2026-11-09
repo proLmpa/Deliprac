@@ -1,0 +1,42 @@
+# LimitRange — INJECTS defaults at admission for containers that don't specify resources.
+#
+# WHY THIS MATTERS:
+#   Without resource requests, the K8s scheduler cannot make informed placement decisions.
+#   Without resource limits, one rogue container can consume all node memory and OOMKill
+#   everything else on the node.
+#
+# JVM HEAP vs CONTAINER MEMORY:
+#   Current Helm values: javaOpts: "-Xms128m -Xmx512m"
+#   Xmx=512m is the HEAP CEILING. Total JVM memory = heap + metaspace + thread stacks +
+#   native memory. Rule of thumb: container limits.memory = Xmx × 1.5 = ~768Mi.
+#   The defaults below use 512Mi container limit — this may OOMKill if JVM goes above ~340Mi heap.
+#   Increase javaOpts to -Xmx256m OR increase the container limit to 768Mi.
+
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: baemin-limits
+  namespace: baemin
+spec:
+  limits:
+    - type: Container
+      # Injected if container has no limits: field
+      default:
+        cpu: 500m
+        memory: 512Mi
+      # Injected if container has no requests: field
+      defaultRequest:
+        cpu: 100m
+        memory: 256Mi
+      # Hard ceiling — a container that requests MORE than max is REJECTED
+      max:
+        cpu: "2"
+        memory: 2Gi
+      # Floor — prevents zero-resource requests that make scheduling unreliable
+      min:
+        cpu: 50m
+        memory: 64Mi
+    - type: Pod
+      max:
+        cpu: "4"
+        memory: 4Gi

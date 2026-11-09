@@ -1,0 +1,49 @@
+# HorizontalPodAutoscaler (HPA) for bff-service.
+#
+# HOW HPA WORKS:
+#   1. metrics-server collects CPU/memory from each pod every 15s.
+#   2. HPA controller calculates: desired replicas = ceil(current × current_utilization / target_utilization)
+#   3. If result > current replicas: scale up. If result < current: scale down (with stabilization delay).
+#
+# PREREQUISITE: `minikube addons enable metrics-server`
+# PREREQUISITE: containers must have resources.requests.cpu set (HPA needs a base for % calc)
+#   The LimitRange above injects defaultRequest.cpu: 100m — that covers it.
+#
+# PITFALL: With replicas: 1 and maxReplicas: 1, HPA does nothing. Must set maxReplicas >= 2.
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: bff-service-hpa
+  namespace: baemin
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: bff-service
+  minReplicas: 1
+  maxReplicas: 3    # minikube resource limit: don't go higher
+
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60    # scale out if avg CPU > 60% across all bff pods
+
+  behavior:
+    scaleDown:
+      # STABILIZATION WINDOW: HPA waits 60s of sustained low load before scaling down.
+      # Prevents "flapping" (scale down → load spike → scale up → quiet → scale down...).
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 1              # remove at most 1 pod per period
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0    # scale up immediately (don't wait for sustained load)
+      policies:
+        - type: Pods
+          value: 2              # add at most 2 pods per period
+          periodSeconds: 30

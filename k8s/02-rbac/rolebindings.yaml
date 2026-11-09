@@ -1,0 +1,19 @@
+# RoleBinding connects a ServiceAccount (the "who") to a Role (the "what").
+# Note: even in a RoleBinding, subjects[].namespace is REQUIRED — it scopes
+# the subject to that namespace so a SA from another namespace cannot accidentally
+# gain permissions.
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prometheus-pod-reader
+  namespace: baemin
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-agent       # the ServiceAccount we created above
+    namespace: baemin            # must match the SA's namespace
+roleRef:
+  kind: Role                     # Role (not ClusterRole) — namespace-scoped
+  name: prometheus-pod-reader    # the Role we created above
+  apiGroup: rbac.authorization.k8s.io
+  # roleRef is IMMUTABLE after creation. To change it, delete and recreate the binding.
